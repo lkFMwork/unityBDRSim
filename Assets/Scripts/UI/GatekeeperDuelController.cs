@@ -40,6 +40,7 @@ namespace Fitzmark.BDRSim.UI
                 case DifficultyTier.Medium: resolve = 75; scale = 1.0f; break;
                 default: resolve = 55; scale = 0.8f; break;
             }
+            if (scenario.isKeyAccount) resolve += 25; // key accounts guard the gate harder
 
             var attrs = GameManager.Instance.Profile != null ? GameManager.Instance.Profile.attributes : null;
             int seed = unchecked(System.Environment.TickCount);

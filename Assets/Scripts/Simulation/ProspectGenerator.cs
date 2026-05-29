@@ -52,6 +52,17 @@ namespace Fitzmark.BDRSim.Simulation
             scenario.prospect = prospect;
 
             var lane = prospect.lanes[0];
+
+            // High-stakes "key account": bigger book, tougher gatekeeper (handled in
+            // the duel), and bonus rewards (handled in ProgressionSystem).
+            bool keyAccount = rng.NextDouble() < (0.10 + diff * 0.15);
+            scenario.isKeyAccount = keyAccount;
+            if (keyAccount)
+            {
+                lane.loadsPerWeek = Mathf.Clamp(lane.loadsPerWeek * 2, 8, 30);
+                scenario.title = "★ Key Account: " + prospect.companyName;
+            }
+
             float fairMargin = (lane.fitzmarkCostPerMile * 1.12f) - lane.fitzmarkCostPerMile;
             scenario.targetWeeklyMargin =
                 (float)Math.Round(fairMargin * lane.miles * lane.loadsPerWeek * 0.8f, 0);

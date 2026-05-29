@@ -133,6 +133,17 @@ namespace Fitzmark.BDRSim.Tests
         }
 
         [Test]
+        public void ApplyEventShiftsProspectState()
+        {
+            var s = new CallSession(MakeScenario(false, null, trust: 0.4f));
+            s.Begin();
+            float before = s.Prospect.Trust;
+
+            s.ApplyEvent(new CallEvent("Warm Lead", "A friend vouched for you.", 0.15f, 0f, true));
+            Assert.That(s.Prospect.Trust, Is.GreaterThan(before));
+        }
+
+        [Test]
         public void UsingAnAbilityAppliesItsEffectAndConsumesAUse()
         {
             var s = new CallSession(MakeScenario(false, null, patience: 0.3f));

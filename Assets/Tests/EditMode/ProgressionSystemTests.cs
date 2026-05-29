@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.Simulation;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Fitzmark.BDRSim.Tests
 {
@@ -90,6 +92,28 @@ namespace Fitzmark.BDRSim.Tests
             Assert.AreEqual("Senior BDR", ProgressionSystem.RankTitle(5));
             Assert.AreEqual("Account Executive", ProgressionSystem.RankTitle(10));
             Assert.AreEqual("Sales Manager", ProgressionSystem.RankTitle(15));
+        }
+
+        [Test]
+        public void KeyAccountAwardsBonusXp()
+        {
+            var prospect = ScriptableObject.CreateInstance<ProspectProfile>();
+            prospect.lanes = new List<Lane> { new Lane() };
+
+            var keyScenario = ScriptableObject.CreateInstance<ScenarioDefinition>();
+            keyScenario.prospect = prospect;
+            keyScenario.isKeyAccount = true;
+
+            var normalScenario = ScriptableObject.CreateInstance<ScenarioDefinition>();
+            normalScenario.prospect = prospect;
+            normalScenario.isKeyAccount = false;
+
+            var report = new CallReport { OverallPercent = 0.5f, Outcome = CallOutcome.NoSaleFollowUp };
+
+            var keyResult = ProgressionSystem.ApplyCall(new BDRCharacter(), report, new CallSession(keyScenario));
+            var normalResult = ProgressionSystem.ApplyCall(new BDRCharacter(), report, new CallSession(normalScenario));
+
+            Assert.That(keyResult.XpGained, Is.GreaterThan(normalResult.XpGained));
         }
     }
 }

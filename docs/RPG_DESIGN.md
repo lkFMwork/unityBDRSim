@@ -198,17 +198,33 @@ margin, and level. Open the **Quests** log from the menu to see live progress.
   compete on deals closed against a roster of AI rivals whose counts tick up each
   workday. Open from the menu.
 
-## Roadmap — toward the full open-world title
+## Call variety
 
-Built so far: create-a-BDR, stat-driven calls, career loop, skill trees, the
+- **Random opening events** ([`CallEventLibrary`](../Assets/Scripts/Data/CallEvent.cs)) —
+  a call may open with a situation: a warm referral or budget approval (good) or a
+  bad connection, rough morning, or a prospect burned before (bad), swinging
+  starting trust/patience with a line of narration.
+- **Key accounts (boss meetings)** — the prospect generator occasionally flags a
+  high-stakes **key account**: a bigger book of freight, a tougher Gatekeeper
+  Gauntlet, a "★ KEY ACCOUNT" banner, and **1.5× XP**. Landing one earns the
+  *Whale Hunter* achievement.
+
+## The systems are complete — what's left is the art pass
+
+Built so far (all greybox-playable and unit-tested where it's logic):
+create-a-BDR, stat-driven calls, the career loop, skill/ability trees, the
 Gatekeeper Gauntlet, the explorable city, the office with mentors, quests,
-promotions, achievements, streaks, and a rival leaderboard. Remaining:
+promotions, achievements, streaks, a rival leaderboard, and call variety with key
+accounts.
 
-1. **Call variety** — random in-call events (good/bad surprises) and special
-   high-stakes "key account" (boss) meetings with bigger rewards.
-2. **AAA presentation** — rigged characters + Animator (the `AvatarBuilder.SetConfig`
-   seam is ready), city/office art, VO, music, VFX, and real vehicle physics +
-   collisions for the car.
+The remaining work is **AAA presentation** — and that's a content/art effort, not
+a systems one:
 
-Each phase ships as a self-contained, greybox-playable slice with clean seams
-where real art and audio drop in.
+- Rigged character models + an Animator (walk/idle/talk), swapped in behind the
+  `AvatarBuilder.SetConfig` seam.
+- City and office environment art, props, and lighting.
+- Real vehicle physics + collisions for the car.
+- VO, music, SFX, and UI/VFX polish (the code-built uGUI is a placeholder for a
+  TextMeshPro / UI Toolkit pass).
+
+Every system above exposes clean seams for that art and audio to drop into.

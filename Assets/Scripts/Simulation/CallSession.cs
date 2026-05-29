@@ -114,6 +114,16 @@ namespace Fitzmark.BDRSim.Simulation
             RefreshChoices();
         }
 
+        /// <summary>Apply a one-shot call event (a random opening situation), narrated to the log.</summary>
+        public void ApplyEvent(CallEvent callEvent)
+        {
+            if (callEvent == null || IsOver) return;
+            Prospect.AdjustTrust(callEvent.TrustDelta);
+            Prospect.AdjustPatience(callEvent.PatienceDelta);
+            Narrate($"— {callEvent.Title} —  {callEvent.Narration}");
+            StateChanged?.Invoke();
+        }
+
         /// <summary>Apply the rep's selected choice and advance the call.</summary>
         public void Choose(DialogueChoice choice)
         {

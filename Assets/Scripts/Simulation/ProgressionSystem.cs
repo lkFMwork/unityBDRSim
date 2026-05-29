@@ -111,6 +111,13 @@ namespace Fitzmark.BDRSim.Simulation
 
             float xpMultiplier = PerkSystem.Aggregate(character).XpMultiplier;
             int xpGained = UnityEngine.Mathf.RoundToInt(XpForCall(report) * xpMultiplier);
+
+            if (session != null && session.Scenario != null && session.Scenario.isKeyAccount)
+            {
+                xpGained = (int)(xpGained * 1.5f); // key accounts pay out bigger
+                if (won) character.keyAccountsWon++;
+            }
+
             return AddXp(character, xpGained);
         }
 

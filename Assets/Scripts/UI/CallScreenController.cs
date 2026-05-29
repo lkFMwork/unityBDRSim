@@ -56,6 +56,10 @@ namespace Fitzmark.BDRSim.UI
             BuildAbilityButtons();
             _session.Begin();
             RefreshAbilities();
+
+            // A random opening situation colors the call.
+            var openingEvent = CallEventLibrary.Roll(new System.Random(), 0.45f);
+            if (openingEvent != null) _session.ApplyEvent(openingEvent);
         }
 
         private void OnDestroy()
@@ -160,9 +164,11 @@ namespace Fitzmark.BDRSim.UI
                 16, TextAnchor.MiddleCenter);
             UiFactory.Size(back.gameObject, prefW: 90f);
 
-            _headerLabel = UiFactory.Label(bar.transform,
-                scenario.prospect != null ? scenario.prospect.DisplayHeadline : scenario.title,
-                20, UiTheme.TextPrimary, TextAnchor.MiddleLeft, FontStyle.Bold, "Header");
+            string headerText = scenario.prospect != null ? scenario.prospect.DisplayHeadline : scenario.title;
+            if (scenario.isKeyAccount) headerText = "★ KEY ACCOUNT  ·  " + headerText;
+            _headerLabel = UiFactory.Label(bar.transform, headerText, 20,
+                scenario.isKeyAccount ? UiTheme.Warning : UiTheme.TextPrimary,
+                TextAnchor.MiddleLeft, FontStyle.Bold, "Header");
             UiFactory.Size(_headerLabel.gameObject, flexW: 1f);
 
             _stageLabel = UiFactory.Label(bar.transform, "Stage: Opening", 16, UiTheme.AccentStrong,

@@ -43,6 +43,7 @@ namespace Fitzmark.BDRSim.Data
         public int bestWinStreak = 0;
         public int bestCallGradePercent = 0;
         public int flawlessGatekeepers = 0;
+        public int keyAccountsWon = 0;
         public string acknowledgedRank = "";
 
         // Quests, achievements, rivals

@@ -47,6 +47,8 @@ namespace Fitzmark.BDRSim.Data
                 c => c.unlockedPerks != null && c.unlockedPerks.Count >= 5),
             new Achievement("student", "Student of the Game", "Get advice from the team 5 times.",
                 c => c.mentorTalks >= 5),
+            new Achievement("whale", "Whale Hunter", "Land a key account.",
+                c => c.keyAccountsWon >= 1),
         };
     }
 }

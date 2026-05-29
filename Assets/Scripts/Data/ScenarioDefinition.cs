@@ -33,6 +33,9 @@ namespace Fitzmark.BDRSim.Data
         [Tooltip("If true, the rep must get past a gatekeeper before reaching the prospect.")]
         public bool gatekeeperPresent = false;
 
+        [Tooltip("A high-stakes 'key account': tougher gatekeeper, bigger book, bonus rewards.")]
+        public bool isKeyAccount = false;
+
         [Header("Success Bar")]
         [Tooltip("Weekly gross-margin target (on the primary lane) considered a strong win.")]
         [Min(0f)] public float targetWeeklyMargin = 400f;
