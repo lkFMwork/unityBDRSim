@@ -496,9 +496,9 @@ namespace Fitzmark.BDRSim.Editor
             var cam = camGo.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.06f, 0.07f, 0.11f);
-            cam.fieldOfView = 50f;
-            camGo.transform.position = new Vector3(-0.5f, 1.05f, -3.3f);
-            camGo.transform.LookAt(new Vector3(-0.8f, 1.0f, 0f));
+            cam.fieldOfView = 45f;
+            camGo.transform.position = new Vector3(0f, 0.95f, -5f);
+            camGo.transform.rotation = Quaternion.identity; // straight-on; controller reaffirms this at runtime
             camGo.AddComponent<AudioListener>();
 
             var lightGo = new GameObject("Directional Light");

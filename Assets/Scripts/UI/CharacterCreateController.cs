@@ -48,9 +48,17 @@ namespace Fitzmark.BDRSim.UI
         private void CreateAvatar()
         {
             var go = new GameObject("Avatar");
-            go.transform.position = new Vector3(-0.8f, 0f, 0f);
+            go.transform.position = new Vector3(-1.6f, 0f, 0f); // in the open left third of the screen
             _avatar = go.AddComponent<AvatarBuilder>();
             _avatar.SetConfig(_draft.avatar);
+
+            // Frame the full figure straight-on in the area not covered by the panel.
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                cam.transform.SetPositionAndRotation(new Vector3(0f, 0.95f, -5f), Quaternion.identity);
+                cam.fieldOfView = 45f;
+            }
         }
 
         private void ApplyAvatar() => _avatar.SetConfig(_draft.avatar);
