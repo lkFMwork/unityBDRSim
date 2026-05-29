@@ -216,16 +216,19 @@ namespace Fitzmark.BDRSim.Core
         /// resets calls) and then tick the freight book on the new day. Used by both the
         /// menu's "End Day" and the freight desk's "Advance Day" so a day means one thing.
         /// </summary>
-        public CareerDayResult EndBusinessDay(out FreightDayDigest freight, out EconomyDigest economy)
+        public CareerDayResult EndBusinessDay(out FreightDayDigest freight, out EconomyDigest economy,
+            out string marketEvent)
         {
             freight = default;
             economy = default;
+            marketEvent = null;
             if (Profile == null) return default;
             var result = CareerSystem.EndDay(Profile);
             var rng = new System.Random(unchecked(System.Environment.TickCount ^ (Profile.career.day * 92821)));
             freight = FreightSystem.OnDayAdvanced(Profile, Profile.career.day, rng);
             economy = EconomySystem.OnDayAdvanced(Profile, Profile.career.day, rng, result.WeekEnded);
             OutreachSystem.OnDayAdvanced(Profile); // refill the day's touches, cool neglected leads
+            if (result.WeekEnded) marketEvent = MarketEvents.RollWeekly(Profile, rng);
             SaveProfile();
             return result;
         }

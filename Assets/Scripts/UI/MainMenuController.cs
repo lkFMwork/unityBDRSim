@@ -264,7 +264,7 @@ namespace Fitzmark.BDRSim.UI
 
         private void EndDay()
         {
-            var result = GameManager.Instance.EndBusinessDay(out var freight, out var economy);
+            var result = GameManager.Instance.EndBusinessDay(out var freight, out var economy, out var marketEvent);
             string flash = "";
             if (result.WeekEnded)
                 flash = result.QuotaMet
@@ -272,6 +272,7 @@ namespace Fitzmark.BDRSim.UI
                     : $"Week missed: {result.DealsWon}/{result.Goal} deals. New week, fresh start.";
             flash = Join(flash, freight.Summary());
             flash = Join(flash, economy.Summary());
+            flash = Join(flash, marketEvent);
             GameManager.Instance.CareerFlash = string.IsNullOrEmpty(flash) ? null : flash;
             GameManager.Instance.ReturnToMenu();
         }
