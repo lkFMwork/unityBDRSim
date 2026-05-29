@@ -75,7 +75,12 @@ namespace Fitzmark.BDRSim.UI
             if (immediate || !Mathf.Approximately(_lastCash, c.cash))
             {
                 if (immediate) { if (_cash != null) _cash.text = "$" + c.cash.ToString("N0"); }
-                else { Tween.CountUp(_cash, _lastCash, c.cash); Tween.PunchScale(_cash.transform, 0.16f); }
+                else
+                {
+                    Tween.CountUp(_cash, _lastCash, c.cash);
+                    Tween.PunchScale(_cash.transform, 0.16f);
+                    if (c.cash > _lastCash) Sfx.Cash();
+                }
                 _lastCash = c.cash;
             }
             if (c.career.day != _lastDay)
@@ -165,6 +170,7 @@ namespace Fitzmark.BDRSim.UI
             QuickButton(panel.transform, "Texas — local clients", () => GameManager.Instance.GoToTexas());
             QuickButton(panel.transform, "Prospecting (Outreach)", OpenOutreach);
             QuickButton(panel.transform, "Business Upgrades", OpenUpgrades);
+            QuickButton(panel.transform, "Settings", OpenSettings);
             QuickButton(panel.transform, "Main Menu", () => GameManager.Instance.ReturnToMenu());
 
             _quickMenu.SetActive(false);
@@ -187,6 +193,8 @@ namespace Fitzmark.BDRSim.UI
             var c = GameManager.Instance.Profile;
             if (c != null) new CrmView(_canvas.transform, c, null).Open();
         }
+
+        private void OpenSettings() => new SettingsView(_canvas.transform, null).Open();
 
         private void QuickButton(Transform parent, string label, System.Action action)
         {

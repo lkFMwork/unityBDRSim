@@ -346,9 +346,18 @@ namespace Fitzmark.BDRSim.UI
                 UiFactory.Size(newBdr.gameObject, prefW: 150f);
             }
 
+            var settings = UiFactory.Button(footer.transform, "Settings", OpenSettings,
+                UiTheme.PanelDark, UiTheme.TextMuted, 16, TextAnchor.MiddleCenter);
+            UiFactory.Size(settings.gameObject, prefW: 150f);
+
             var quit = UiFactory.Button(footer.transform, "Quit", QuitApp,
                 UiTheme.PanelDark, UiTheme.TextMuted, 16, TextAnchor.MiddleCenter);
             UiFactory.Size(quit.gameObject, prefW: 150f);
+        }
+
+        private void OpenSettings()
+        {
+            new SettingsView(_canvas.transform, null).Open();
         }
 
         private void BuildScenarioRow(Transform parent, ScenarioDefinition scenario)

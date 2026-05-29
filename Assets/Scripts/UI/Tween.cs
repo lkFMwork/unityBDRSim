@@ -13,6 +13,9 @@ namespace Fitzmark.BDRSim.UI
     /// </summary>
     public static class Tween
     {
+        /// <summary>When set (accessibility), tweens snap to their end state instantly.</summary>
+        public static bool ReducedMotion = false;
+
         private class Runner : MonoBehaviour { }
         private static Runner _runner;
 
@@ -35,6 +38,7 @@ namespace Fitzmark.BDRSim.UI
             string format = "N0", float dur = 0.5f)
         {
             if (label == null) return;
+            if (ReducedMotion) { label.text = prefix + to.ToString(format); return; }
             R.StartCoroutine(CountRoutine(label, from, to, prefix, format, dur));
         }
 
@@ -56,7 +60,7 @@ namespace Fitzmark.BDRSim.UI
         /// <summary>A quick scale-up-and-back to acknowledge an action.</summary>
         public static void PunchScale(Transform target, float strength = 0.18f, float dur = 0.28f)
         {
-            if (target == null) return;
+            if (target == null || ReducedMotion) return;
             R.StartCoroutine(PunchRoutine(target, strength, dur));
         }
 
@@ -79,6 +83,7 @@ namespace Fitzmark.BDRSim.UI
         public static void FadeIn(CanvasGroup cg, float dur = 0.25f)
         {
             if (cg == null) return;
+            if (ReducedMotion) { cg.alpha = 1f; return; }
             cg.alpha = 0f;
             R.StartCoroutine(FadeRoutine(cg, 0f, 1f, dur));
         }
@@ -99,7 +104,7 @@ namespace Fitzmark.BDRSim.UI
         /// <summary>Decaying positional shake on a RectTransform (e.g. on a failure).</summary>
         public static void Shake(RectTransform target, float amount = 12f, float dur = 0.3f)
         {
-            if (target == null) return;
+            if (target == null || ReducedMotion) return;
             R.StartCoroutine(ShakeRoutine(target, amount, dur));
         }
 

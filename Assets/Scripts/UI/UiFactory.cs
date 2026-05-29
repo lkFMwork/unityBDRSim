@@ -158,6 +158,7 @@ namespace Fitzmark.BDRSim.UI
             lrt.offsetMin = new Vector2(14f, 6f);
             lrt.offsetMax = new Vector2(-14f, -6f);
 
+            btn.onClick.AddListener(Sfx.Click); // every button clicks
             if (onClick != null)
                 btn.onClick.AddListener(() => onClick());
 

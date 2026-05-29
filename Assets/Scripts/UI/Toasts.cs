@@ -93,6 +93,7 @@ namespace Fitzmark.BDRSim.UI
 
             Tween.FadeIn(cg, 0.2f);
             Tween.PunchScale(panel.transform, 0.10f, 0.24f);
+            Sfx.ForToast(kind);
             StartCoroutine(Dismiss(panel.gameObject, cg, 2.6f));
         }
 
