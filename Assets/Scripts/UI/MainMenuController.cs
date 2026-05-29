@@ -30,6 +30,7 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.Stretch(root.rectTransform);
             UiFactory.VLayout(root.gameObject, pad: 24, spacing: 12, expandH: false,
                 align: TextAnchor.UpperCenter);
+            Tween.FadeIn(root.gameObject.AddComponent<CanvasGroup>(), 0.3f);
 
             UiFactory.Label(root.transform, "FITZMARK", 42, UiTheme.AccentStrong,
                 TextAnchor.MiddleCenter, FontStyle.Bold, "Title");

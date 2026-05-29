@@ -313,6 +313,7 @@ namespace Fitzmark.BDRSim.UI
         {
             var res = FreightSystem.Quote(_c, l, DesiredRate(l));
             _flash = res.message;
+            Toasts.Show(res.message, res.won ? ToastKind.Positive : ToastKind.Warning);
             GameManager.Instance.SaveProfile();
             Rebuild();
         }
@@ -320,8 +321,11 @@ namespace Fitzmark.BDRSim.UI
         private void DoCover(FreightLoad l, CarrierOption opt)
         {
             if (FreightSystem.Cover(_c, l, opt, _c.career.day))
+            {
                 _flash = $"Booked {opt.name} on {l.accountCompany} — margin locked at " +
                          $"${(l.quotedRatePerMile - opt.ratePerMile) * l.miles:N0}.";
+                Toasts.Show(_flash, ToastKind.Positive);
+            }
             _coveringLoadId = null;
             GameManager.Instance.SaveProfile();
             Rebuild();
@@ -339,6 +343,12 @@ namespace Fitzmark.BDRSim.UI
             string flash = ws;
             if (!string.IsNullOrEmpty(fs)) flash = string.IsNullOrEmpty(flash) ? fs : flash + "   " + fs;
             _flash = string.IsNullOrEmpty(flash) ? $"Day {_c.career.day} — quiet board today." : flash;
+
+            if (!string.IsNullOrEmpty(fs))
+                Toasts.Show(fs, freight.Failed > 0 ? ToastKind.Warning : ToastKind.Positive);
+            if (result.WeekEnded)
+                Toasts.Show(ws, result.QuotaMet ? ToastKind.Positive : ToastKind.Warning);
+
             _coveringLoadId = null;
             Rebuild();
         }
