@@ -112,14 +112,6 @@ namespace Fitzmark.BDRSim.UI
             if (r != null) r.sharedMaterial = MakeMaterial(color);
         }
 
-        private static Material MakeMaterial(Color color)
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            var m = new Material(shader) { color = color };
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
-            return m;
-        }
+        private static Material MakeMaterial(Color color) => MaterialLibrary.Get(color);
     }
 }

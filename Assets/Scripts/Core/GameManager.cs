@@ -63,7 +63,14 @@ namespace Fitzmark.BDRSim.Core
 
             if (Profile == null)
                 Profile = SaveSystem.Load();
+
+            // Apply scene atmosphere (ambient + fog) on every load, including this one.
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            Atmosphere.Apply();
         }
+
+        private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene,
+            UnityEngine.SceneManagement.LoadSceneMode mode) => Atmosphere.Apply();
 
         /// <summary>Create a new BDR, persist it, and make it the active profile.</summary>
         public void CreateProfile(BDRCharacter character)

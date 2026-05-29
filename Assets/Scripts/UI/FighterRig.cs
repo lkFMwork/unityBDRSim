@@ -25,6 +25,12 @@ namespace Fitzmark.BDRSim.UI
         private Color[] _baseColors;
         private bool _ready;
 
+        // Hit-flash tints via a per-renderer property block so it never mutates the
+        // shared library material (which would bleed the red onto every same-colored prop).
+        private MaterialPropertyBlock _mpb;
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int ColorId = Shader.PropertyToID("_Color");
+
         private void Start()
         {
             _home = transform.localPosition;
@@ -35,6 +41,7 @@ namespace Fitzmark.BDRSim.UI
                 var m = _renderers[i].sharedMaterial;
                 _baseColors[i] = m != null ? m.color : Color.white;
             }
+            _mpb = new MaterialPropertyBlock();
             _ready = true;
         }
 
@@ -87,11 +94,20 @@ namespace Fitzmark.BDRSim.UI
             }
             transform.localPosition = pos;
 
+            bool wasFlashing = _flash > 0f;
             _flash = Mathf.MoveTowards(_flash, 0f, dt * 3.5f);
-            for (int i = 0; i < _renderers.Length; i++)
+            if (_flash > 0f || wasFlashing) // flashing, or the one frame it resets to base
             {
-                var m = _renderers[i].sharedMaterial;
-                if (m != null) m.color = Color.Lerp(_baseColors[i], Color.red, _flash * 0.7f);
+                for (int i = 0; i < _renderers.Length; i++)
+                {
+                    var r = _renderers[i];
+                    if (r == null) continue;
+                    Color c = Color.Lerp(_baseColors[i], Color.red, _flash * 0.7f);
+                    r.GetPropertyBlock(_mpb);
+                    _mpb.SetColor(BaseColorId, c);
+                    _mpb.SetColor(ColorId, c);
+                    r.SetPropertyBlock(_mpb);
+                }
             }
         }
     }

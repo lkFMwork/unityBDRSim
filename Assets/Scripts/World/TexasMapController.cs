@@ -189,15 +189,7 @@ namespace Fitzmark.BDRSim.World
             if (r != null) r.sharedMaterial = m;
         }
 
-        private static Material Mat(Color color)
-        {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-            if (shader == null) shader = Shader.Find("Standard");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            var m = new Material(shader) { color = color };
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
-            return m;
-        }
+        private static Material Mat(Color color) => Fitzmark.BDRSim.UI.MaterialLibrary.Get(color);
 
         private static readonly Color Clear = new Color(0f, 0f, 0f, 0f);
     }
