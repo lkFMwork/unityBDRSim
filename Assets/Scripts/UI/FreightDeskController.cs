@@ -352,6 +352,7 @@ namespace Fitzmark.BDRSim.UI
                 Toasts.Show(es, economy.Poached > 0 ? ToastKind.Danger : ToastKind.Info);
             if (result.WeekEnded)
                 Toasts.Show(ws, result.QuotaMet ? ToastKind.Positive : ToastKind.Warning);
+            if (freight.Delivered > 0) Vfx.CashPop(freight.Commission);
 
             _coveringLoadId = null;
             Rebuild();

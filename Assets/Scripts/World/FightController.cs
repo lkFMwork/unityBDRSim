@@ -282,6 +282,7 @@ namespace Fitzmark.BDRSim.World
         private void BuildMatchResult()
         {
             bool won = _playerWins >= 2;
+            if (won) Vfx.Celebrate();
             var overlay = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.82f), "Result");
             UiFactory.Stretch(overlay.rectTransform);
             UiFactory.VLayout(overlay.gameObject, pad: 40, spacing: 16, expandH: true,

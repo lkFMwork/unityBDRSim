@@ -293,6 +293,7 @@ namespace Fitzmark.BDRSim.UI
                 // only open freight on the final close; remote wins open it immediately.
                 bool won = report.Outcome == CallOutcome.WonCommitment
                            || report.Outcome == CallOutcome.WonTrial;
+                if (won) Vfx.Celebrate();
                 var wonScenario = GameManager.Instance.ResolveActiveScenario();
                 string clientId = GameManager.Instance.PendingClientId;
                 if (!string.IsNullOrEmpty(clientId))

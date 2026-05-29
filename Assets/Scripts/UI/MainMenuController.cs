@@ -241,6 +241,7 @@ namespace Fitzmark.BDRSim.UI
 
         private void ShowPromotion(string rank)
         {
+            Vfx.Celebrate();
             var overlay = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.85f), "Promotion");
             UiFactory.Stretch(overlay.rectTransform);
             UiFactory.VLayout(overlay.gameObject, pad: 40, spacing: 16, expandH: true,
