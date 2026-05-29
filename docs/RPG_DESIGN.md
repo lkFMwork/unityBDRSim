@@ -183,14 +183,29 @@ margin, and level. Open the **Quests** log from the menu to see live progress.
 - Starter chain: First Contact, Closer, Door Kicker, Road Warrior, Mentored,
   The Grind, Rainmaker, Climbing the Ladder.
 
+## Milestones & competition
+
+- **Promotions** — crossing a rank threshold (BDR → Senior BDR → Account Executive
+  → Sales Manager) triggers a promotion ceremony on the menu and grants a skill
+  point. Tracked via `acknowledgedRank`.
+- **Streaks** — consecutive deals build a win streak (current + best), shown on the
+  menu and feeding achievements.
+- **Achievements** ([`AchievementLibrary`](../Assets/Scripts/Data/Achievement.cs)) —
+  10 prestige badges (Sold!, Hot Hand, Ace Caller, Untouchable, Road Warrior,
+  Centurion, Rainmaker, Executive Material, Specced Out, Student of the Game),
+  evaluated from lifetime stats by `AchievementSystem.Sync`.
+- **Leaderboard** ([`LeaderboardSystem`](../Assets/Scripts/Simulation/LeaderboardSystem.cs)) —
+  compete on deals closed against a roster of AI rivals whose counts tick up each
+  workday. Open from the menu.
+
 ## Roadmap — toward the full open-world title
 
 Built so far: create-a-BDR, stat-driven calls, career loop, skill trees, the
-Gatekeeper Gauntlet, the explorable city, the office with mentors, and quests.
-Remaining:
+Gatekeeper Gauntlet, the explorable city, the office with mentors, quests,
+promotions, achievements, streaks, and a rival leaderboard. Remaining:
 
-1. **Promotions & events** — rank-up ceremony, rival/leaderboard, streaks,
-   achievements, random events, and "boss" accounts.
+1. **Call variety** — random in-call events (good/bad surprises) and special
+   high-stakes "key account" (boss) meetings with bigger rewards.
 2. **AAA presentation** — rigged characters + Animator (the `AvatarBuilder.SetConfig`
    seam is ready), city/office art, VO, music, VFX, and real vehicle physics +
    collisions for the car.

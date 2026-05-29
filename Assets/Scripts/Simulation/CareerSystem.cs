@@ -79,6 +79,10 @@ namespace Fitzmark.BDRSim.Simulation
             int newWeek = Week(character.career.day);
             character.career.callsRemainingToday = CallsPerDay(character);
 
+            LeaderboardSystem.AdvanceRivals(character); // rivals grind too
+
+
+
             if (newWeek == oldWeek)
                 return new CareerDayResult(false, false,
                     character.career.weekDealsWon, character.career.weekDealsGoal, 0, 0);

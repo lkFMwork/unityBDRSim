@@ -86,16 +86,28 @@ namespace Fitzmark.BDRSim.Simulation
             if (character == null || report == null)
                 return new ProgressionResult(0, false, character?.level ?? 1, 0);
 
+            bool won = report.Outcome == CallOutcome.WonCommitment || report.Outcome == CallOutcome.WonTrial;
             character.callsMade++;
-            if (report.Outcome == CallOutcome.WonCommitment || report.Outcome == CallOutcome.WonTrial)
+            if (won)
             {
                 character.dealsWon++;
+                character.currentWinStreak++;
+                if (character.currentWinStreak > character.bestWinStreak)
+                    character.bestWinStreak = character.currentWinStreak;
                 if (session != null && session.Prospect.DealAgreed && session.Lane != null)
                     character.totalWeeklyMarginWon +=
                         session.Lane.WeeklyMargin(session.Prospect.AgreedRatePerMile);
             }
+            else
+            {
+                character.currentWinStreak = 0;
+            }
             if (report.Outcome == CallOutcome.HungUp)
                 character.callsHungUp++;
+
+            int gradePct = UnityEngine.Mathf.RoundToInt(report.OverallPercent * 100f);
+            if (gradePct > character.bestCallGradePercent)
+                character.bestCallGradePercent = gradePct;
 
             float xpMultiplier = PerkSystem.Aggregate(character).XpMultiplier;
             int xpGained = UnityEngine.Mathf.RoundToInt(XpForCall(report) * xpMultiplier);

@@ -44,6 +44,9 @@ namespace Fitzmark.BDRSim.Core
                     character.career ??= new CareerState();
                     character.unlockedPerks ??= new System.Collections.Generic.List<string>();
                     character.completedQuests ??= new System.Collections.Generic.List<string>();
+                    character.unlockedAchievements ??= new System.Collections.Generic.List<string>();
+                    character.rivalDeals ??= new System.Collections.Generic.List<int>();
+                    character.acknowledgedRank ??= "";
                 }
                 return character;
             }

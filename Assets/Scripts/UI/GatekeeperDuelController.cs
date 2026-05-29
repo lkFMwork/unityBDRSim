@@ -154,8 +154,13 @@ namespace Fitzmark.BDRSim.UI
 
             if (won)
             {
+                bool flawless = _duel.PlayerComposure >= _duel.PlayerMaxComposure;
+                if (flawless)
+                    UiFactory.Label(overlay.transform, "Flawless — they never rattled you.", 14,
+                        UiTheme.Warning, TextAnchor.MiddleCenter, FontStyle.Bold);
+
                 var go = UiFactory.Button(overlay.transform, "Talk to them ▶",
-                    () => GameManager.Instance.OnGatekeeperCleared(), UiTheme.Positive, Color.white,
+                    () => GameManager.Instance.OnGatekeeperCleared(flawless), UiTheme.Positive, Color.white,
                     18, TextAnchor.MiddleCenter);
                 UiFactory.Size(go.gameObject, prefW: 260f, prefH: 54f);
             }

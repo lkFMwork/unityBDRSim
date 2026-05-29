@@ -270,12 +270,17 @@ namespace Fitzmark.BDRSim.UI
             var profile = GameManager.Instance.Profile;
             bool career = GameManager.Instance.IsCareerCall;
             List<QuestDefinition> doneQuests = new List<QuestDefinition>();
+            List<Achievement> doneAch = new List<Achievement>();
             if (profile != null)
             {
                 prog = ProgressionSystem.ApplyCall(profile, report, _session);
                 if (career) CareerSystem.RecordResult(profile, report);
                 doneQuests = QuestSystem.Sync(profile);
-                if (doneQuests.Count > 0) GameManager.Instance.CareerFlash = QuestSystem.FlashFor(doneQuests);
+                doneAch = AchievementSystem.Sync(profile);
+                string flash = doneQuests.Count > 0
+                    ? QuestSystem.FlashFor(doneQuests)
+                    : AchievementSystem.FlashFor(doneAch);
+                if (!string.IsNullOrEmpty(flash)) GameManager.Instance.CareerFlash = flash;
                 GameManager.Instance.SaveProfile();
             }
 
@@ -310,6 +315,9 @@ namespace Fitzmark.BDRSim.UI
 
             if (doneQuests.Count > 0)
                 UiFactory.Label(card.transform, QuestSystem.FlashFor(doneQuests), 16, UiTheme.Positive,
+                    TextAnchor.MiddleCenter, FontStyle.Bold);
+            if (doneAch.Count > 0)
+                UiFactory.Label(card.transform, AchievementSystem.FlashFor(doneAch), 15, UiTheme.Warning,
                     TextAnchor.MiddleCenter, FontStyle.Bold);
 
             UiFactory.Label(card.transform, BuildBreakdown(report), 15, UiTheme.TextPrimary);

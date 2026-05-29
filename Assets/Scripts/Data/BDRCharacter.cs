@@ -38,8 +38,17 @@ namespace Fitzmark.BDRSim.Data
         public int mentorTalks = 0;
         public int inPersonMeetings = 0;
 
-        // Quests
+        // Streaks & records
+        public int currentWinStreak = 0;
+        public int bestWinStreak = 0;
+        public int bestCallGradePercent = 0;
+        public int flawlessGatekeepers = 0;
+        public string acknowledgedRank = "";
+
+        // Quests, achievements, rivals
         public List<string> completedQuests = new List<string>();
+        public List<string> unlockedAchievements = new List<string>();
+        public List<int> rivalDeals = new List<int>();
 
         public string DisplayName => $"{firstName} {lastName}".Trim();
 

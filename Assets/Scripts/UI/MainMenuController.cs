@@ -48,8 +48,12 @@ namespace Fitzmark.BDRSim.UI
             gm.HubScene = SceneNames.MainMenu;
 
             var doneQuests = QuestSystem.Sync(gm.Profile);
-            if (doneQuests.Count > 0 && string.IsNullOrEmpty(gm.CareerFlash))
-                gm.CareerFlash = QuestSystem.FlashFor(doneQuests);
+            var doneAch = AchievementSystem.Sync(gm.Profile);
+            if (string.IsNullOrEmpty(gm.CareerFlash))
+            {
+                if (doneQuests.Count > 0) gm.CareerFlash = QuestSystem.FlashFor(doneQuests);
+                else if (doneAch.Count > 0) gm.CareerFlash = AchievementSystem.FlashFor(doneAch);
+            }
             gm.SaveProfile();
 
             if (!string.IsNullOrEmpty(gm.CareerFlash))
@@ -78,6 +82,18 @@ namespace Fitzmark.BDRSim.UI
                 16, TextAnchor.MiddleCenter);
             UiFactory.Size(cityBtn.gameObject, flexW: 1.4f);
 
+            var recordsRow = UiFactory.Panel(root.transform, UiTheme.Background, "Records").gameObject;
+            UiFactory.HLayout(recordsRow, spacing: 10, expandW: true, expandH: true);
+            UiFactory.Size(recordsRow, prefH: 44f);
+
+            var achBtn = UiFactory.Button(recordsRow.transform, "Achievements", OpenAchievements,
+                UiTheme.Panel, UiTheme.TextPrimary, 15, TextAnchor.MiddleCenter);
+            UiFactory.Size(achBtn.gameObject, flexW: 1f);
+
+            var leadBtn = UiFactory.Button(recordsRow.transform, "Leaderboard", OpenLeaderboard,
+                UiTheme.Panel, UiTheme.TextPrimary, 15, TextAnchor.MiddleCenter);
+            UiFactory.Size(leadBtn.gameObject, flexW: 1f);
+
             UiFactory.Label(root.transform, "Practice calls (no quota)", 16, UiTheme.TextMuted,
                 TextAnchor.MiddleLeft, FontStyle.Bold, "PracticeHeader");
 
@@ -99,6 +115,8 @@ namespace Fitzmark.BDRSim.UI
             }
 
             BuildFooter(root.transform, true);
+
+            MaybeShowPromotion(gm.Profile);
         }
 
         private void BuildCareerPanel(Transform parent, BDRCharacter c)
@@ -116,6 +134,11 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.Label(panel.transform,
                 $"Week quota: {c.career.weekDealsWon} / {c.career.weekDealsGoal} deals",
                 15, UiTheme.TextPrimary, TextAnchor.MiddleLeft);
+
+            if (c.bestWinStreak > 0 || c.currentWinStreak > 0)
+                UiFactory.Label(panel.transform,
+                    $"Win streak: {c.currentWinStreak}  (best {c.bestWinStreak})",
+                    14, UiTheme.TextMuted, TextAnchor.MiddleLeft);
         }
 
         private void BuildActionButtons(Transform parent, BDRCharacter c)
@@ -147,6 +170,53 @@ namespace Fitzmark.BDRSim.UI
         private void OpenQuestLog()
         {
             new QuestLogView(_canvas.transform, GameManager.Instance.Profile, null).Open();
+        }
+
+        private void OpenAchievements()
+        {
+            new AchievementsView(_canvas.transform, GameManager.Instance.Profile, null).Open();
+        }
+
+        private void OpenLeaderboard()
+        {
+            new LeaderboardView(_canvas.transform, GameManager.Instance.Profile, null).Open();
+        }
+
+        private void MaybeShowPromotion(BDRCharacter c)
+        {
+            string rank = ProgressionSystem.RankTitle(c.level);
+            if (string.IsNullOrEmpty(c.acknowledgedRank))
+            {
+                c.acknowledgedRank = rank; // first run — just record it, no ceremony
+                GameManager.Instance.SaveProfile();
+                return;
+            }
+            if (rank == c.acknowledgedRank) return;
+
+            c.acknowledgedRank = rank;
+            c.unspentSkillPoints += 1;
+            GameManager.Instance.SaveProfile();
+            ShowPromotion(rank);
+        }
+
+        private void ShowPromotion(string rank)
+        {
+            var overlay = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.85f), "Promotion");
+            UiFactory.Stretch(overlay.rectTransform);
+            UiFactory.VLayout(overlay.gameObject, pad: 40, spacing: 16, expandH: true,
+                align: TextAnchor.MiddleCenter);
+
+            UiFactory.Label(overlay.transform, "PROMOTED!", 44, UiTheme.Positive,
+                TextAnchor.MiddleCenter, FontStyle.Bold);
+            UiFactory.Label(overlay.transform, $"You're now a {rank}.", 22, UiTheme.TextPrimary,
+                TextAnchor.MiddleCenter, FontStyle.Bold);
+            UiFactory.Label(overlay.transform, "+1 Skill Point", 16, UiTheme.Warning,
+                TextAnchor.MiddleCenter, FontStyle.Bold);
+
+            var ok = UiFactory.Button(overlay.transform, "Onward ▶",
+                () => UnityEngine.Object.Destroy(overlay.gameObject), UiTheme.Positive, Color.white,
+                18, TextAnchor.MiddleCenter);
+            UiFactory.Size(ok.gameObject, prefW: 240f, prefH: 54f);
         }
 
         private void TakeCareerCall()
