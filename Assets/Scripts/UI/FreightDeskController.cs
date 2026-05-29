@@ -333,19 +333,23 @@ namespace Fitzmark.BDRSim.UI
 
         private void AdvanceDay()
         {
-            var result = GameManager.Instance.EndBusinessDay(out var freight);
+            var result = GameManager.Instance.EndBusinessDay(out var freight, out var economy);
             string ws = result.WeekEnded
                 ? (result.QuotaMet
                     ? $"Week cleared {result.DealsWon}/{result.Goal} (+{result.RewardSkillPoints} SP, +{result.RewardXp} XP)."
                     : $"Week missed {result.DealsWon}/{result.Goal}.")
                 : "";
             string fs = freight.Summary();
+            string es = economy.Summary();
             string flash = ws;
             if (!string.IsNullOrEmpty(fs)) flash = string.IsNullOrEmpty(flash) ? fs : flash + "   " + fs;
+            if (!string.IsNullOrEmpty(es)) flash = string.IsNullOrEmpty(flash) ? es : flash + "   " + es;
             _flash = string.IsNullOrEmpty(flash) ? $"Day {_c.career.day} — quiet board today." : flash;
 
             if (!string.IsNullOrEmpty(fs))
                 Toasts.Show(fs, freight.Failed > 0 ? ToastKind.Warning : ToastKind.Positive);
+            if (!string.IsNullOrEmpty(es))
+                Toasts.Show(es, economy.Poached > 0 ? ToastKind.Danger : ToastKind.Info);
             if (result.WeekEnded)
                 Toasts.Show(ws, result.QuotaMet ? ToastKind.Positive : ToastKind.Warning);
 

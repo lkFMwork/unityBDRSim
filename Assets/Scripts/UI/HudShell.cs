@@ -154,7 +154,7 @@ namespace Fitzmark.BDRSim.UI
             prt.anchorMin = new Vector2(0.5f, 0.5f);
             prt.anchorMax = new Vector2(0.5f, 0.5f);
             prt.pivot = new Vector2(0.5f, 0.5f);
-            prt.sizeDelta = new Vector2(360f, 340f);
+            prt.sizeDelta = new Vector2(380f, 420f);
             prt.anchoredPosition = Vector2.zero;
             UiFactory.VLayout(panel, pad: 18, spacing: 10, expandH: true, align: TextAnchor.UpperCenter);
 
@@ -162,9 +162,16 @@ namespace Fitzmark.BDRSim.UI
             QuickButton(panel.transform, "Freight Desk", () => GameManager.Instance.GoToFreightDesk());
             QuickButton(panel.transform, "The Office", () => GameManager.Instance.GoToOffice());
             QuickButton(panel.transform, "Texas — local clients", () => GameManager.Instance.GoToTexas());
+            QuickButton(panel.transform, "Business Upgrades", OpenUpgrades);
             QuickButton(panel.transform, "Main Menu", () => GameManager.Instance.ReturnToMenu());
 
             _quickMenu.SetActive(false);
+        }
+
+        private void OpenUpgrades()
+        {
+            var c = GameManager.Instance.Profile;
+            if (c != null) new UpgradesView(_canvas.transform, c, null).Open();
         }
 
         private void QuickButton(Transform parent, string label, System.Action action)

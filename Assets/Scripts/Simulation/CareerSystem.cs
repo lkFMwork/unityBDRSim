@@ -38,7 +38,8 @@ namespace Fitzmark.BDRSim.Simulation
         public static int Week(int day) => (day - 1) / DaysPerWeek + 1;
 
         public static int CallsPerDay(BDRCharacter character) =>
-            BaseCallsPerDay + PerkSystem.Aggregate(character).ExtraCallsPerDay;
+            BaseCallsPerDay + PerkSystem.Aggregate(character).ExtraCallsPerDay
+            + EconomySystem.CallsBonus(character);
 
         public static int GoalForWeek(int week) => Math.Min(3 + (week - 1), 10);
 

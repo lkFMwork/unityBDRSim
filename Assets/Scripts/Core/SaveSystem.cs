@@ -49,6 +49,7 @@ namespace Fitzmark.BDRSim.Core
                     character.localAccounts ??= new System.Collections.Generic.List<LocalAccountProgress>();
                     character.accounts ??= new System.Collections.Generic.List<FreightAccount>();
                     character.loads ??= new System.Collections.Generic.List<FreightLoad>();
+                    character.upgrades ??= new System.Collections.Generic.List<UpgradeLevel>();
                     character.acknowledgedRank ??= "";
                 }
                 return character;

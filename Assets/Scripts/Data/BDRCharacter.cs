@@ -60,6 +60,9 @@ namespace Fitzmark.BDRSim.Data
         public List<FreightAccount> accounts = new List<FreightAccount>();
         public List<FreightLoad> loads = new List<FreightLoad>();
 
+        // Living economy — business upgrades bought with cash
+        public List<UpgradeLevel> upgrades = new List<UpgradeLevel>();
+
         public string DisplayName => $"{firstName} {lastName}".Trim();
 
         public float WinRate => callsMade > 0 ? (float)dealsWon / callsMade : 0f;

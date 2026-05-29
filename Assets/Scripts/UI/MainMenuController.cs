@@ -101,6 +101,10 @@ namespace Fitzmark.BDRSim.UI
                 UiTheme.Panel, UiTheme.TextPrimary, 15, TextAnchor.MiddleCenter);
             UiFactory.Size(leadBtn.gameObject, flexW: 1f);
 
+            var upgradeBtn = UiFactory.Button(recordsRow.transform, "Upgrades", OpenUpgrades,
+                UiTheme.Panel, UiTheme.TextPrimary, 15, TextAnchor.MiddleCenter);
+            UiFactory.Size(upgradeBtn.gameObject, flexW: 1f);
+
             UiFactory.Label(root.transform, "Practice calls (no quota)", 16, UiTheme.TextMuted,
                 TextAnchor.MiddleLeft, FontStyle.Bold, "PracticeHeader");
 
@@ -194,6 +198,11 @@ namespace Fitzmark.BDRSim.UI
             new LeaderboardView(_canvas.transform, GameManager.Instance.Profile, null).Open();
         }
 
+        private void OpenUpgrades()
+        {
+            new UpgradesView(_canvas.transform, GameManager.Instance.Profile, null).Open();
+        }
+
         private void MaybeShowPromotion(BDRCharacter c)
         {
             string rank = ProgressionSystem.RankTitle(c.level);
@@ -240,7 +249,7 @@ namespace Fitzmark.BDRSim.UI
             GameManager.Instance.SaveProfile();
 
             int week = CareerSystem.Week(c.career.day);
-            int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1), 1, 10);
+            int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1) + EconomySystem.LeadQuality(c), 1, 10);
             int seed = unchecked(System.Environment.TickCount + c.callsMade * 7 + c.career.day);
             var scenario = ProspectGenerator.Generate(difficulty, seed);
             GameManager.Instance.StartCareerCall(scenario);
@@ -248,18 +257,20 @@ namespace Fitzmark.BDRSim.UI
 
         private void EndDay()
         {
-            var result = GameManager.Instance.EndBusinessDay(out var freight);
+            var result = GameManager.Instance.EndBusinessDay(out var freight, out var economy);
             string flash = "";
             if (result.WeekEnded)
                 flash = result.QuotaMet
                     ? $"Week cleared! {result.DealsWon}/{result.Goal} deals — +{result.RewardSkillPoints} SP, +{result.RewardXp} XP."
                     : $"Week missed: {result.DealsWon}/{result.Goal} deals. New week, fresh start.";
-            string freightSummary = freight.Summary();
-            if (!string.IsNullOrEmpty(freightSummary))
-                flash = string.IsNullOrEmpty(flash) ? freightSummary : flash + "  " + freightSummary;
+            flash = Join(flash, freight.Summary());
+            flash = Join(flash, economy.Summary());
             GameManager.Instance.CareerFlash = string.IsNullOrEmpty(flash) ? null : flash;
             GameManager.Instance.ReturnToMenu();
         }
+
+        private static string Join(string a, string b) =>
+            string.IsNullOrEmpty(b) ? a : (string.IsNullOrEmpty(a) ? b : a + "  " + b);
 
         private void OpenSkillTree()
         {
