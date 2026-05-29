@@ -230,20 +230,58 @@ The game splits into how you win business:
 **in-game time gap** (days/weeks) before the next, harder stage opens — modeling
 real B2B pacing. (Implemented with the next phase's territory/cooldown system.)
 
+## Freight desk — the margin loop (closing is the *start*)
+
+Closing a deal used to be the end of the loop. It isn't the job. Winning a customer
+*opens an account* that now lives in your **book of business** and tenders real
+freight — and moving that freight for margin is the actual work of a 3PL BDR.
+
+The loop, per load (see
+[`FreightSystem`](../Assets/Scripts/Simulation/FreightSystem.cs) +
+[`FreightMarket`](../Assets/Scripts/Simulation/FreightMarket.cs), played on
+[`FreightDeskController`](../Assets/Scripts/UI/FreightDeskController.cs)):
+
+1. **Tender** — an active account posts a load on one of its lanes (origin →
+   destination, miles, equipment, commodity). It has a *market rate* and a hidden-ish
+   *shipper ceiling* and an expiry — ignore it too long and it's gone (reputation
+   ding).
+2. **Quote** — you set a sell rate. At/under the shipper's ceiling you **win the
+   freight**; over it, the shipper goes elsewhere. Quote high (but under the ceiling)
+   to leave room for margin.
+3. **Cover** — pick a carrier from a shortlist. Cheaper carriers are **less
+   reliable**: book cheap for fat margin and gamble on service, or pay up for a
+   carrier that won't fall through. Your **margin = (sell − buy) × miles**.
+4. **Deliver** — on the delivery day the load resolves. Clean delivery pays you a
+   **commission** (a share of margin → spendable `cash`) and lifts the account's
+   service reputation; a failure costs a **claim** and craters it.
+
+**Accounts are alive.** Service reputation (`health`) rises with clean deliveries and
+falls with failures and ignored tenders; let it bottom out and the account **churns**
+to a competitor. Advancing a day (from the menu *or* the desk) is one shared "end of
+day": it resolves in-transit loads, tenders fresh freight, and ticks the career week.
+`cash`, `lifetimeMargin`, accounts, and loads all persist in the save.
+
+This is the money engine the rest of the GTA-style economy hangs off (commission →
+cash → upgrades, coming next).
+
 ## Roadmap
 
 Built (greybox-playable, logic unit-tested): create-a-BDR, stat-driven calls,
 career loop, skill/ability trees, the Gatekeeper Gauntlet (fighting-game style),
 explorable city, office + mentors, quests, promotions, achievements, streaks,
-rival leaderboard, call variety + key accounts, and the **platformer commute** for
-in-person visits. Remaining:
+rival leaderboard, call variety + key accounts, the **platformer commute** for
+in-person visits, the **Texas overworld** (level-gated nodes + stage cooldowns),
+and the **freight desk** (quote → cover → margin → commission; living accounts that
+churn). Remaining:
 
-1. **Texas overworld map** — replace the city with a Super Mario World-style Texas
-   map of local client nodes; level-gating, and the stage cooldown / time-gap /
-   harder-tier-on-revisit progression for advancing accounts toward a close.
-2. **Remote channels** — email campaigns + video meetings to build the national
-   (USA) book without travel.
-3. **AAA presentation** — rigged models/Animator (behind `AvatarBuilder.SetConfig`),
+1. **Remote channels** — email campaigns + video meetings to build the national
+   (USA) book without travel (multi-step cadences, not just dialing).
+2. **GTA economy & living world** — spend `cash` on upgrades (better leads, CRM tier,
+   faster commute, hired help); market rates that swing by lane/season; rival brokers
+   that poach accounts; manager goals; bills and a life outside the office.
+3. **CRM home base** — a single daily dashboard over the whole book (lead → qualified
+   → quoted → won → active) with a time/energy budget across activities.
+4. **AAA presentation** — rigged models/Animator (behind `AvatarBuilder.SetConfig`),
    environment art, real vehicle physics, audio (procedural now, recorded later),
    VFX, and a TextMeshPro/UI Toolkit pass.
 

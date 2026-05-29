@@ -184,6 +184,25 @@ namespace Fitzmark.BDRSim.Core
             SceneManager.LoadScene(SceneNames.Texas);
         }
 
+        /// <summary>Open the freight desk (your book of business). Returns to the hub you came from.</summary>
+        public void GoToFreightDesk() => SceneManager.LoadScene(SceneNames.FreightDesk);
+
+        /// <summary>
+        /// End the workday once: advance the career meta-loop (which bumps the day and
+        /// resets calls) and then tick the freight book on the new day. Used by both the
+        /// menu's "End Day" and the freight desk's "Advance Day" so a day means one thing.
+        /// </summary>
+        public CareerDayResult EndBusinessDay(out FreightDayDigest freight)
+        {
+            freight = default;
+            if (Profile == null) return default;
+            var result = CareerSystem.EndDay(Profile);
+            var rng = new System.Random(unchecked(System.Environment.TickCount ^ (Profile.career.day * 92821)));
+            freight = FreightSystem.OnDayAdvanced(Profile, Profile.career.day, rng);
+            SaveProfile();
+            return result;
+        }
+
         public void ReplayCurrent()
         {
             LastReport = null;

@@ -54,6 +54,12 @@ namespace Fitzmark.BDRSim.Data
         // Local (Texas) accounts — staged meeting progress
         public List<LocalAccountProgress> localAccounts = new List<LocalAccountProgress>();
 
+        // Freight desk — your book of business once deals are closed
+        public float cash = 0f;                  // personal commission earned, spendable
+        public float lifetimeMargin = 0f;        // gross margin you've moved, all-time
+        public List<FreightAccount> accounts = new List<FreightAccount>();
+        public List<FreightLoad> loads = new List<FreightLoad>();
+
         public string DisplayName => $"{firstName} {lastName}".Trim();
 
         public float WinRate => callsMade > 0 ? (float)dealsWon / callsMade : 0f;

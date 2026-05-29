@@ -39,6 +39,7 @@ namespace Fitzmark.BDRSim.Editor
         private const string PlatformerScenePath = ScenesFolder + "/Platformer.unity";
         private const string GatekeeperDuelScenePath = ScenesFolder + "/GatekeeperDuel.unity";
         private const string CallFloorScenePath = ScenesFolder + "/CallFloor.unity";
+        private const string FreightDeskScenePath = ScenesFolder + "/FreightDesk.unity";
 
         [MenuItem(Menu + "Setup Project (One-Click)", false, 0)]
         public static void SetupAll()
@@ -267,7 +268,21 @@ namespace Fitzmark.BDRSim.Editor
             BuildPlatformerScene();
             BuildGatekeeperDuelScene();
             BuildCallFloorScene();
-            Debug.Log("[Fitzmark BDR] Built 8 scenes (MainMenu, CharacterCreate, City, Texas, Office, Platformer, GatekeeperDuel, CallFloor).");
+            BuildFreightDeskScene();
+            Debug.Log("[Fitzmark BDR] Built 9 scenes (MainMenu, CharacterCreate, City, Texas, Office, Platformer, GatekeeperDuel, CallFloor, FreightDesk).");
+        }
+
+        private static void BuildFreightDeskScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            CreateCamera(new Vector3(0f, 1f, -10f), Quaternion.identity);
+
+            var controller = new GameObject("FreightDesk");
+            controller.AddComponent<Fitzmark.BDRSim.UI.FreightDeskController>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, FreightDeskScenePath);
         }
 
         private static void BuildTexasMapScene()
@@ -667,9 +682,10 @@ namespace Fitzmark.BDRSim.Editor
                 new EditorBuildSettingsScene(OfficeScenePath, true),
                 new EditorBuildSettingsScene(PlatformerScenePath, true),
                 new EditorBuildSettingsScene(GatekeeperDuelScenePath, true),
-                new EditorBuildSettingsScene(CallFloorScenePath, true)
+                new EditorBuildSettingsScene(CallFloorScenePath, true),
+                new EditorBuildSettingsScene(FreightDeskScenePath, true)
             };
-            Debug.Log("[Fitzmark BDR] Build settings: MainMenu, CharacterCreate, City, Office, GatekeeperDuel, CallFloor.");
+            Debug.Log("[Fitzmark BDR] Build settings: 9 scenes incl. Texas, Platformer, GatekeeperDuel, CallFloor, FreightDesk.");
         }
 
         // ---- URP (best-effort, via reflection so there is no compile-time dep) --

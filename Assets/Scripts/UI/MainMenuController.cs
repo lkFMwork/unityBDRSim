@@ -82,6 +82,12 @@ namespace Fitzmark.BDRSim.UI
                 16, TextAnchor.MiddleCenter);
             UiFactory.Size(mapBtn.gameObject, flexW: 1.4f);
 
+            var deskBtn = UiFactory.Button(placesRow.transform,
+                "Freight Desk — your book ▶",
+                () => GameManager.Instance.GoToFreightDesk(), UiTheme.Positive, Color.white,
+                16, TextAnchor.MiddleCenter);
+            UiFactory.Size(deskBtn.gameObject, flexW: 1.4f);
+
             var recordsRow = UiFactory.Panel(root.transform, UiTheme.Background, "Records").gameObject;
             UiFactory.HLayout(recordsRow, spacing: 10, expandW: true, expandH: true);
             UiFactory.Size(recordsRow, prefH: 44f);
@@ -134,6 +140,11 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.Label(panel.transform,
                 $"Week quota: {c.career.weekDealsWon} / {c.career.weekDealsGoal} deals",
                 15, UiTheme.TextPrimary, TextAnchor.MiddleLeft);
+
+            int activeAccounts = c.accounts != null ? c.accounts.FindAll(a => a != null && a.active).Count : 0;
+            UiFactory.Label(panel.transform,
+                $"Cash ${c.cash:N0}  ·  Book: {activeAccounts} account(s)  ·  Lifetime margin ${c.lifetimeMargin:N0}",
+                14, UiTheme.Positive, TextAnchor.MiddleLeft, FontStyle.Bold);
 
             if (c.bestWinStreak > 0 || c.currentWinStreak > 0)
                 UiFactory.Label(panel.transform,
@@ -236,15 +247,16 @@ namespace Fitzmark.BDRSim.UI
 
         private void EndDay()
         {
-            var c = GameManager.Instance.Profile;
-            var result = CareerSystem.EndDay(c);
+            var result = GameManager.Instance.EndBusinessDay(out var freight);
+            string flash = "";
             if (result.WeekEnded)
-            {
-                GameManager.Instance.CareerFlash = result.QuotaMet
+                flash = result.QuotaMet
                     ? $"Week cleared! {result.DealsWon}/{result.Goal} deals — +{result.RewardSkillPoints} SP, +{result.RewardXp} XP."
                     : $"Week missed: {result.DealsWon}/{result.Goal} deals. New week, fresh start.";
-            }
-            GameManager.Instance.SaveProfile();
+            string freightSummary = freight.Summary();
+            if (!string.IsNullOrEmpty(freightSummary))
+                flash = string.IsNullOrEmpty(flash) ? freightSummary : flash + "  " + freightSummary;
+            GameManager.Instance.CareerFlash = string.IsNullOrEmpty(flash) ? null : flash;
             GameManager.Instance.ReturnToMenu();
         }
 

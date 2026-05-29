@@ -288,14 +288,23 @@ namespace Fitzmark.BDRSim.UI
                     : AchievementSystem.FlashFor(doneAch);
                 if (!string.IsNullOrEmpty(flash)) GameManager.Instance.CareerFlash = flash;
 
-                // Advance a local (Texas) account stage if this meeting was a visit.
-                if (!string.IsNullOrEmpty(GameManager.Instance.PendingClientId))
+                // Closing a deal isn't the end — it opens a real account that tenders
+                // freight on the desk. Local (Texas) visits advance a meeting stage and
+                // only open freight on the final close; remote wins open it immediately.
+                bool won = report.Outcome == CallOutcome.WonCommitment
+                           || report.Outcome == CallOutcome.WonTrial;
+                var wonScenario = GameManager.Instance.ResolveActiveScenario();
+                string clientId = GameManager.Instance.PendingClientId;
+                if (!string.IsNullOrEmpty(clientId))
                 {
-                    bool won = report.Outcome == CallOutcome.WonCommitment
-                               || report.Outcome == CallOutcome.WonTrial;
-                    TerritorySystem.RecordMeeting(profile, GameManager.Instance.PendingClientId,
-                        profile.career.day, won);
+                    TerritorySystem.RecordMeeting(profile, clientId, profile.career.day, won);
+                    if (won && TerritorySystem.IsClosed(profile, clientId) && wonScenario != null)
+                        FreightSystem.OpenAccountFromWin(profile, wonScenario, profile.career.day);
                     GameManager.Instance.PendingClientId = "";
+                }
+                else if (career && won && wonScenario != null)
+                {
+                    FreightSystem.OpenAccountFromWin(profile, wonScenario, profile.career.day);
                 }
 
                 GameManager.Instance.SaveProfile();

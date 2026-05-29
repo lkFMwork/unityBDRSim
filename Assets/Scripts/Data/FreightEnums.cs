@@ -62,4 +62,20 @@ namespace Fitzmark.BDRSim.Data
         Medium,
         Hard
     }
+
+    /// <summary>
+    /// Lifecycle of a freight load on the BDR's desk, once an account is won and
+    /// starts tendering freight. The player moves a load Offered → (quote) →
+    /// AwaitingCarrier → (cover) → InTransit → Delivered, or it's Lost (priced too
+    /// high) or FellThrough (a covered load that failed service).
+    /// </summary>
+    public enum LoadStatus
+    {
+        Offered,         // tendered by the shipper — needs your quote
+        AwaitingCarrier, // you won the freight — needs a carrier to cover it
+        InTransit,       // covered and moving — resolves on the delivery day
+        Delivered,       // delivered clean — margin & commission realized
+        Lost,            // you quoted over their ceiling — went to a competitor
+        FellThrough      // covered, but the carrier failed — claim + reputation hit
+    }
 }
