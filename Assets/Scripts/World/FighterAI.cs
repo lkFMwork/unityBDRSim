@@ -1,0 +1,56 @@
+using UnityEngine;
+
+namespace Fitzmark.BDRSim.World
+{
+    /// <summary>
+    /// A simple opponent brain: close the distance, attack when in range (on a
+    /// cooldown), block some of the player's attacks, and occasionally back off.
+    /// Aggression/blocking scale with difficulty. Produces a <see cref="FighterIntent"/>
+    /// each frame for the gatekeeper fighter.
+    /// </summary>
+    public class FighterAI
+    {
+        private readonly float _attackInterval;
+        private readonly float _blockChance;
+        private readonly float _reach;
+        private readonly System.Random _rng = new System.Random();
+        private float _cooldown;
+
+        public FighterAI(int difficulty)
+        {
+            _attackInterval = Mathf.Clamp(0.95f - difficulty * 0.05f, 0.40f, 1.0f);
+            _blockChance = Mathf.Clamp(0.15f + difficulty * 0.05f, 0f, 0.6f);
+            _reach = 1.7f;
+        }
+
+        public FighterIntent Tick(Fighter self, Fighter opponent, float dt)
+        {
+            var intent = new FighterIntent();
+            if (self == null || opponent == null || self.IsKO || opponent.IsKO) return intent;
+
+            _cooldown -= dt;
+            float dx = opponent.transform.position.x - self.transform.position.x;
+            float dist = Mathf.Abs(dx);
+            float dir = dx >= 0f ? 1f : -1f;
+
+            if (dist > _reach)
+            {
+                intent.move = dir; // approach
+            }
+            else if (opponent.IsAttacking && _rng.NextDouble() < _blockChance)
+            {
+                intent.block = true;
+            }
+            else if (_cooldown <= 0f)
+            {
+                intent.attack = _rng.NextDouble() < 0.62 ? AttackType.Light : AttackType.Heavy;
+                _cooldown = _attackInterval;
+            }
+            else if (_rng.NextDouble() < 0.2)
+            {
+                intent.move = -dir * 0.5f; // brief spacing
+            }
+            return intent;
+        }
+    }
+}

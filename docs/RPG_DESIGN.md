@@ -115,25 +115,26 @@ Style traits + tree nodes flow into calls via `CharacterModifiers.FromCharacter`
 into XP via `ProgressionSystem`, and into the daily call budget via `CareerSystem`
 — all through a single `PerkSystem.Aggregate`.
 
-## Gatekeeper Gauntlet (verbal combat)
+## Gatekeeper Gauntlet (real-time fight)
 
-When a meeting has a gatekeeper, you fight your way past them in a turn-based
-"verbal duel" before reaching the decision-maker
-([`GatekeeperDuel`](../Assets/Scripts/Simulation/GatekeeperDuel.cs)):
+When a meeting has a gatekeeper (~40% of the time), you face them in a real-time
+2.5D fighting match before reaching the decision-maker
+([`Fighter`](../Assets/Scripts/World/Fighter.cs) + [`FightController`](../Assets/Scripts/World/FightController.cs)):
 
-- You have **Composure** (HP); the gatekeeper has **Resolve** (HP).
-- Each turn the gatekeeper shows a **stance** with a readable **tell**. Pick the
-  move it's weak to for a **critical hit** on their Resolve; pick the move it
-  resists and it **backfires** onto your Composure; anything else makes some
-  progress but takes pushback.
-- The four moves key off your stats — **Charm** (Charisma), **Credibility**
-  (Product Knowledge), **Urgency** (Negotiation), **Curveball** (Prospecting) —
-  and **Resilience** raises Composure and softens hits.
-- Win → you're put through (into the call). Lose → they hang up (no meeting).
+- **Best of 3 rounds**, a round timer, and a FIGHT!/K.O. announcer.
+- You control the left fighter: **A/D** move, **W/Space** jump, **J** light, **K**
+  heavy, **L** special, **Shift** block. Land hits to drain their health; chain
+  hits during their hitstun for a **combo**.
+- An [AI](../Assets/Scripts/World/FighterAI.cs) drives the gatekeeper (approach,
+  attack, block) and scales with difficulty.
+- Your stats feed the fight (Charisma → health, Negotiation → damage); the
+  gatekeeper's strength scales with the meeting difficulty / key accounts.
+- Win the match → into the meeting (a flawless match earns *Untouchable*); lose →
+  no meeting this time.
 
-The stance/weakness mappings mirror real gatekeeper tactics, so it trains while it
-entertains. Flow: a gatekeeper scenario routes through the `GatekeeperDuel` scene,
-then `CallFloor` on a win.
+Flow: a gatekeeper scenario routes through the `GatekeeperDuel` scene, then
+`CallFloor` on a win. (The earlier turn-based "verbal duel" engine remains in the
+codebase but is no longer used in-game.)
 
 ## Open world — the city (greybox)
 

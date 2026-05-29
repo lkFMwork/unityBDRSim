@@ -3,10 +3,11 @@ using UnityEngine;
 namespace Fitzmark.BDRSim.UI
 {
     /// <summary>
-    /// Drives an old-school-fighter feel on a procedural avatar with pure code: an
-    /// idle bounce, a lunge on attack, a knockback + red flash on a hit, and
-    /// victory/defeat poses. No rig or animation clips — swap in a real Animator
-    /// later and keep these same calls.
+    /// Procedural fighter visuals driven in code (no rig/clips): idle bounce, a
+    /// lunge on attack, knockback + red flash on a hit, a guard lean while blocking,
+    /// and victory/defeat poses. Animates <b>localPosition</b> so it can sit on a
+    /// moving (walking) fighter root and still lunge/recoil relative to it. Swap in a
+    /// real Animator later and keep these calls.
     /// </summary>
     public class FighterRig : MonoBehaviour
     {
@@ -19,13 +20,14 @@ namespace Fitzmark.BDRSim.UI
         private float _t;
         private Vector3 _home;
         private float _flash;
+        private bool _blocking;
         private Renderer[] _renderers;
         private Color[] _baseColors;
         private bool _ready;
 
         private void Start()
         {
-            _home = transform.position;
+            _home = transform.localPosition;
             _renderers = GetComponentsInChildren<Renderer>();
             _baseColors = new Color[_renderers.Length];
             for (int i = 0; i < _renderers.Length; i++)
@@ -40,6 +42,7 @@ namespace Fitzmark.BDRSim.UI
         public void TakeHit() { _state = St.Hit; _t = 0f; _flash = 1f; }
         public void Victory() { _state = St.Victory; _t = 0f; }
         public void Defeat() { _state = St.Defeat; _t = 0f; }
+        public void SetBlocking(bool blocking) { _blocking = blocking; }
 
         private void Update()
         {
@@ -53,23 +56,22 @@ namespace Fitzmark.BDRSim.UI
             switch (_state)
             {
                 case St.Idle:
-                    pos.y += bob;
+                    if (_blocking) { pos.x -= dir * 0.14f; pos.y += 0.02f; } // guard lean back
+                    else pos.y += bob;
                     break;
                 case St.Attack:
                 {
-                    const float dur = 0.25f;
+                    const float dur = 0.22f;
                     float p = Mathf.Sin(Mathf.Clamp01(_t / dur) * Mathf.PI);
-                    pos.x += dir * 0.7f * p;
-                    pos.y += bob * 0.5f;
+                    pos.x += dir * 0.6f * p;
                     if (_t >= dur) _state = St.Idle;
                     break;
                 }
                 case St.Hit:
                 {
-                    const float dur = 0.3f;
+                    const float dur = 0.28f;
                     float p = Mathf.Sin(Mathf.Clamp01(_t / dur) * Mathf.PI);
-                    pos.x -= dir * 0.45f * p;
-                    pos.y += Mathf.Sin(_t * 60f) * 0.03f * (1f - Mathf.Clamp01(_t / dur));
+                    pos.x -= dir * 0.35f * p;
                     if (_t >= dur) _state = St.Idle;
                     break;
                 }
@@ -80,19 +82,12 @@ namespace Fitzmark.BDRSim.UI
                 {
                     float sink = Mathf.Min(_t / 0.5f, 1f);
                     pos.y -= sink * 0.5f;
-                    pos.x -= dir * sink * 0.3f;
                     break;
                 }
             }
-            transform.position = pos;
+            transform.localPosition = pos;
 
             _flash = Mathf.MoveTowards(_flash, 0f, dt * 3.5f);
-            ApplyFlash();
-        }
-
-        private void ApplyFlash()
-        {
-            if (_renderers == null) return;
             for (int i = 0; i < _renderers.Length; i++)
             {
                 var m = _renderers[i].sharedMaterial;

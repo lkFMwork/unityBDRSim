@@ -524,8 +524,8 @@ namespace Fitzmark.BDRSim.Editor
             camGo.transform.position = new Vector3(0f, 1f, -10f);
             camGo.AddComponent<AudioListener>();
 
-            var controller = new GameObject("GatekeeperDuel");
-            controller.AddComponent<Fitzmark.BDRSim.UI.GatekeeperDuelController>();
+            var controller = new GameObject("GatekeeperFight");
+            controller.AddComponent<FightController>();
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, GatekeeperDuelScenePath);
