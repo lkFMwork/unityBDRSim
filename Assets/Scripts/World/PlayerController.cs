@@ -16,22 +16,28 @@ namespace Fitzmark.BDRSim.World
         public float Gravity = -22f;
 
         private CharacterController _cc;
+        private Fitzmark.BDRSim.UI.AvatarBuilder _avatar;
         private float _verticalVelocity;
         private bool _controlEnabled = true;
 
-        private void Awake() => _cc = GetComponent<CharacterController>();
+        private void Awake()
+        {
+            _cc = GetComponent<CharacterController>();
+            _avatar = GetComponentInChildren<Fitzmark.BDRSim.UI.AvatarBuilder>();
+        }
 
         public void SetControlEnabled(bool value) => _controlEnabled = value;
 
         private void Update()
         {
-            if (!_controlEnabled) return;
+            if (!_controlEnabled) { if (_avatar != null) _avatar.SetWalk(0f); return; }
 
             float h = Input.GetAxisRaw("Horizontal");
             float v = Input.GetAxisRaw("Vertical");
 
             Vector3 move = new Vector3(h, 0f, v);
             if (move.sqrMagnitude > 1f) move.Normalize();
+            if (_avatar != null) _avatar.SetWalk(move.magnitude);
 
             if (_cc.isGrounded && _verticalVelocity < 0f) _verticalVelocity = -2f;
             _verticalVelocity += Gravity * Time.deltaTime;
