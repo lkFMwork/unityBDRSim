@@ -416,6 +416,12 @@ namespace Fitzmark.BDRSim.Editor
             var controller = new GameObject("OfficeController");
             controller.AddComponent<OfficeController>();
 
+            var crowd = new GameObject("Crowd");
+            var cs = crowd.AddComponent<CrowdSpawner>();
+            cs.center = new Vector3(2f, 0f, 0f);
+            cs.radius = 9f;
+            cs.count = 5;
+
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, OfficeScenePath);
         }
@@ -481,6 +487,12 @@ namespace Fitzmark.BDRSim.Editor
 
             var controller = new GameObject("CityController");
             controller.AddComponent<CityController>();
+
+            var crowd = new GameObject("Crowd");
+            var cs = crowd.AddComponent<CrowdSpawner>();
+            cs.center = new Vector3(0f, 0f, 0f);
+            cs.radius = 26f;
+            cs.count = 8;
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, CityScenePath);
