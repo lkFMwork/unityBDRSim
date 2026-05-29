@@ -333,7 +333,7 @@ namespace Fitzmark.BDRSim.UI
 
             input.textComponent = textT;
             input.placeholder = phT;
-            input.lineType = InputField.LineType.SingleLine;
+            input.lineType = UnityEngine.UI.InputField.LineType.SingleLine;
             input.characterLimit = 24;
             input.text = value ?? string.Empty;
             return input;
