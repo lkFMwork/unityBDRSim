@@ -2,24 +2,42 @@ using Fitzmark.BDRSim.Data;
 
 namespace Fitzmark.BDRSim.Simulation
 {
-    /// <summary>Unlocking and aggregating skill-tree perks for a character.</summary>
+    /// <summary>
+    /// Unlocking ability-tree nodes and aggregating their effects together with the
+    /// character's Sales Style trait.
+    /// </summary>
     public static class PerkSystem
     {
         public static PerkEffects Aggregate(BDRCharacter character)
         {
             var e = new PerkEffects();
-            if (character?.unlockedPerks == null) return e;
+            if (character == null) return e;
 
-            foreach (var id in character.unlockedPerks)
+            // Sales Style trait is a passive that stacks with perks.
+            var style = SalesStyleLibrary.Get(character.styleId);
+            if (style != null)
             {
-                var p = PerkLibrary.Get(id);
-                if (p == null) continue;
-                e.TrustBonus += p.TrustBonus;
-                e.PatienceDrainReduction += p.PatienceDrainReduction;
-                e.NegotiationSkill += p.NegotiationSkill;
-                e.ScoreBonusAll += p.ScoreBonusAll;
-                e.XpMultiplier += p.XpMultiplierBonus;
-                e.ExtraCallsPerDay += p.ExtraCallsPerDay;
+                e.TrustBonus += style.TrustBonus;
+                e.PatienceDrainReduction += style.PatienceDrainReduction;
+                e.NegotiationSkill += style.NegotiationSkill;
+                e.ScoreBonusAll += style.ScoreBonusAll;
+                e.XpMultiplier += style.XpMultiplierBonus;
+                e.ExtraCallsPerDay += style.ExtraCallsPerDay;
+            }
+
+            if (character.unlockedPerks != null)
+            {
+                foreach (var id in character.unlockedPerks)
+                {
+                    var p = PerkLibrary.Get(id);
+                    if (p == null) continue;
+                    e.TrustBonus += p.TrustBonus;
+                    e.PatienceDrainReduction += p.PatienceDrainReduction;
+                    e.NegotiationSkill += p.NegotiationSkill;
+                    e.ScoreBonusAll += p.ScoreBonusAll;
+                    e.XpMultiplier += p.XpMultiplierBonus;
+                    e.ExtraCallsPerDay += p.ExtraCallsPerDay;
+                }
             }
             return e;
         }
@@ -27,9 +45,14 @@ namespace Fitzmark.BDRSim.Simulation
         public static bool IsUnlocked(BDRCharacter character, string perkId) =>
             character?.unlockedPerks != null && character.unlockedPerks.Contains(perkId);
 
+        public static bool PrerequisiteMet(BDRCharacter character, PerkDefinition perk) =>
+            perk != null && (string.IsNullOrEmpty(perk.RequiresPerkId)
+                             || IsUnlocked(character, perk.RequiresPerkId));
+
         public static bool CanUnlock(BDRCharacter character, PerkDefinition perk) =>
             character != null && perk != null
             && !IsUnlocked(character, perk.Id)
+            && PrerequisiteMet(character, perk)
             && character.unspentSkillPoints >= perk.Cost;
 
         public static bool Unlock(BDRCharacter character, PerkDefinition perk)

@@ -28,6 +28,10 @@ namespace Fitzmark.BDRSim.Simulation
         private readonly DialogueLibrary _library;
         private List<DialogueChoice> _choices = new();
 
+        private readonly List<AbilityDefinition> _abilities = new();
+        private readonly Dictionary<string, int> _abilityUses = new();
+        private float _negotiationPrimer;
+
         // ---- events the UI listens to ---------------------------------------
         /// <summary>System narration: stage banners, deal summaries, etc.</summary>
         public event Action<string> NarratorLine;
@@ -41,6 +45,8 @@ namespace Fitzmark.BDRSim.Simulation
         public event Action<IReadOnlyList<DialogueChoice>> ChoicesChanged;
         /// <summary>The call ended with the given outcome.</summary>
         public event Action<CallOutcome> CallEnded;
+        /// <summary>Usable abilities or their remaining uses changed.</summary>
+        public event Action AbilitiesChanged;
 
         public CallSession(ScenarioDefinition scenario) : this(scenario, null) { }
 
@@ -55,6 +61,34 @@ namespace Fitzmark.BDRSim.Simulation
         }
 
         public IReadOnlyList<DialogueChoice> CurrentChoices => _choices;
+
+        public IReadOnlyList<AbilityDefinition> Abilities => _abilities;
+        public int AbilityUsesLeft(string abilityId) =>
+            _abilityUses.TryGetValue(abilityId, out var n) ? n : 0;
+
+        /// <summary>Set the active abilities available this call (call before <see cref="Begin"/>).</summary>
+        public void ConfigureAbilities(IReadOnlyList<AbilityDefinition> abilities)
+        {
+            _abilities.Clear();
+            _abilityUses.Clear();
+            if (abilities == null) return;
+            foreach (var a in abilities)
+            {
+                _abilities.Add(a);
+                _abilityUses[a.Id] = a.UsesPerCall;
+            }
+        }
+
+        /// <summary>Fire an ability if it has uses left.</summary>
+        public bool UseAbility(AbilityDefinition ability)
+        {
+            if (ability == null || IsOver || AbilityUsesLeft(ability.Id) <= 0) return false;
+            _abilityUses[ability.Id]--;
+            ApplyAbility(ability);
+            AbilitiesChanged?.Invoke();
+            StateChanged?.Invoke();
+            return true;
+        }
 
         /// <summary>Starts the call. Emits the opening narration and first choices.</summary>
         public void Begin()
@@ -160,8 +194,10 @@ namespace Fitzmark.BDRSim.Simulation
             }
 
             float sensitivity = Prospect.Profile != null ? Prospect.Profile.priceSensitivity : 0.5f;
+            float negotiationSkill = Modifiers.NegotiationSkill + _negotiationPrimer;
+            _negotiationPrimer = 0f; // primer is consumed by the offer
             NegotiationResult result = NegotiationEngine.Evaluate(
-                Lane, choice.OfferRatePerMile, Prospect.Trust, sensitivity, Modifiers.NegotiationSkill);
+                Lane, choice.OfferRatePerMile, Prospect.Trust, sensitivity, negotiationSkill);
 
             Prospect.AdjustTrust(result.TrustDelta);
             Prospect.AdjustPatience(ModifiedPatience(result.PatienceDelta));
@@ -200,6 +236,38 @@ namespace Fitzmark.BDRSim.Simulation
                     Narrate("No deal on rate — the lane stays with the incumbent.");
                     break;
                 }
+            }
+        }
+
+        private void ApplyAbility(AbilityDefinition ability)
+        {
+            RepSays($"( uses {ability.Name} )");
+            switch (ability.EffectType)
+            {
+                case AbilityEffectType.RestorePatience:
+                    Prospect.AdjustPatience(ability.Magnitude);
+                    Narrate("You read the room and ease off — the prospect relaxes.");
+                    break;
+                case AbilityEffectType.BoostTrust:
+                    Prospect.AdjustTrust(ability.Magnitude);
+                    Narrate("You land a genuine connection — trust ticks up.");
+                    break;
+                case AbilityEffectType.ClearObjection:
+                    if (Prospect.ActiveObjection.HasValue)
+                    {
+                        Score.Add(ScoreCategory.ObjectionHandling, 6f);
+                        Prospect.ResolveActiveObjection();
+                        Narrate("You reframe the objection and defuse it.");
+                    }
+                    else
+                    {
+                        Narrate("Nothing to reframe right now.");
+                    }
+                    break;
+                case AbilityEffectType.NegotiationPrimer:
+                    _negotiationPrimer += ability.Magnitude;
+                    Narrate("You set a strong anchor for the next number.");
+                    break;
             }
         }
 

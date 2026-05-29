@@ -22,7 +22,7 @@ namespace Fitzmark.BDRSim.Data
     public class BDRAttributes
     {
         public const int Min = 1;
-        public const int Max = 10;
+        public const int Max = 12;        // point-buy caps at 10; Sales Style mods can push to 12
         public const int Baseline = 5;
 
         [Range(Min, Max)] public int charisma = Baseline;

@@ -8,9 +8,14 @@ a character, makes meaningful build choices, and grows a career over many calls.
 In the `CharacterCreate` scene you set:
 
 - **Name** — first / last.
-- **Background (archetype)** — a starting attribute spread with flavor:
-  *The Closer*, *The Hunter*, *The Consultant*, *The Natural*. You then distribute
-  **6 bonus points** on top (can't drop below the archetype's base).
+- **Sales Style (race)** — one of six styles (Closer, Hunter, Farmer, Challenger,
+  Networker, Generalist). Each grants stat modifiers, a passive **trait**, and a
+  starting **active ability** — see [`SalesStyleLibrary`](../Assets/Scripts/Data/SalesStyle.cs).
+- **Ability scores** — D&D-style **point-buy**: every stat starts low and you
+  spend a budget to raise them, with the top tiers costing a premium
+  ([`PointBuy`](../Assets/Scripts/Data/PointBuy.cs)). Style modifiers apply on top.
+- **Active abilities** — fired mid-call (Anchor High, Reframe, Second Wind, Build
+  Rapport), granted by your style and unlocked deeper in the ability trees.
 - **Look** — a live 3D avatar (built from primitives) you customize: skin tone,
   outfit, accent, hair color, build, and height. It sways/idles so the 3D reads.
 
@@ -84,26 +89,31 @@ The menu is now a **career hub**. Play runs on a workweek:
 `CareerSystem` is pure logic and unit-tested; the career state is saved with the
 character.
 
-## Skill tree (Milestone 2)
+## Ability trees & active abilities
 
-Spend the skill points you earn (leveling + weekly quotas) in the **Skill Tree**
-overlay. Perks ([`PerkLibrary`](../Assets/Scripts/Data/PerkDefinition.cs)) are
-plain numeric effects that aggregate without special-casing:
+Spend skill points (leveling + weekly quotas) in the **Ability Trees** overlay.
+There are three trees in [`PerkLibrary`](../Assets/Scripts/Data/PerkDefinition.cs):
 
-| Perk | Effect |
+- **Rapport** — Silver Tongue → Warm Opener → Trusted Voice (grants *Build Rapport*)
+- **Deal-Making** — Closer's Instinct → Anchor Master (grants *Anchor High*) → Rate Defender
+- **Hustle** — Thick Skin → Workaholic → Rainmaker (grants *Second Wind*)
+
+Each node sits behind the previous tier (a prerequisite). Nodes are plain numeric
+effects that aggregate without special-casing, and some **grant active abilities**.
+
+**Active abilities** ([`AbilityLibrary`](../Assets/Scripts/Data/AbilityDefinition.cs))
+are fired during a call from the abilities bar (limited uses per call):
+
+| Ability | Effect |
 | --- | --- |
-| Silver Tongue | +5% starting trust |
-| Thick Skin | patience drains 10% slower |
-| Closer's Instinct | +3% rate headroom |
-| Polished Pro | +1 to every well-played line |
-| Fast Learner | +25% XP |
-| Workaholic | +2 calls/day |
-| Rainmaker | +3% trust and +3% rate headroom |
-| Networker | +15% XP and +1 call/day |
+| Anchor High | next rate offer gets +headroom |
+| Second Wind | restore prospect patience |
+| Reframe | instantly handle the active objection |
+| Build Rapport | a burst of trust |
 
-Perk effects flow into calls via `CharacterModifiers.FromCharacter` (which folds
-attributes + perks), into XP via `ProgressionSystem`, and into the daily call
-budget via `CareerSystem`.
+Style traits + tree nodes flow into calls via `CharacterModifiers.FromCharacter`,
+into XP via `ProgressionSystem`, and into the daily call budget via `CareerSystem`
+— all through a single `PerkSystem.Aggregate`.
 
 ## Roadmap (remaining)
 

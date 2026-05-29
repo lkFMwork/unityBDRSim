@@ -9,16 +9,15 @@ using UnityEngine.UI;
 namespace Fitzmark.BDRSim.UI
 {
     /// <summary>
-    /// "Create your BDR" screen: a live 3D avatar on the left, and a panel on the
-    /// right to set name, background (archetype), attributes (point-buy), and look.
-    /// A preview shows how the build will change calls. Saves the character and
-    /// returns to the menu. Attach to a GameObject in the CharacterCreate scene.
+    /// D&D-style advanced character creation: pick a Sales Style (race) with a
+    /// trait and a starting ability, buy ability scores with a point budget,
+    /// customize a live 3D avatar, and see how the build will play. Saves the
+    /// character and returns to the menu.
     /// </summary>
     public class CharacterCreateController : MonoBehaviour
     {
         private BDRCharacter _draft;
-        private int _archetypeIndex;
-        private int _pointsLeft;
+        private int _styleIndex;
 
         private AvatarBuilder _avatar;
         private InputField _firstName;
@@ -27,10 +26,17 @@ namespace Fitzmark.BDRSim.UI
         private Text _previewLabel;
         private readonly List<Action> _refreshers = new();
 
+        private SalesStyle CurrentStyle => SalesStyleLibrary.All[_styleIndex];
+
         private void Start()
         {
-            _draft = new BDRCharacter { avatar = new AvatarConfig() };
-            ApplyArchetype(0);
+            _draft = new BDRCharacter
+            {
+                styleId = SalesStyleLibrary.All[0].Id,
+                attributes = PointBuy.NewBaseline(),
+                avatar = new AvatarConfig()
+            };
+            _styleIndex = 0;
 
             CreateAvatar();
             BuildUi();
@@ -55,10 +61,9 @@ namespace Fitzmark.BDRSim.UI
         {
             var canvas = UiFactory.CreateScreenCanvas("CreateCanvas");
 
-            // Right-hand panel; the left ~half of the screen shows the 3D avatar.
             var panel = UiFactory.Panel(canvas.transform, UiTheme.Panel, "Panel");
             var prt = panel.rectTransform;
-            prt.anchorMin = new Vector2(0.5f, 0f);
+            prt.anchorMin = new Vector2(0.48f, 0f);
             prt.anchorMax = new Vector2(1f, 1f);
             prt.offsetMin = Vector2.zero;
             prt.offsetMax = Vector2.zero;
@@ -68,11 +73,10 @@ namespace Fitzmark.BDRSim.UI
                 TextAnchor.MiddleLeft, FontStyle.Bold);
 
             var content = UiFactory.MakeScrollView(panel.transform, new Color(0f, 0f, 0f, 0.12f));
-            var scrollRoot = content.parent.parent.gameObject; // content -> viewport -> scroll root
-            UiFactory.Size(scrollRoot, flexH: 1f);
+            UiFactory.Size(content.parent.parent.gameObject, flexH: 1f);
 
             BuildNameSection(content);
-            BuildArchetypeSection(content);
+            BuildStyleSection(content);
             BuildAttributeSection(content);
             BuildAppearanceSection(content);
             BuildPreviewSection(content);
@@ -93,22 +97,34 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.Size(_lastName.gameObject, flexW: 1f, prefH: 36f);
         }
 
-        private void BuildArchetypeSection(Transform parent)
+        private void BuildStyleSection(Transform parent)
         {
-            SectionHeader(parent, "BACKGROUND");
+            SectionHeader(parent, "SALES STYLE");
             Stepper(parent,
-                () => ArchetypeLibrary.All[_archetypeIndex].Name,
-                () => ApplyArchetype(_archetypeIndex - 1),
-                () => ApplyArchetype(_archetypeIndex + 1));
+                () => CurrentStyle.Name,
+                () => CycleStyle(-1),
+                () => CycleStyle(1));
 
             var desc = UiFactory.Label(parent, "", 13, UiTheme.TextMuted, TextAnchor.UpperLeft,
                 FontStyle.Italic);
-            _refreshers.Add(() => desc.text = ArchetypeLibrary.All[_archetypeIndex].Description);
+            _refreshers.Add(() => desc.text = CurrentStyle.Description);
+
+            var trait = UiFactory.Label(parent, "", 13, UiTheme.AccentStrong, TextAnchor.UpperLeft,
+                FontStyle.Bold);
+            _refreshers.Add(() => trait.text =
+                $"Trait — {CurrentStyle.TraitName}: {CurrentStyle.TraitDescription}");
+
+            var ability = UiFactory.Label(parent, "", 13, UiTheme.Positive, TextAnchor.UpperLeft);
+            _refreshers.Add(() =>
+            {
+                var a = AbilityLibrary.Get(CurrentStyle.GrantedAbilityId);
+                ability.text = a != null ? $"Ability — {a.Name}: {a.Description}" : string.Empty;
+            });
         }
 
         private void BuildAttributeSection(Transform parent)
         {
-            SectionHeader(parent, "ATTRIBUTES");
+            SectionHeader(parent, "ABILITY SCORES (point-buy)");
             _pointsLabel = UiFactory.Label(parent, "", 14, UiTheme.Warning, TextAnchor.UpperLeft,
                 FontStyle.Bold);
 
@@ -116,26 +132,30 @@ namespace Fitzmark.BDRSim.UI
             {
                 var captured = type;
                 Stepper(parent,
-                    () => $"{BDRAttributes.DisplayName(captured)}:  {_draft.attributes.Get(captured)}",
-                    () => DecAttr(captured),
-                    () => IncAttr(captured));
+                    () => StatText(captured),
+                    () => LowerStat(captured),
+                    () => RaiseStat(captured));
             }
         }
 
         private void BuildAppearanceSection(Transform parent)
         {
             SectionHeader(parent, "APPEARANCE");
-
             Stepper(parent, () => $"Skin tone  {_draft.avatar.skinTone + 1}/{AvatarPalette.SkinCount}",
-                () => CycleSkin(-1), () => CycleSkin(1));
+                () => Cycle(ref _draft.avatar.skinTone, -1, AvatarPalette.SkinCount),
+                () => Cycle(ref _draft.avatar.skinTone, 1, AvatarPalette.SkinCount));
             Stepper(parent, () => $"Outfit  {_draft.avatar.outfitColor + 1}/{AvatarPalette.OutfitCount}",
-                () => CycleOutfit(-1), () => CycleOutfit(1));
+                () => Cycle(ref _draft.avatar.outfitColor, -1, AvatarPalette.OutfitCount),
+                () => Cycle(ref _draft.avatar.outfitColor, 1, AvatarPalette.OutfitCount));
             Stepper(parent, () => $"Accent  {_draft.avatar.accentColor + 1}/{AvatarPalette.AccentCount}",
-                () => CycleAccent(-1), () => CycleAccent(1));
+                () => Cycle(ref _draft.avatar.accentColor, -1, AvatarPalette.AccentCount),
+                () => Cycle(ref _draft.avatar.accentColor, 1, AvatarPalette.AccentCount));
             Stepper(parent, () => $"Hair  {_draft.avatar.hairColor + 1}/{AvatarPalette.HairCount}",
-                () => CycleHair(-1), () => CycleHair(1));
+                () => Cycle(ref _draft.avatar.hairColor, -1, AvatarPalette.HairCount),
+                () => Cycle(ref _draft.avatar.hairColor, 1, AvatarPalette.HairCount));
             Stepper(parent, () => $"Build:  {AvatarConfig.BuildName(_draft.avatar.build)}",
-                () => CycleBuild(-1), () => CycleBuild(1));
+                () => Cycle(ref _draft.avatar.build, -1, 3),
+                () => Cycle(ref _draft.avatar.build, 1, 3));
             Stepper(parent, () => $"Height:  {_draft.avatar.height:0.00}x",
                 () => CycleHeight(-1), () => CycleHeight(1));
         }
@@ -163,36 +183,26 @@ namespace Fitzmark.BDRSim.UI
 
         // ---- mutations ------------------------------------------------------
 
-        private void ApplyArchetype(int index)
+        private void CycleStyle(int delta)
         {
-            int count = ArchetypeLibrary.All.Count;
-            _archetypeIndex = ((index % count) + count) % count;
-            var archetype = ArchetypeLibrary.All[_archetypeIndex];
-            _draft.archetypeId = archetype.Id;
-            _draft.attributes = archetype.BaseAttributes.Clone();
-            _pointsLeft = ArchetypeLibrary.StartingBonusPoints;
+            _styleIndex = Wrap(_styleIndex + delta, SalesStyleLibrary.All.Count);
+            _draft.styleId = CurrentStyle.Id;
         }
 
-        private void IncAttr(AttributeType type)
+        private void RaiseStat(AttributeType type)
         {
-            if (_pointsLeft <= 0 || _draft.attributes.Get(type) >= BDRAttributes.Max) return;
-            _draft.attributes.Adjust(type, 1);
-            _pointsLeft--;
+            if (PointBuy.CanRaise(_draft.attributes, type))
+                _draft.attributes.Adjust(type, 1);
         }
 
-        private void DecAttr(AttributeType type)
+        private void LowerStat(AttributeType type)
         {
-            int baseValue = ArchetypeLibrary.All[_archetypeIndex].BaseAttributes.Get(type);
-            if (_draft.attributes.Get(type) <= baseValue) return;
-            _draft.attributes.Adjust(type, -1);
-            _pointsLeft++;
+            if (PointBuy.CanLower(_draft.attributes, type))
+                _draft.attributes.Adjust(type, -1);
         }
 
-        private void CycleSkin(int d) { _draft.avatar.skinTone = Wrap(_draft.avatar.skinTone + d, AvatarPalette.SkinCount); ApplyAvatar(); }
-        private void CycleOutfit(int d) { _draft.avatar.outfitColor = Wrap(_draft.avatar.outfitColor + d, AvatarPalette.OutfitCount); ApplyAvatar(); }
-        private void CycleAccent(int d) { _draft.avatar.accentColor = Wrap(_draft.avatar.accentColor + d, AvatarPalette.AccentCount); ApplyAvatar(); }
-        private void CycleHair(int d) { _draft.avatar.hairColor = Wrap(_draft.avatar.hairColor + d, AvatarPalette.HairCount); ApplyAvatar(); }
-        private void CycleBuild(int d) { _draft.avatar.build = Wrap(_draft.avatar.build + d, 3); ApplyAvatar(); }
+        private void Cycle(ref int field, int delta, int count) { field = Wrap(field + delta, count); ApplyAvatar(); }
+
         private void CycleHeight(int d)
         {
             _draft.avatar.height = Mathf.Clamp(_draft.avatar.height + d * 0.04f, 0.9f, 1.12f);
@@ -201,19 +211,24 @@ namespace Fitzmark.BDRSim.UI
 
         private void Randomize()
         {
-            ApplyArchetype(UnityEngine.Random.Range(0, ArchetypeLibrary.All.Count));
-            int guard = 64;
-            while (_pointsLeft > 0 && guard-- > 0)
+            _styleIndex = UnityEngine.Random.Range(0, SalesStyleLibrary.All.Count);
+            _draft.styleId = CurrentStyle.Id;
+
+            _draft.attributes = PointBuy.NewBaseline();
+            int guard = 200;
+            while (guard-- > 0 && PointBuy.Remaining(_draft.attributes) > 0)
             {
                 var t = BDRAttributes.All[UnityEngine.Random.Range(0, BDRAttributes.All.Length)];
-                IncAttr(t);
+                if (PointBuy.CanRaise(_draft.attributes, t)) _draft.attributes.Adjust(t, 1);
             }
+
             _draft.avatar.skinTone = UnityEngine.Random.Range(0, AvatarPalette.SkinCount);
             _draft.avatar.outfitColor = UnityEngine.Random.Range(0, AvatarPalette.OutfitCount);
             _draft.avatar.accentColor = UnityEngine.Random.Range(0, AvatarPalette.AccentCount);
             _draft.avatar.hairColor = UnityEngine.Random.Range(0, AvatarPalette.HairCount);
             _draft.avatar.build = UnityEngine.Random.Range(0, 3);
             _draft.avatar.height = 0.9f + UnityEngine.Random.Range(0, 6) * 0.04f;
+
             ApplyAvatar();
             RefreshAll();
         }
@@ -222,26 +237,53 @@ namespace Fitzmark.BDRSim.UI
         {
             _draft.firstName = Sanitize(_firstName != null ? _firstName.text : null, "New");
             _draft.lastName = Sanitize(_lastName != null ? _lastName.text : null, "Rep");
+            _draft.styleId = CurrentStyle.Id;
+            _draft.attributes = FinalAttributes();
             _draft.level = 1;
             _draft.xp = 0;
             _draft.unspentSkillPoints = 0;
+            _draft.unlockedPerks = new List<string>();
+            _draft.career = new CareerState();
 
             GameManager.Instance.CreateProfile(_draft);
             GameManager.Instance.ReturnToMenu();
         }
 
-        // ---- helpers --------------------------------------------------------
+        // ---- derived --------------------------------------------------------
+
+        /// <summary>Point-bought scores plus the current style's modifiers (clamped).</summary>
+        private BDRAttributes FinalAttributes()
+        {
+            var final = new BDRAttributes();
+            var style = CurrentStyle;
+            foreach (var t in BDRAttributes.All)
+                final.Set(t, _draft.attributes.Get(t) + style.Mod(t));
+            return final;
+        }
+
+        private BDRCharacter PreviewCharacter() =>
+            new BDRCharacter { styleId = CurrentStyle.Id, attributes = FinalAttributes() };
+
+        private string StatText(AttributeType t)
+        {
+            int pointBought = _draft.attributes.Get(t);
+            int mod = CurrentStyle.Mod(t);
+            int final = Mathf.Clamp(pointBought + mod, BDRAttributes.Min, BDRAttributes.Max);
+            string modStr = mod == 0 ? "" : (mod > 0 ? $" +{mod}" : $" {mod}");
+            return $"{BDRAttributes.DisplayName(t)}:  {final}  <size=11>[buy {pointBought}{modStr}]</size>";
+        }
 
         private void RefreshAll()
         {
             foreach (var r in _refreshers) r();
 
             if (_pointsLabel != null)
-                _pointsLabel.text = $"Points to spend: {_pointsLeft}";
+                _pointsLabel.text =
+                    $"Points to spend: {PointBuy.Remaining(_draft.attributes)} / {PointBuy.Budget}";
 
             if (_previewLabel != null)
             {
-                var m = CharacterModifiers.FromAttributes(_draft.attributes);
+                var m = CharacterModifiers.FromCharacter(PreviewCharacter());
                 _previewLabel.text =
                     $"Starting trust:  {Pct(m.TrustBonus)}\n" +
                     $"Patience drain:  x{m.PatienceDrainMultiplier:0.00}\n" +
@@ -250,6 +292,8 @@ namespace Fitzmark.BDRSim.UI
                     $"Pitch / objection edge:  {Signed(m.BonusFor(ScoreCategory.ValueArticulation))}";
             }
         }
+
+        // ---- helpers --------------------------------------------------------
 
         private void SectionHeader(Transform parent, string text) =>
             UiFactory.Label(parent, text, 13, UiTheme.TextMuted, TextAnchor.UpperLeft, FontStyle.Bold);

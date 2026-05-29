@@ -27,6 +27,8 @@ namespace Fitzmark.BDRSim.UI
         private UiFactory.Meter _patienceMeter;
         private UiFactory.ScrollLog _log;
         private GameObject _choicesPanel;
+        private GameObject _abilitiesPanel;
+        private readonly List<(AbilityDefinition def, Button button, Text label)> _abilityButtons = new();
 
         private void Start()
         {
@@ -39,16 +41,21 @@ namespace Fitzmark.BDRSim.UI
 
             BuildUi(scenario);
 
-            var modifiers = CharacterModifiers.FromCharacter(GameManager.Instance.Profile);
+            var profile = GameManager.Instance.Profile;
+            var modifiers = CharacterModifiers.FromCharacter(profile);
             _session = new CallSession(scenario, modifiers);
+            _session.ConfigureAbilities(AbilitySystem.AvailableAbilities(profile));
             _session.NarratorLine += OnNarrator;
             _session.RepLine += OnRep;
             _session.ProspectLine += OnProspect;
             _session.StateChanged += UpdateHud;
             _session.ChoicesChanged += RebuildChoices;
             _session.CallEnded += ShowResults;
+            _session.AbilitiesChanged += RefreshAbilities;
 
+            BuildAbilityButtons();
             _session.Begin();
+            RefreshAbilities();
         }
 
         private void OnDestroy()
@@ -60,6 +67,7 @@ namespace Fitzmark.BDRSim.UI
             _session.StateChanged -= UpdateHud;
             _session.ChoicesChanged -= RebuildChoices;
             _session.CallEnded -= ShowResults;
+            _session.AbilitiesChanged -= RefreshAbilities;
         }
 
         // ---- layout ---------------------------------------------------------
@@ -83,7 +91,62 @@ namespace Fitzmark.BDRSim.UI
             _log = UiFactory.MakeScrollLog(middle.transform, UiTheme.PanelDark, UiTheme.TextPrimary);
             UiFactory.Size(_log.Scroll.gameObject, prefW: 400f, flexW: 1f);
 
+            BuildAbilitiesBar(root.transform);
             BuildChoicesPanel(root.transform);
+        }
+
+        private void BuildAbilitiesBar(Transform parent)
+        {
+            var bar = UiFactory.Panel(parent, UiTheme.PanelDark, "AbilitiesBar").gameObject;
+            UiFactory.HLayout(bar, pad: 8, spacing: 8, expandW: false, expandH: true);
+            UiFactory.Size(bar, prefH: 46f, flexH: 0f);
+
+            var caption = UiFactory.Label(bar.transform, "Abilities:", 13, UiTheme.TextMuted,
+                TextAnchor.MiddleLeft, FontStyle.Bold);
+            UiFactory.Size(caption.gameObject, prefW: 78f);
+
+            _abilitiesPanel = UiFactory.Panel(bar.transform, new Color(0f, 0f, 0f, 0f), "AbilityButtons")
+                .gameObject;
+            UiFactory.HLayout(_abilitiesPanel, pad: 0, spacing: 8, expandW: false, expandH: true);
+            UiFactory.Size(_abilitiesPanel, flexW: 1f);
+        }
+
+        private void BuildAbilityButtons()
+        {
+            _abilityButtons.Clear();
+            if (_abilitiesPanel == null || _session == null) return;
+
+            for (int i = _abilitiesPanel.transform.childCount - 1; i >= 0; i--)
+                Destroy(_abilitiesPanel.transform.GetChild(i).gameObject);
+
+            if (_session.Abilities.Count == 0)
+            {
+                UiFactory.Label(_abilitiesPanel.transform, "none for this build", 12, UiTheme.TextMuted,
+                    TextAnchor.MiddleLeft, FontStyle.Italic);
+                return;
+            }
+
+            foreach (var ability in _session.Abilities)
+            {
+                var captured = ability;
+                var btn = UiFactory.Button(_abilitiesPanel.transform, captured.Name,
+                    () => _session.UseAbility(captured), UiTheme.Accent, UiTheme.TextPrimary,
+                    13, TextAnchor.MiddleCenter);
+                UiFactory.Size(btn.gameObject, prefW: 150f, prefH: 32f);
+                var label = btn.GetComponentInChildren<Text>();
+                _abilityButtons.Add((captured, btn, label));
+            }
+        }
+
+        private void RefreshAbilities()
+        {
+            if (_session == null) return;
+            foreach (var entry in _abilityButtons)
+            {
+                int left = _session.AbilityUsesLeft(entry.def.Id);
+                if (entry.label != null) entry.label.text = $"{entry.def.Name} ({left})";
+                if (entry.button != null) entry.button.interactable = left > 0 && !_session.IsOver;
+            }
         }
 
         private void BuildTopBar(Transform parent, ScenarioDefinition scenario)

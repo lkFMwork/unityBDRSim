@@ -50,10 +50,11 @@ namespace Fitzmark.BDRSim.Editor
                 EditorSceneManager.OpenScene(MainMenuScenePath);
 
                 string msg = $"Fitzmark BDR Simulator is set up.\n\n" +
-                             $"• {created} sample scenarios created\n" +
-                             $"• MainMenu and CallFloor scenes built\n" +
+                             $"• {created} sample (practice) scenarios created\n" +
+                             $"• MainMenu, CharacterCreate, and CallFloor scenes built\n" +
                              $"• Build settings configured\n\n" +
-                             $"Press Play to run the simulator.";
+                             $"Press Play, then create your BDR — Sales Style, point-buy\n" +
+                             $"stats, and abilities — and start the career.";
                 Debug.Log("[Fitzmark BDR] " + msg.Replace("\n", " "));
                 if (!Application.isBatchMode)
                     EditorUtility.DisplayDialog("Fitzmark BDR Simulator", msg, "Let's go");
@@ -472,6 +473,13 @@ namespace Fitzmark.BDRSim.Editor
                 EditorSceneManager.OpenScene(MainMenuScenePath);
             else
                 Debug.LogWarning("[Fitzmark BDR] MainMenu scene not found — run Setup Project first.");
+        }
+
+        [MenuItem(Menu + "Reset Saved BDR", false, 41)]
+        public static void ResetSavedBdr()
+        {
+            Fitzmark.BDRSim.Core.SaveSystem.Delete();
+            Debug.Log("[Fitzmark BDR] Saved BDR deleted — press Play to run character creation again.");
         }
     }
 }

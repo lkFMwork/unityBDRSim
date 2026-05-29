@@ -130,5 +130,20 @@ namespace Fitzmark.BDRSim.Tests
 
             Assert.That(s.Prospect.Trust, Is.GreaterThan(0.4f));
         }
+
+        [Test]
+        public void UsingAnAbilityAppliesItsEffectAndConsumesAUse()
+        {
+            var s = new CallSession(MakeScenario(false, null, patience: 0.3f));
+            s.ConfigureAbilities(new List<AbilityDefinition> { AbilityLibrary.Get("second_wind") });
+            s.Begin();
+
+            float before = s.Prospect.Patience;
+            Assert.IsTrue(s.UseAbility(AbilityLibrary.Get("second_wind")));
+            Assert.That(s.Prospect.Patience, Is.GreaterThan(before));
+
+            Assert.AreEqual(0, s.AbilityUsesLeft("second_wind"));
+            Assert.IsFalse(s.UseAbility(AbilityLibrary.Get("second_wind"))); // no uses left
+        }
     }
 }

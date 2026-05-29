@@ -14,7 +14,7 @@ namespace Fitzmark.BDRSim.Data
         // Identity
         public string firstName = "New";
         public string lastName = "Rep";
-        public string archetypeId = "natural";
+        public string styleId = "closer";
 
         // Look + build
         public AvatarConfig avatar = new AvatarConfig();
@@ -41,11 +41,10 @@ namespace Fitzmark.BDRSim.Data
 
         public static BDRCharacter CreateDefault()
         {
-            var archetype = ArchetypeLibrary.All[0];
             return new BDRCharacter
             {
-                archetypeId = archetype.Id,
-                attributes = archetype.BaseAttributes.Clone()
+                styleId = SalesStyleLibrary.All[0].Id,
+                attributes = PointBuy.NewBaseline()
             };
         }
     }
