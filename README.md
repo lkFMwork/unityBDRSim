@@ -14,7 +14,7 @@ graded scorecard with coaching after every call.
 
 ## Requirements
 
-- **Unity 6 LTS** (`6000.0.x`) — see [`ProjectSettings/ProjectVersion.txt`](ProjectSettings/ProjectVersion.txt)
+- **Unity `6000.4.9f1`** (Unity 6.4) — see [`ProjectSettings/ProjectVersion.txt`](ProjectSettings/ProjectVersion.txt)
 - **Universal Render Pipeline (URP)** and the packages listed in [`Packages/manifest.json`](Packages/manifest.json) (Unity restores these automatically on first open)
 
 This repository contains the **project sources** (scripts, packages, settings).
@@ -25,8 +25,8 @@ those are intentionally git-ignored.
 
 ## Quick start
 
-1. **Install Unity 6 LTS** via Unity Hub (any `6000.0.x` patch — the Hub will
-   offer to open the project with your installed version).
+1. **Install Unity `6000.4.9f1`** via Unity Hub (this is the version the project
+   targets; the Hub will prompt to install it if you don't have it).
 2. **Open the project**: in Unity Hub → *Add* → select this folder → open.
    Let the Package Manager finish restoring packages.
 3. **Run one-click setup** from the Editor menu:
@@ -136,5 +136,6 @@ end-to-end call flow — it runs without entering Play mode.
 - The "3D" call floor is intentionally minimal (a desk vignette behind the HUD).
   The training value is in the dialogue/negotiation loop; richer environments,
   characters, and VO are natural follow-ups.
-- Package versions in the manifest target Unity 6.0 LTS; if the Package Manager
-  flags a version, let it resolve to the one bundled with your editor.
+- Package versions in the manifest target the Unity 6.4 line (URP 17.4); if the
+  Package Manager flags a version when you open the project, let it resolve to the
+  exact one bundled with your editor and commit the updated `packages-lock.json`.

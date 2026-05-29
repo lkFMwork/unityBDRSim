@@ -2,7 +2,7 @@
 
 ## First-time setup
 
-1. Install **Unity 6 LTS** (`6000.0.x`) through Unity Hub.
+1. Install **Unity `6000.4.9f1`** (Unity 6.4) through Unity Hub.
 2. Add this folder as a project in Unity Hub and open it.
 3. Wait for the Package Manager to restore packages (URP, uGUI, Test Framework).
 4. Run **Tools → Fitzmark BDR → Setup Project (One-Click)**.
@@ -54,8 +54,8 @@ team adds the Input System package, set *Project Settings → Player → Active 
 Handling* to **Both**.
 
 **Package Manager flags a version in `manifest.json`.**
-The pinned versions target Unity 6.0 LTS. Let the Package Manager resolve to the
-version bundled with your editor, or update the pin to match.
+The pinned versions target the Unity 6.4 line (URP 17.4). Let the Package Manager
+resolve to the version bundled with your editor, or update the pin to match.
 
 ## Continuous integration (optional, future)
 
