@@ -41,6 +41,8 @@ namespace Fitzmark.BDRSim.Core
                 {
                     character.avatar ??= new AvatarConfig();
                     character.attributes ??= new BDRAttributes();
+                    character.career ??= new CareerState();
+                    character.unlockedPerks ??= new System.Collections.Generic.List<string>();
                 }
                 return character;
             }

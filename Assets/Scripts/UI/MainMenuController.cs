@@ -14,6 +14,8 @@ namespace Fitzmark.BDRSim.UI
     /// </summary>
     public class MainMenuController : MonoBehaviour
     {
+        private Canvas _canvas;
+
         private void Start()
         {
             ScenarioCatalog.Invalidate(); // pick up any newly authored scenarios
@@ -22,16 +24,16 @@ namespace Fitzmark.BDRSim.UI
 
         private void BuildUi()
         {
-            var canvas = UiFactory.CreateScreenCanvas("MenuCanvas");
+            _canvas = UiFactory.CreateScreenCanvas("MenuCanvas");
 
-            var root = UiFactory.Panel(canvas.transform, UiTheme.Background, "Root");
+            var root = UiFactory.Panel(_canvas.transform, UiTheme.Background, "Root");
             UiFactory.Stretch(root.rectTransform);
-            UiFactory.VLayout(root.gameObject, pad: 28, spacing: 14, expandH: false,
+            UiFactory.VLayout(root.gameObject, pad: 24, spacing: 12, expandH: false,
                 align: TextAnchor.UpperCenter);
 
-            UiFactory.Label(root.transform, "FITZMARK", 48, UiTheme.AccentStrong,
+            UiFactory.Label(root.transform, "FITZMARK", 42, UiTheme.AccentStrong,
                 TextAnchor.MiddleCenter, FontStyle.Bold, "Title");
-            UiFactory.Label(root.transform, "BDR Life — Sales RPG", 22, UiTheme.TextPrimary,
+            UiFactory.Label(root.transform, "BDR Life — Sales RPG", 20, UiTheme.TextPrimary,
                 TextAnchor.MiddleCenter, FontStyle.Normal, "Subtitle");
 
             var gm = GameManager.Instance;
@@ -42,22 +44,33 @@ namespace Fitzmark.BDRSim.UI
                 return;
             }
 
-            BuildCharacterHeader(root.transform, gm.Profile);
+            CareerSystem.EnsureStarted(gm.Profile);
+            gm.SaveProfile();
 
-            UiFactory.Label(root.transform, "Make a call", 20, UiTheme.TextPrimary,
-                TextAnchor.MiddleLeft, FontStyle.Bold, "PickHeader");
+            if (!string.IsNullOrEmpty(gm.CareerFlash))
+            {
+                UiFactory.Label(root.transform, gm.CareerFlash, 16, UiTheme.Positive,
+                    TextAnchor.MiddleCenter, FontStyle.Bold, "Flash");
+                gm.CareerFlash = null;
+            }
+
+            BuildCharacterHeader(root.transform, gm.Profile);
+            BuildCareerPanel(root.transform, gm.Profile);
+            BuildActionButtons(root.transform, gm.Profile);
+
+            UiFactory.Label(root.transform, "Practice calls (no quota)", 16, UiTheme.TextMuted,
+                TextAnchor.MiddleLeft, FontStyle.Bold, "PracticeHeader");
 
             var listGo = UiFactory.Panel(root.transform, UiTheme.Background, "List").gameObject;
-            UiFactory.VLayout(listGo, pad: 0, spacing: 10);
+            UiFactory.VLayout(listGo, pad: 0, spacing: 8);
             UiFactory.Size(listGo, flexH: 1f);
 
             var scenarios = ScenarioCatalog.All;
             if (scenarios.Count == 0)
             {
                 UiFactory.Label(listGo.transform,
-                    "No scenarios found.\n\nIn the Unity Editor, run\n" +
-                    "Tools → Fitzmark BDR → Setup Project (One-Click).",
-                    18, UiTheme.Warning, TextAnchor.MiddleCenter, FontStyle.Bold, "Empty");
+                    "No practice scenarios found. Run Tools → Fitzmark BDR → Setup Project.",
+                    14, UiTheme.Warning, TextAnchor.MiddleCenter, FontStyle.Bold, "Empty");
             }
             else
             {
@@ -66,6 +79,80 @@ namespace Fitzmark.BDRSim.UI
             }
 
             BuildFooter(root.transform, true);
+        }
+
+        private void BuildCareerPanel(Transform parent, BDRCharacter c)
+        {
+            var panel = UiFactory.Panel(parent, UiTheme.PanelDark, "Career").gameObject;
+            UiFactory.VLayout(panel, pad: 12, spacing: 4, expandH: false);
+            UiFactory.Size(panel, flexW: 1f);
+
+            int week = CareerSystem.Week(c.career.day);
+            UiFactory.Label(panel.transform, $"Day {c.career.day}  ·  Week {week}", 18,
+                UiTheme.AccentStrong, TextAnchor.MiddleLeft, FontStyle.Bold);
+            UiFactory.Label(panel.transform,
+                $"Calls left today: {c.career.callsRemainingToday} / {CareerSystem.CallsPerDay(c)}",
+                15, UiTheme.TextPrimary, TextAnchor.MiddleLeft);
+            UiFactory.Label(panel.transform,
+                $"Week quota: {c.career.weekDealsWon} / {c.career.weekDealsGoal} deals",
+                15, UiTheme.TextPrimary, TextAnchor.MiddleLeft);
+        }
+
+        private void BuildActionButtons(Transform parent, BDRCharacter c)
+        {
+            var row = UiFactory.Panel(parent, UiTheme.Background, "Actions").gameObject;
+            UiFactory.HLayout(row, spacing: 10, expandW: true, expandH: true);
+            UiFactory.Size(row, prefH: 60f);
+
+            bool canCall = CareerSystem.HasCallsLeft(c);
+            var take = UiFactory.Button(row.transform,
+                canCall ? "Take a Call" : "No calls left — End Day", TakeCareerCall,
+                canCall ? UiTheme.Positive : UiTheme.PanelDark, Color.white, 18, TextAnchor.MiddleCenter);
+            UiFactory.Size(take.gameObject, flexW: 1f);
+            take.interactable = canCall;
+
+            var endDay = UiFactory.Button(row.transform, "End Day ▶", EndDay,
+                UiTheme.Accent, UiTheme.TextPrimary, 16, TextAnchor.MiddleCenter);
+            UiFactory.Size(endDay.gameObject, prefW: 130f);
+
+            var skills = UiFactory.Button(row.transform, "Skill Tree", OpenSkillTree,
+                UiTheme.Panel, UiTheme.TextPrimary, 16, TextAnchor.MiddleCenter);
+            UiFactory.Size(skills.gameObject, prefW: 130f);
+        }
+
+        private void TakeCareerCall()
+        {
+            var c = GameManager.Instance.Profile;
+            if (!CareerSystem.HasCallsLeft(c)) return;
+
+            CareerSystem.ConsumeCall(c);
+            GameManager.Instance.SaveProfile();
+
+            int week = CareerSystem.Week(c.career.day);
+            int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1), 1, 10);
+            int seed = unchecked(System.Environment.TickCount + c.callsMade * 7 + c.career.day);
+            var scenario = ProspectGenerator.Generate(difficulty, seed);
+            GameManager.Instance.StartCareerCall(scenario);
+        }
+
+        private void EndDay()
+        {
+            var c = GameManager.Instance.Profile;
+            var result = CareerSystem.EndDay(c);
+            if (result.WeekEnded)
+            {
+                GameManager.Instance.CareerFlash = result.QuotaMet
+                    ? $"Week cleared! {result.DealsWon}/{result.Goal} deals — +{result.RewardSkillPoints} SP, +{result.RewardXp} XP."
+                    : $"Week missed: {result.DealsWon}/{result.Goal} deals. New week, fresh start.";
+            }
+            GameManager.Instance.SaveProfile();
+            GameManager.Instance.ReturnToMenu();
+        }
+
+        private void OpenSkillTree()
+        {
+            new SkillTreeView(_canvas.transform, GameManager.Instance.Profile,
+                () => GameManager.Instance.ReturnToMenu()).Open();
         }
 
         private void BuildCreatePrompt(Transform parent)
@@ -108,7 +195,7 @@ namespace Fitzmark.BDRSim.UI
 
             if (c.unspentSkillPoints > 0)
                 UiFactory.Label(panel.transform,
-                    $"★ {c.unspentSkillPoints} skill point(s) available — spend them in a future update",
+                    $"• {c.unspentSkillPoints} skill point(s) to spend in the Skill Tree",
                     13, UiTheme.Warning, TextAnchor.MiddleLeft, FontStyle.Bold);
 
             UiFactory.Label(panel.transform,

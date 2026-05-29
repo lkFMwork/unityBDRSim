@@ -19,13 +19,18 @@ namespace Fitzmark.BDRSim.Simulation
         /// <summary>Extra savings headroom in negotiation (lets you hold a higher rate).</summary>
         public float NegotiationSkill;
 
+        /// <summary>Flat bonus added to every positive scored line (from perks).</summary>
+        public float ScoreBonusAll;
+
         private float _rapportBonus;
         private float _discoveryBonus;
         private float _valueBonus;
         private float _objectionBonus;
 
         /// <summary>Point bonus applied when a good play scores in the given category.</summary>
-        public float BonusFor(ScoreCategory category) => category switch
+        public float BonusFor(ScoreCategory category) => CategoryBonus(category) + ScoreBonusAll;
+
+        private float CategoryBonus(ScoreCategory category) => category switch
         {
             ScoreCategory.Rapport => _rapportBonus,
             ScoreCategory.Discovery => _discoveryBonus,
@@ -57,6 +62,25 @@ namespace Fitzmark.BDRSim.Simulation
                 _valueBonus = pk * 0.4f,
                 _objectionBonus = pk * 0.4f,
             };
+        }
+
+        /// <summary>
+        /// Full modifier set for a character: attribute effects combined with the
+        /// effects of any unlocked perks.
+        /// </summary>
+        public static CharacterModifiers FromCharacter(BDRCharacter character)
+        {
+            if (character == null) return Neutral;
+
+            var m = FromAttributes(character.attributes);
+            var perks = PerkSystem.Aggregate(character);
+
+            m.TrustBonus = Clamp(m.TrustBonus + perks.TrustBonus, -0.30f, 0.30f);
+            m.PatienceDrainMultiplier =
+                Clamp(m.PatienceDrainMultiplier - perks.PatienceDrainReduction, 0.40f, 1.50f);
+            m.NegotiationSkill = Clamp(m.NegotiationSkill + perks.NegotiationSkill, -0.10f, 0.10f);
+            m.ScoreBonusAll = perks.ScoreBonusAll;
+            return m;
         }
 
         private static float Clamp(float v, float min, float max) => v < min ? min : (v > max ? max : v);

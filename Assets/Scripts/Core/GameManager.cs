@@ -39,6 +39,12 @@ namespace Fitzmark.BDRSim.Core
 
         public bool HasProfile => Profile != null;
 
+        /// <summary>Whether the in-progress call counts toward the career (vs. a practice call).</summary>
+        public bool IsCareerCall { get; private set; }
+
+        /// <summary>Transient message shown once on the menu (e.g. a week-end summary).</summary>
+        public string CareerFlash { get; set; }
+
         private void Awake()
         {
             if (_instance != null && _instance != this)
@@ -75,8 +81,21 @@ namespace Fitzmark.BDRSim.Core
 
         public void GoToCharacterCreate() => SceneManager.LoadScene(SceneNames.CharacterCreate);
 
-        public void StartScenario(ScenarioDefinition scenario)
+        public void StartScenario(ScenarioDefinition scenario) => StartPractice(scenario);
+
+        /// <summary>Run a one-off practice call (no career calls consumed, no quota credit).</summary>
+        public void StartPractice(ScenarioDefinition scenario)
         {
+            IsCareerCall = false;
+            SelectedScenario = scenario;
+            LastReport = null;
+            SceneManager.LoadScene(SceneNames.CallFloor);
+        }
+
+        /// <summary>Run a career call that counts toward the day/week.</summary>
+        public void StartCareerCall(ScenarioDefinition scenario)
+        {
+            IsCareerCall = true;
             SelectedScenario = scenario;
             LastReport = null;
             SceneManager.LoadScene(SceneNames.CallFloor);

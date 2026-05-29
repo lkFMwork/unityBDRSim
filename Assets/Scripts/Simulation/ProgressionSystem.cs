@@ -97,9 +97,18 @@ namespace Fitzmark.BDRSim.Simulation
             if (report.Outcome == CallOutcome.HungUp)
                 character.callsHungUp++;
 
-            int xpGained = XpForCall(report);
+            float xpMultiplier = PerkSystem.Aggregate(character).XpMultiplier;
+            int xpGained = UnityEngine.Mathf.RoundToInt(XpForCall(report) * xpMultiplier);
+            return AddXp(character, xpGained);
+        }
+
+        /// <summary>Add XP and apply any resulting level-ups and skill points.</summary>
+        public static ProgressionResult AddXp(BDRCharacter character, int amount)
+        {
+            if (character == null) return new ProgressionResult(0, false, 1, 0);
+
             int oldLevel = character.level;
-            character.xp += xpGained;
+            character.xp += amount;
             int newLevel = LevelForXp(character.xp);
 
             bool leveled = newLevel > oldLevel;
@@ -110,8 +119,7 @@ namespace Fitzmark.BDRSim.Simulation
                 character.level = newLevel;
                 character.unspentSkillPoints += skillPoints;
             }
-
-            return new ProgressionResult(xpGained, leveled, character.level, skillPoints);
+            return new ProgressionResult(amount, leveled, character.level, skillPoints);
         }
 
         /// <summary>Career title for a level.</summary>

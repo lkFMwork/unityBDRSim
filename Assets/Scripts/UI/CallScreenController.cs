@@ -39,11 +39,7 @@ namespace Fitzmark.BDRSim.UI
 
             BuildUi(scenario);
 
-            var profile = GameManager.Instance.Profile;
-            var modifiers = profile != null
-                ? CharacterModifiers.FromAttributes(profile.attributes)
-                : CharacterModifiers.Neutral;
-
+            var modifiers = CharacterModifiers.FromCharacter(GameManager.Instance.Profile);
             _session = new CallSession(scenario, modifiers);
             _session.NarratorLine += OnNarrator;
             _session.RepLine += OnRep;
@@ -209,9 +205,11 @@ namespace Fitzmark.BDRSim.UI
             // Award career progress and persist it.
             ProgressionResult prog = default;
             var profile = GameManager.Instance.Profile;
+            bool career = GameManager.Instance.IsCareerCall;
             if (profile != null)
             {
                 prog = ProgressionSystem.ApplyCall(profile, report, _session);
+                if (career) CareerSystem.RecordResult(profile, report);
                 GameManager.Instance.SaveProfile();
             }
 
@@ -258,10 +256,18 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.HLayout(buttons, spacing: 12, expandW: true, expandH: true);
             UiFactory.Size(buttons, prefH: 56f);
 
-            UiFactory.Button(buttons.transform, "Retry", () => GameManager.Instance.ReplayCurrent(),
-                UiTheme.Accent, UiTheme.TextPrimary, 18, TextAnchor.MiddleCenter);
-            UiFactory.Button(buttons.transform, "Back to Menu", () => GameManager.Instance.ReturnToMenu(),
-                UiTheme.PanelDark, UiTheme.TextPrimary, 18, TextAnchor.MiddleCenter);
+            if (career)
+            {
+                UiFactory.Button(buttons.transform, "Continue ▶", () => GameManager.Instance.ReturnToMenu(),
+                    UiTheme.Positive, Color.white, 18, TextAnchor.MiddleCenter);
+            }
+            else
+            {
+                UiFactory.Button(buttons.transform, "Retry", () => GameManager.Instance.ReplayCurrent(),
+                    UiTheme.Accent, UiTheme.TextPrimary, 18, TextAnchor.MiddleCenter);
+                UiFactory.Button(buttons.transform, "Back to Menu", () => GameManager.Instance.ReturnToMenu(),
+                    UiTheme.PanelDark, UiTheme.TextPrimary, 18, TextAnchor.MiddleCenter);
+            }
         }
 
         private static string BuildBreakdown(CallReport report)

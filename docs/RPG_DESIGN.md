@@ -66,14 +66,52 @@ MainMenu ──(no save)──► CharacterCreate ──save──► MainMenu
                               grade + level-up
 ```
 
-## Roadmap (next milestones)
+## Career loop (Milestone 2)
 
-1. **Career meta-loop** — a workweek calendar, daily quota, promotions with real
-   gates, and a rival/leaderboard.
-2. **Skill tree & perks** — spend the skill points you're already earning on
-   active/passive abilities that modify calls.
-3. **Depth & replayability** — randomized prospects and moods, events, streaks,
-   achievements, audio.
-4. **AAA presentation** — swap the primitive avatar for rigged characters +
-   Animator clips (the `AvatarBuilder.SetConfig` seam is ready), richer office,
-   VO, and VFX.
+The menu is now a **career hub**. Play runs on a workweek:
+
+- **Days & calls** — each workday gives a fixed number of calls
+  (`CareerSystem.BaseCallsPerDay`, +perks). "Take a Call" generates a fresh
+  prospect and consumes one; "End Day" advances the calendar and refills calls.
+- **Procedural prospects** — [`ProspectGenerator`](../Assets/Scripts/Simulation/ProspectGenerator.cs)
+  builds an endless supply of leads (names, companies, lanes, objections),
+  scaling difficulty with your level and the week. Deterministic per seed.
+- **Weekly quota** — win a target number of deals per 5-day week. Clearing it
+  grants a skill point + bonus XP; missing it just resets. Goals ramp each week.
+- **Practice calls** — the three authored scenarios remain available off to the
+  side; they grant XP but don't consume calls or count toward quota.
+
+`CareerSystem` is pure logic and unit-tested; the career state is saved with the
+character.
+
+## Skill tree (Milestone 2)
+
+Spend the skill points you earn (leveling + weekly quotas) in the **Skill Tree**
+overlay. Perks ([`PerkLibrary`](../Assets/Scripts/Data/PerkDefinition.cs)) are
+plain numeric effects that aggregate without special-casing:
+
+| Perk | Effect |
+| --- | --- |
+| Silver Tongue | +5% starting trust |
+| Thick Skin | patience drains 10% slower |
+| Closer's Instinct | +3% rate headroom |
+| Polished Pro | +1 to every well-played line |
+| Fast Learner | +25% XP |
+| Workaholic | +2 calls/day |
+| Rainmaker | +3% trust and +3% rate headroom |
+| Networker | +15% XP and +1 call/day |
+
+Perk effects flow into calls via `CharacterModifiers.FromCharacter` (which folds
+attributes + perks), into XP via `ProgressionSystem`, and into the daily call
+budget via `CareerSystem`.
+
+## Roadmap (remaining)
+
+1. **Promotions & milestones** — real gates and ceremony at rank-ups, a rival or
+   leaderboard, streaks and achievements.
+2. **Events & variety** — random call events, prospect moods, hot/cold streaks,
+   special "boss" accounts.
+3. **AAA presentation** — swap the primitive avatar for rigged characters +
+   Animator clips (the `AvatarBuilder.SetConfig` seam is ready), a richer office,
+   VO, music, and VFX.
+4. **Audio & juice** — sound effects, feedback animations, and UI polish.

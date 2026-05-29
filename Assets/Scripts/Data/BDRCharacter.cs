@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Fitzmark.BDRSim.Data
 {
@@ -23,6 +24,10 @@ namespace Fitzmark.BDRSim.Data
         public int level = 1;
         public int xp = 0;
         public int unspentSkillPoints = 0;
+        public List<string> unlockedPerks = new List<string>();
+
+        // Career meta-loop
+        public CareerState career = new CareerState();
 
         // Career record (lifetime)
         public int callsMade = 0;
