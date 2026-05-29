@@ -4,6 +4,7 @@ using Fitzmark.BDRSim.Simulation;
 using Fitzmark.BDRSim.UI;
 using UnityEngine;
 using UnityEngine.UI;
+using AvatarBuilder = Fitzmark.BDRSim.UI.AvatarBuilder; // disambiguate from UnityEngine.AvatarBuilder
 
 namespace Fitzmark.BDRSim.World
 {
