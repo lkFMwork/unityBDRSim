@@ -13,7 +13,12 @@ namespace Fitzmark.BDRSim.Data
         MeetInPerson,
         TalkToMentors,
         EarnWeeklyMargin,
-        ReachLevel
+        ReachLevel,
+        DeliverLoads,
+        MoveTotalMargin,
+        WinAccounts,
+        ConvertLeads,
+        BuyUpgrades
     }
 
     public class QuestObjective
@@ -36,6 +41,11 @@ namespace Fitzmark.BDRSim.Data
             QuestObjectiveType.TalkToMentors => $"Get advice {Target} time(s)",
             QuestObjectiveType.EarnWeeklyMargin => $"Bank ${Target} in weekly gross margin",
             QuestObjectiveType.ReachLevel => $"Reach level {Target}",
+            QuestObjectiveType.DeliverLoads => $"Deliver {Target} freight load(s)",
+            QuestObjectiveType.MoveTotalMargin => $"Move ${Target} in lifetime gross margin",
+            QuestObjectiveType.WinAccounts => $"Win {Target} account(s)",
+            QuestObjectiveType.ConvertLeads => $"Convert {Target} warm lead(s) to meetings",
+            QuestObjectiveType.BuyUpgrades => $"Buy {Target} business upgrade(s)",
             _ => Type.ToString()
         };
     }
@@ -92,6 +102,27 @@ namespace Fitzmark.BDRSim.Data
 
             new QuestDefinition("climbing", "Climbing the Ladder", "Earn a promotion.",
                 new[] { new QuestObjective(QuestObjectiveType.ReachLevel, 3) }, rewardSkillPoints: 2),
+
+            // Freight desk
+            new QuestDefinition("first_load", "First Haul", "Deliver your first freight load for margin.",
+                new[] { new QuestObjective(QuestObjectiveType.DeliverLoads, 1) }, rewardXp: 40),
+
+            new QuestDefinition("logistics_engine", "Logistics Engine", "Keep the freight moving.",
+                new[] { new QuestObjective(QuestObjectiveType.DeliverLoads, 15) }, rewardXp: 90, rewardSkillPoints: 1),
+
+            new QuestDefinition("book_of_business", "Book of Business", "Build a real book of accounts.",
+                new[] { new QuestObjective(QuestObjectiveType.WinAccounts, 5) }, rewardXp: 80, rewardSkillPoints: 1),
+
+            new QuestDefinition("margin_mogul", "Margin Mogul", "Move serious lifetime gross margin.",
+                new[] { new QuestObjective(QuestObjectiveType.MoveTotalMargin, 25000) }, rewardXp: 120, rewardSkillPoints: 2),
+
+            // Outreach
+            new QuestDefinition("cadence_master", "Cadence Master", "Turn cold outreach into warm meetings.",
+                new[] { new QuestObjective(QuestObjectiveType.ConvertLeads, 3) }, rewardXp: 70),
+
+            // Economy
+            new QuestDefinition("invest_in_growth", "Invest in Growth", "Reinvest commission into the business.",
+                new[] { new QuestObjective(QuestObjectiveType.BuyUpgrades, 3) }, rewardXp: 60, rewardSkillPoints: 1),
         };
 
         public static QuestDefinition Get(string id)
