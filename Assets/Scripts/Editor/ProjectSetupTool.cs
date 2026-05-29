@@ -31,6 +31,7 @@ namespace Fitzmark.BDRSim.Editor
         private const string ScenariosFolder = "Assets/Resources/Scenarios";
 
         private const string MainMenuScenePath = ScenesFolder + "/MainMenu.unity";
+        private const string CharacterCreateScenePath = ScenesFolder + "/CharacterCreate.unity";
         private const string CallFloorScenePath = ScenesFolder + "/CallFloor.unity";
 
         [MenuItem(Menu + "Setup Project (One-Click)", false, 0)]
@@ -252,8 +253,37 @@ namespace Fitzmark.BDRSim.Editor
         {
             EnsureFolders();
             BuildMainMenuScene();
+            BuildCharacterCreateScene();
             BuildCallFloorScene();
-            Debug.Log("[Fitzmark BDR] Built MainMenu and CallFloor scenes.");
+            Debug.Log("[Fitzmark BDR] Built MainMenu, CharacterCreate, and CallFloor scenes.");
+        }
+
+        private static void BuildCharacterCreateScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var camGo = new GameObject("Main Camera");
+            camGo.tag = "MainCamera";
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.06f, 0.07f, 0.11f);
+            cam.fieldOfView = 50f;
+            camGo.transform.position = new Vector3(-0.5f, 1.05f, -3.3f);
+            camGo.transform.LookAt(new Vector3(-0.8f, 1.0f, 0f));
+            camGo.AddComponent<AudioListener>();
+
+            var lightGo = new GameObject("Directional Light");
+            var light = lightGo.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.1f;
+            light.shadows = LightShadows.Soft;
+            lightGo.transform.rotation = Quaternion.Euler(45f, -25f, 0f);
+
+            var controller = new GameObject("CharacterCreate");
+            controller.AddComponent<CharacterCreateController>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, CharacterCreateScenePath);
         }
 
         private static void BuildMainMenuScene()
@@ -358,9 +388,10 @@ namespace Fitzmark.BDRSim.Editor
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene(MainMenuScenePath, true),
+                new EditorBuildSettingsScene(CharacterCreateScenePath, true),
                 new EditorBuildSettingsScene(CallFloorScenePath, true)
             };
-            Debug.Log("[Fitzmark BDR] Build settings set to MainMenu + CallFloor.");
+            Debug.Log("[Fitzmark BDR] Build settings set to MainMenu + CharacterCreate + CallFloor.");
         }
 
         // ---- URP (best-effort, via reflection so there is no compile-time dep) --

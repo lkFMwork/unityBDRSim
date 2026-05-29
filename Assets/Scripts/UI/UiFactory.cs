@@ -266,5 +266,77 @@ namespace Fitzmark.BDRSim.UI
 
             return new ScrollLog { Scroll = scroll, Text = text };
         }
+
+        /// <summary>
+        /// A vertical scroll view whose content is laid out by a VerticalLayoutGroup
+        /// and auto-sizes. Returns the content transform — parent your rows to it.
+        /// </summary>
+        public static Transform MakeScrollView(Transform parent, Color bg, int pad = 10, int spacing = 8)
+        {
+            var rootGo = new GameObject("ScrollView", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            rootGo.transform.SetParent(parent, false);
+            rootGo.GetComponent<Image>().color = bg;
+            var scroll = rootGo.GetComponent<ScrollRect>();
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 28f;
+
+            var viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D));
+            viewportGo.transform.SetParent(rootGo.transform, false);
+            var viewportRt = viewportGo.GetComponent<RectTransform>();
+            Stretch(viewportRt);
+
+            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup),
+                typeof(ContentSizeFitter));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            var contentRt = contentGo.GetComponent<RectTransform>();
+            contentRt.anchorMin = new Vector2(0f, 1f);
+            contentRt.anchorMax = new Vector2(1f, 1f);
+            contentRt.pivot = new Vector2(0.5f, 1f);
+            contentRt.offsetMin = Vector2.zero;
+            contentRt.offsetMax = Vector2.zero;
+
+            VLayout(contentGo, pad, spacing, controlW: true, controlH: true, expandW: true, expandH: false);
+
+            var fitter = contentGo.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.viewport = viewportRt;
+            scroll.content = contentRt;
+            return contentGo.transform;
+        }
+
+        /// <summary>A single-line text input with placeholder, built on the legacy InputField.</summary>
+        public static InputField InputField(Transform parent, string placeholder, string value)
+        {
+            var go = new GameObject("InputField", typeof(RectTransform), typeof(Image), typeof(InputField));
+            go.transform.SetParent(parent, false);
+            go.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.10f);
+            var input = go.GetComponent<InputField>();
+
+            var textT = Label(go.transform, string.Empty, 16, UiTheme.TextPrimary,
+                TextAnchor.MiddleLeft, FontStyle.Normal, "Text");
+            textT.supportRichText = false;
+            var trt = textT.rectTransform;
+            Stretch(trt);
+            trt.offsetMin = new Vector2(10f, 4f);
+            trt.offsetMax = new Vector2(-10f, -4f);
+
+            var phT = Label(go.transform, placeholder, 16, UiTheme.TextMuted,
+                TextAnchor.MiddleLeft, FontStyle.Italic, "Placeholder");
+            var prt = phT.rectTransform;
+            Stretch(prt);
+            prt.offsetMin = new Vector2(10f, 4f);
+            prt.offsetMax = new Vector2(-10f, -4f);
+
+            input.textComponent = textT;
+            input.placeholder = phT;
+            input.lineType = InputField.LineType.SingleLine;
+            input.characterLimit = 24;
+            input.text = value ?? string.Empty;
+            return input;
+        }
     }
 }

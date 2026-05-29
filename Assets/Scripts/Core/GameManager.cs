@@ -34,6 +34,11 @@ namespace Fitzmark.BDRSim.Core
         /// <summary>Report from the most recently completed call (for results screens).</summary>
         public CallReport LastReport { get; set; }
 
+        /// <summary>The player's persistent BDR, loaded from disk. Null until one is created.</summary>
+        public BDRCharacter Profile { get; private set; }
+
+        public bool HasProfile => Profile != null;
+
         private void Awake()
         {
             if (_instance != null && _instance != this)
@@ -43,7 +48,32 @@ namespace Fitzmark.BDRSim.Core
             }
             _instance = this;
             DontDestroyOnLoad(gameObject);
+
+            if (Profile == null)
+                Profile = SaveSystem.Load();
         }
+
+        /// <summary>Create a new BDR, persist it, and make it the active profile.</summary>
+        public void CreateProfile(BDRCharacter character)
+        {
+            Profile = character;
+            SaveSystem.Save(character);
+        }
+
+        /// <summary>Write the current profile to disk (call after XP gains, edits, etc.).</summary>
+        public void SaveProfile()
+        {
+            if (Profile != null) SaveSystem.Save(Profile);
+        }
+
+        /// <summary>Wipe the saved profile (for a "new game" / reset).</summary>
+        public void DeleteProfile()
+        {
+            Profile = null;
+            SaveSystem.Delete();
+        }
+
+        public void GoToCharacterCreate() => SceneManager.LoadScene(SceneNames.CharacterCreate);
 
         public void StartScenario(ScenarioDefinition scenario)
         {

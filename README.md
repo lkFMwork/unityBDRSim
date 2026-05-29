@@ -6,9 +6,14 @@ full sales call — opening, discovery, the value pitch, objection handling, rat
 negotiation, and the close — against data-driven shipper personas, and get a
 graded scorecard with coaching after every call.
 
-> **Status:** playable prototype scaffold. The simulation engine, content model,
-> UI, and example scenarios are all in place. It is built to be opened in the
-> Unity Editor and extended.
+On top of the call sim sits an **RPG layer**: create your own BDR (name, look, and
+attributes), watch those attributes change how calls actually play, and earn XP,
+levels, and career rank as you build their sales career. Your character is saved
+between sessions. See [`docs/RPG_DESIGN.md`](docs/RPG_DESIGN.md).
+
+> **Status:** playable prototype. The call engine, the create-your-BDR RPG layer
+> (attributes → call effects, XP/leveling, save/load), the UI, and example
+> scenarios are all in place, with unit tests covering the core logic.
 
 ---
 
@@ -35,10 +40,14 @@ those are intentionally git-ignored.
    Tools  →  Fitzmark BDR  →  Setup Project (One-Click)
    ```
 
-   This generates the URP pipeline asset, the sample Fitzmark scenarios, the two
-   scenes (`MainMenu`, `CallFloor`), and the Build Settings — then opens the menu
-   scene.
-4. **Press Play.** Pick a scenario and run a call.
+   This generates the URP pipeline asset, the sample Fitzmark scenarios, the three
+   scenes (`MainMenu`, `CharacterCreate`, `CallFloor`), and the Build Settings —
+   then opens the menu scene.
+4. **Press Play**, create your BDR, then pick a scenario and run a call.
+
+> **Pulling an update?** Whenever scene-generating scripts change, re-run
+> *Setup Project (One-Click)* so new scenes (such as `CharacterCreate`) are built
+> and registered in Build Settings.
 
 > **Why a setup step?** Scene files, URP assets, and `ScriptableObject` content
 > are normally produced by the Editor, not hand-written. Rather than commit

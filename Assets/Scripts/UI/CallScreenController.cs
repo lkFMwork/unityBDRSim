@@ -39,7 +39,12 @@ namespace Fitzmark.BDRSim.UI
 
             BuildUi(scenario);
 
-            _session = new CallSession(scenario);
+            var profile = GameManager.Instance.Profile;
+            var modifiers = profile != null
+                ? CharacterModifiers.FromAttributes(profile.attributes)
+                : CharacterModifiers.Neutral;
+
+            _session = new CallSession(scenario, modifiers);
             _session.NarratorLine += OnNarrator;
             _session.RepLine += OnRep;
             _session.ProspectLine += OnProspect;
@@ -201,6 +206,15 @@ namespace Fitzmark.BDRSim.UI
             var report = CallEvaluator.Evaluate(_session);
             GameManager.Instance.LastReport = report;
 
+            // Award career progress and persist it.
+            ProgressionResult prog = default;
+            var profile = GameManager.Instance.Profile;
+            if (profile != null)
+            {
+                prog = ProgressionSystem.ApplyCall(profile, report, _session);
+                GameManager.Instance.SaveProfile();
+            }
+
             var overlay = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.78f), "ResultsOverlay");
             UiFactory.Stretch(overlay.rectTransform);
             UiFactory.VLayout(overlay.gameObject, pad: 40, spacing: 0, expandH: true,
@@ -219,6 +233,16 @@ namespace Fitzmark.BDRSim.UI
 
             UiFactory.Label(card.transform, report.OutcomeNote, 16, UiTheme.TextMuted,
                 TextAnchor.MiddleCenter, FontStyle.Italic);
+
+            if (profile != null)
+            {
+                string xpLine = $"+{prog.XpGained} XP";
+                if (prog.LeveledUp)
+                    xpLine += $"   —   LEVEL UP!  Now level {prog.NewLevel}  (+{prog.SkillPointsGained} SP)";
+                UiFactory.Label(card.transform, xpLine, 18,
+                    prog.LeveledUp ? UiTheme.Positive : UiTheme.AccentStrong,
+                    TextAnchor.MiddleCenter, FontStyle.Bold);
+            }
 
             UiFactory.Label(card.transform, BuildBreakdown(report), 15, UiTheme.TextPrimary);
             UiFactory.Label(card.transform, "What went well", 15, UiTheme.Positive,

@@ -22,6 +22,9 @@ namespace Fitzmark.BDRSim.Simulation
         public CallOutcome Outcome { get; private set; } = CallOutcome.InProgress;
         public bool IsOver => Stage == CallStage.Completed || Outcome == CallOutcome.HungUp;
 
+        /// <summary>Effects from the player's BDR attributes; never null.</summary>
+        public CharacterModifiers Modifiers { get; }
+
         private readonly DialogueLibrary _library;
         private List<DialogueChoice> _choices = new();
 
@@ -39,9 +42,12 @@ namespace Fitzmark.BDRSim.Simulation
         /// <summary>The call ended with the given outcome.</summary>
         public event Action<CallOutcome> CallEnded;
 
-        public CallSession(ScenarioDefinition scenario)
+        public CallSession(ScenarioDefinition scenario) : this(scenario, null) { }
+
+        public CallSession(ScenarioDefinition scenario, CharacterModifiers modifiers)
         {
             Scenario = scenario;
+            Modifiers = modifiers ?? CharacterModifiers.Neutral;
             Prospect = new ProspectState(scenario != null ? scenario.prospect : null);
             Score = new Scorecard();
             Lane = scenario != null ? scenario.PrimaryLane : null;
@@ -62,6 +68,7 @@ namespace Fitzmark.BDRSim.Simulation
             }
 
             Prospect.Stage = Scenario.gatekeeperPresent ? CallStage.Gatekeeper : CallStage.Opening;
+            Prospect.AdjustTrust(Modifiers.TrustBonus); // your Charisma warms the open
             Narrate($"— Dialing {Prospect.Profile.companyName} —");
             if (!string.IsNullOrEmpty(Scenario.briefing))
                 Narrate($"Briefing: {Scenario.briefing}");
@@ -121,9 +128,12 @@ namespace Fitzmark.BDRSim.Simulation
 
         private void ApplyEffects(DialogueChoice choice)
         {
-            Score.Add(choice.Category, choice.ScoreValue);
+            float scoreAdd = choice.ScoreValue;
+            if (scoreAdd > 0f) scoreAdd += Modifiers.BonusFor(choice.Category); // your stats reward good plays
+            Score.Add(choice.Category, scoreAdd);
+
             Prospect.AdjustTrust(choice.TrustDelta);
-            Prospect.AdjustPatience(choice.PatienceDelta);
+            Prospect.AdjustPatience(ModifiedPatience(choice.PatienceDelta));
 
             if (choice.ResolvesObjection.HasValue)
                 Prospect.ResolveActiveObjection();
@@ -131,6 +141,10 @@ namespace Fitzmark.BDRSim.Simulation
             if (!string.IsNullOrEmpty(choice.Response))
                 ProspectSays(choice.Response);
         }
+
+        // Resilience softens patience losses; gains pass through unchanged.
+        private float ModifiedPatience(float delta) =>
+            delta < 0f ? delta * Modifiers.PatienceDrainMultiplier : delta;
 
         private void ResolveRateOffer(DialogueChoice choice)
         {
@@ -146,11 +160,11 @@ namespace Fitzmark.BDRSim.Simulation
             }
 
             float sensitivity = Prospect.Profile != null ? Prospect.Profile.priceSensitivity : 0.5f;
-            NegotiationResult result =
-                NegotiationEngine.Evaluate(Lane, choice.OfferRatePerMile, Prospect.Trust, sensitivity);
+            NegotiationResult result = NegotiationEngine.Evaluate(
+                Lane, choice.OfferRatePerMile, Prospect.Trust, sensitivity, Modifiers.NegotiationSkill);
 
             Prospect.AdjustTrust(result.TrustDelta);
-            Prospect.AdjustPatience(result.PatienceDelta);
+            Prospect.AdjustPatience(ModifiedPatience(result.PatienceDelta));
             ProspectSays(result.Reason);
 
             float target = Scenario != null ? Scenario.targetWeeklyMargin : 0f;

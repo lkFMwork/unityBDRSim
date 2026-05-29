@@ -118,5 +118,17 @@ namespace Fitzmark.BDRSim.Tests
             Assert.AreEqual(CallStage.Negotiation, s.Stage);
             Assert.IsTrue(s.Prospect.HasHandled(ObjectionType.RatesTooHigh));
         }
+
+        [Test]
+        public void CharacterModifiersRaiseStartingTrust()
+        {
+            var scenario = MakeScenario(false, null, trust: 0.4f);
+            var charismatic = CharacterModifiers.FromAttributes(new BDRAttributes { charisma = 10 });
+
+            var s = new CallSession(scenario, charismatic);
+            s.Begin();
+
+            Assert.That(s.Prospect.Trust, Is.GreaterThan(0.4f));
+        }
     }
 }

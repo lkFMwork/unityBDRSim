@@ -7,6 +7,7 @@ namespace Fitzmark.BDRSim.Core
     public static class SceneNames
     {
         public const string MainMenu = "MainMenu";
+        public const string CharacterCreate = "CharacterCreate";
         public const string CallFloor = "CallFloor";
     }
 }

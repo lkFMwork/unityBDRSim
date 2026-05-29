@@ -51,12 +51,13 @@ namespace Fitzmark.BDRSim.Simulation
         private const float CounterBandAbove = 1.06f;    // within 6% of the ceiling -> counter, else reject
 
         public static NegotiationResult Evaluate(Lane lane, float offerRatePerMile,
-            float prospectTrust, float priceSensitivity)
+            float prospectTrust, float priceSensitivity, float negotiationSkill = 0f)
         {
             float current = lane.currentRatePerMile;
 
             float requiredSavings = Clamp(
-                BaseRequiredSavings + priceSensitivity * PriceSensitivityWeight - prospectTrust * TrustWeight,
+                BaseRequiredSavings + priceSensitivity * PriceSensitivityWeight
+                    - prospectTrust * TrustWeight - negotiationSkill,
                 MinRequiredSavings, MaxRequiredSavings);
 
             float ceiling = current * (1f - requiredSavings);
