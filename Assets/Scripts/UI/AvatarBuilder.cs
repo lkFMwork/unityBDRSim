@@ -29,6 +29,13 @@ namespace Fitzmark.BDRSim.UI
         private float _t;      // general clock
         private float _baseY;
 
+        // Imported-model path: if a rigged prefab exists at Resources/CharacterModel,
+        // we use it (driven by an Animator "Speed" float) instead of the procedural rig.
+        private bool _usingModel;
+        private Animator _modelAnimator;
+        private static readonly int SpeedHash = Animator.StringToHash("Speed");
+        private bool _hasSpeed;
+
         // Animated bones
         private Transform _hips, _spine, _chest, _head;
         private Transform _armLU, _armLL, _armRU, _armRL;
@@ -37,7 +44,33 @@ namespace Fitzmark.BDRSim.UI
         public void SetConfig(AvatarConfig config)
         {
             _config = config != null ? config.Clone() : new AvatarConfig();
-            Build();
+            var model = Resources.Load<GameObject>("CharacterModel"); // drop a rigged prefab here to use real art
+            if (model != null) BuildFromModel(model);
+            else Build();
+        }
+
+        /// <summary>Use an imported, rigged character prefab (e.g. Synty + Mixamo) if present.</summary>
+        private void BuildFromModel(GameObject prefab)
+        {
+            if (_root != null) Destroy(_root.gameObject);
+            var inst = Instantiate(prefab);
+            inst.name = "CharacterModel";
+            _root = inst.transform;
+            _root.SetParent(transform, false);
+            _root.localPosition = Vector3.zero;
+            _root.localRotation = Quaternion.identity;
+            _root.localScale = Vector3.one * Mathf.Clamp(_config.height, 0.9f, 1.12f);
+            _modelAnimator = _root.GetComponentInChildren<Animator>();
+            _hasSpeed = HasFloatParam(SpeedHash);
+            _usingModel = true;
+        }
+
+        private bool HasFloatParam(int hash)
+        {
+            if (_modelAnimator == null) return false;
+            foreach (var p in _modelAnimator.parameters)
+                if (p.nameHash == hash && p.type == AnimatorControllerParameterType.Float) return true;
+            return false;
         }
 
         public void Play(Anim anim) => _state = anim;
@@ -51,6 +84,12 @@ namespace Fitzmark.BDRSim.UI
 
         private void Update()
         {
+            if (_usingModel)
+            {
+                if (_modelAnimator != null && _hasSpeed)
+                    _modelAnimator.SetFloat(SpeedHash, _state == Anim.Walk ? Mathf.Max(0.4f, _walk) : 0f);
+                return;
+            }
             if (_hips == null) return;
             float dt = Time.deltaTime;
             _t += dt;

@@ -48,6 +48,7 @@ namespace Fitzmark.BDRSim.Editor
             {
                 EnsureFolders();
                 ConfigureUrp();
+                PrepareCharacterModelSlot();
                 int created = CreateSampleContent();
                 BuildScenes();
                 ConfigureBuildSettings();
@@ -70,6 +71,37 @@ namespace Fitzmark.BDRSim.Editor
             {
                 Debug.LogError("[Fitzmark BDR] Setup failed: " + e);
             }
+        }
+
+        // ---- character model slot -------------------------------------------
+
+        /// <summary>
+        /// Prepares the drop-in slot for a real imported character. The game uses the
+        /// built-in procedural rig unless a rigged prefab is present at
+        /// Assets/Resources/CharacterModel.prefab — this writes the README explaining how.
+        /// </summary>
+        [MenuItem(Menu + "Prepare Character Model Slot", false, 25)]
+        public static void PrepareCharacterModelSlot()
+        {
+            EnsureFolders();
+            string path = ResourcesFolder + "/CharacterModel_README.txt";
+            string text =
+                "DROP-IN CHARACTER MODEL\n" +
+                "=======================\n\n" +
+                "The game ships with a procedurally-rigged, animated humanoid — no imports\n" +
+                "needed. To use a real imported character instead:\n\n" +
+                "1. Import a rigged HUMANOID character (e.g. Synty / Quaternius + Mixamo\n" +
+                "   animations). Set its rig to 'Humanoid' in the model import settings.\n" +
+                "2. Give it an Animator Controller with a FLOAT parameter named 'Speed'\n" +
+                "   driving an idle<->walk blend tree (0 = idle, 1 = walking).\n" +
+                "3. Save/rename that prefab here as:  Assets/Resources/CharacterModel.prefab\n\n" +
+                "Every character in the game (creator, city/office NPCs, mentors, fighters)\n" +
+                "will then use it automatically, driven by movement speed. Delete the prefab\n" +
+                "to return to the built-in procedural rig.\n";
+            System.IO.File.WriteAllText(path, text);
+            AssetDatabase.Refresh();
+            Debug.Log("[Fitzmark BDR] Character model slot ready — drop a rigged prefab at " +
+                      ResourcesFolder + "/CharacterModel.prefab to use real art (else the procedural rig is used).");
         }
 
         // ---- folders --------------------------------------------------------
