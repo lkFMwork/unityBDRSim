@@ -1,0 +1,21 @@
+{
+    "name": "Fitzmark.BDRSim.Editor",
+    "rootNamespace": "Fitzmark.BDRSim.Editor",
+    "references": [
+        "Fitzmark.BDRSim.Data",
+        "Fitzmark.BDRSim.Simulation",
+        "Fitzmark.BDRSim.Core",
+        "Fitzmark.BDRSim.UI"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
