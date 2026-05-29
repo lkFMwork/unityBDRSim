@@ -76,11 +76,11 @@ namespace Fitzmark.BDRSim.UI
                 16, TextAnchor.MiddleCenter);
             UiFactory.Size(officeBtn.gameObject, flexW: 1f);
 
-            var cityBtn = UiFactory.Button(placesRow.transform,
-                "Drive the City — meet clients ▶",
-                () => GameManager.Instance.GoToCity(), UiTheme.AccentStrong, Color.white,
+            var mapBtn = UiFactory.Button(placesRow.transform,
+                "Travel Texas — local clients ▶",
+                () => GameManager.Instance.GoToTexas(), UiTheme.AccentStrong, Color.white,
                 16, TextAnchor.MiddleCenter);
-            UiFactory.Size(cityBtn.gameObject, flexW: 1.4f);
+            UiFactory.Size(mapBtn.gameObject, flexW: 1.4f);
 
             var recordsRow = UiFactory.Panel(root.transform, UiTheme.Background, "Records").gameObject;
             UiFactory.HLayout(recordsRow, spacing: 10, expandW: true, expandH: true);

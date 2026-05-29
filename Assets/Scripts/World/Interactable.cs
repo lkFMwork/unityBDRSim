@@ -13,7 +13,8 @@ namespace Fitzmark.BDRSim.World
 
         public Kind kind = Kind.Client;
         public string label = "Client Site";
-        public int seed = 0; // client: meeting seed; npc: mentor index
+        public int seed = 0;        // client: meeting seed; npc: mentor index
+        public string clientId = ""; // local (Texas) account id, when applicable
         public float range = 4.5f;
     }
 }

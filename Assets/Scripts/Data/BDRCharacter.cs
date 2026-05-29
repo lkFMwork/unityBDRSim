@@ -51,6 +51,9 @@ namespace Fitzmark.BDRSim.Data
         public List<string> unlockedAchievements = new List<string>();
         public List<int> rivalDeals = new List<int>();
 
+        // Local (Texas) accounts — staged meeting progress
+        public List<LocalAccountProgress> localAccounts = new List<LocalAccountProgress>();
+
         public string DisplayName => $"{firstName} {lastName}".Trim();
 
         public float WinRate => callsMade > 0 ? (float)dealsWon / callsMade : 0f;

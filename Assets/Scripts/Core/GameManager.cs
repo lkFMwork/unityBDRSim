@@ -45,8 +45,11 @@ namespace Fitzmark.BDRSim.Core
         /// <summary>Transient message shown once on the menu (e.g. a week-end summary).</summary>
         public string CareerFlash { get; set; }
 
-        /// <summary>Where meetings return to — the menu, or the city if you set it there.</summary>
+        /// <summary>Where meetings return to — the menu, or a map hub if you set it there.</summary>
         public string HubScene { get; set; } = SceneNames.MainMenu;
+
+        /// <summary>The local (Texas) account being visited, so its stage can advance on a win.</summary>
+        public string PendingClientId { get; set; } = "";
 
         private void Awake()
         {
@@ -90,6 +93,7 @@ namespace Fitzmark.BDRSim.Core
         public void StartPractice(ScenarioDefinition scenario)
         {
             IsCareerCall = false;
+            PendingClientId = ""; // remote/phone — not a local account visit
             SelectedScenario = scenario;
             LastReport = null;
             EnterMeeting(scenario);
@@ -99,6 +103,7 @@ namespace Fitzmark.BDRSim.Core
         public void StartCareerCall(ScenarioDefinition scenario)
         {
             IsCareerCall = true;
+            PendingClientId = ""; // remote/phone — not a local account visit
             SelectedScenario = scenario;
             LastReport = null;
             EnterMeeting(scenario);
@@ -171,6 +176,12 @@ namespace Fitzmark.BDRSim.Core
         {
             HubScene = SceneNames.Office;
             SceneManager.LoadScene(SceneNames.Office);
+        }
+
+        public void GoToTexas()
+        {
+            HubScene = SceneNames.Texas;
+            SceneManager.LoadScene(SceneNames.Texas);
         }
 
         public void ReplayCurrent()

@@ -46,6 +46,7 @@ namespace Fitzmark.BDRSim.Core
                     character.completedQuests ??= new System.Collections.Generic.List<string>();
                     character.unlockedAchievements ??= new System.Collections.Generic.List<string>();
                     character.rivalDeals ??= new System.Collections.Generic.List<int>();
+                    character.localAccounts ??= new System.Collections.Generic.List<LocalAccountProgress>();
                     character.acknowledgedRank ??= "";
                 }
                 return character;

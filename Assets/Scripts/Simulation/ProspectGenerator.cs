@@ -48,7 +48,7 @@ namespace Fitzmark.BDRSim.Simulation
             scenario.title = prospect.companyName;
             scenario.difficulty = diff < 0.34f ? DifficultyTier.Easy
                 : (diff < 0.67f ? DifficultyTier.Medium : DifficultyTier.Hard);
-            scenario.gatekeeperPresent = rng.NextDouble() < (0.15 + diff * 0.40);
+            scenario.gatekeeperPresent = rng.NextDouble() < 0.40; // ~40% of meetings have a gatekeeper
             scenario.prospect = prospect;
 
             var lane = prospect.lanes[0];

@@ -287,6 +287,17 @@ namespace Fitzmark.BDRSim.UI
                     ? QuestSystem.FlashFor(doneQuests)
                     : AchievementSystem.FlashFor(doneAch);
                 if (!string.IsNullOrEmpty(flash)) GameManager.Instance.CareerFlash = flash;
+
+                // Advance a local (Texas) account stage if this meeting was a visit.
+                if (!string.IsNullOrEmpty(GameManager.Instance.PendingClientId))
+                {
+                    bool won = report.Outcome == CallOutcome.WonCommitment
+                               || report.Outcome == CallOutcome.WonTrial;
+                    TerritorySystem.RecordMeeting(profile, GameManager.Instance.PendingClientId,
+                        profile.career.day, won);
+                    GameManager.Instance.PendingClientId = "";
+                }
+
                 GameManager.Instance.SaveProfile();
             }
 

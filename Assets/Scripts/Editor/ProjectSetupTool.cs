@@ -34,6 +34,7 @@ namespace Fitzmark.BDRSim.Editor
         private const string MainMenuScenePath = ScenesFolder + "/MainMenu.unity";
         private const string CharacterCreateScenePath = ScenesFolder + "/CharacterCreate.unity";
         private const string CityScenePath = ScenesFolder + "/City.unity";
+        private const string TexasScenePath = ScenesFolder + "/Texas.unity";
         private const string OfficeScenePath = ScenesFolder + "/Office.unity";
         private const string PlatformerScenePath = ScenesFolder + "/Platformer.unity";
         private const string GatekeeperDuelScenePath = ScenesFolder + "/GatekeeperDuel.unity";
@@ -261,11 +262,32 @@ namespace Fitzmark.BDRSim.Editor
             BuildMainMenuScene();
             BuildCharacterCreateScene();
             BuildCityScene();
+            BuildTexasMapScene();
             BuildOfficeScene();
             BuildPlatformerScene();
             BuildGatekeeperDuelScene();
             BuildCallFloorScene();
-            Debug.Log("[Fitzmark BDR] Built 7 scenes (MainMenu, CharacterCreate, City, Office, Platformer, GatekeeperDuel, CallFloor).");
+            Debug.Log("[Fitzmark BDR] Built 8 scenes (MainMenu, CharacterCreate, City, Texas, Office, Platformer, GatekeeperDuel, CallFloor).");
+        }
+
+        private static void BuildTexasMapScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var camGo = new GameObject("Main Camera");
+            camGo.tag = "MainCamera";
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.12f, 0.14f, 0.20f);
+            cam.farClipPlane = 600f;
+            camGo.transform.position = new Vector3(-6f, 34f, -34f);
+            camGo.AddComponent<AudioListener>();
+
+            var controller = new GameObject("TexasMap");
+            controller.AddComponent<TexasMapController>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, TexasScenePath);
         }
 
         private static void BuildPlatformerScene()
@@ -641,6 +663,7 @@ namespace Fitzmark.BDRSim.Editor
                 new EditorBuildSettingsScene(MainMenuScenePath, true),
                 new EditorBuildSettingsScene(CharacterCreateScenePath, true),
                 new EditorBuildSettingsScene(CityScenePath, true),
+                new EditorBuildSettingsScene(TexasScenePath, true),
                 new EditorBuildSettingsScene(OfficeScenePath, true),
                 new EditorBuildSettingsScene(PlatformerScenePath, true),
                 new EditorBuildSettingsScene(GatekeeperDuelScenePath, true),

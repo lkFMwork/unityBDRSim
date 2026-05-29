@@ -9,6 +9,7 @@ namespace Fitzmark.BDRSim.Core
         public const string MainMenu = "MainMenu";
         public const string CharacterCreate = "CharacterCreate";
         public const string City = "City";
+        public const string Texas = "Texas";
         public const string Office = "Office";
         public const string Platformer = "Platformer";
         public const string GatekeeperDuel = "GatekeeperDuel";
