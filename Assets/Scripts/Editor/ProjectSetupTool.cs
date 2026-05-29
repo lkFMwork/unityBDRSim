@@ -32,6 +32,7 @@ namespace Fitzmark.BDRSim.Editor
 
         private const string MainMenuScenePath = ScenesFolder + "/MainMenu.unity";
         private const string CharacterCreateScenePath = ScenesFolder + "/CharacterCreate.unity";
+        private const string GatekeeperDuelScenePath = ScenesFolder + "/GatekeeperDuel.unity";
         private const string CallFloorScenePath = ScenesFolder + "/CallFloor.unity";
 
         [MenuItem(Menu + "Setup Project (One-Click)", false, 0)]
@@ -255,8 +256,28 @@ namespace Fitzmark.BDRSim.Editor
             EnsureFolders();
             BuildMainMenuScene();
             BuildCharacterCreateScene();
+            BuildGatekeeperDuelScene();
             BuildCallFloorScene();
-            Debug.Log("[Fitzmark BDR] Built MainMenu, CharacterCreate, and CallFloor scenes.");
+            Debug.Log("[Fitzmark BDR] Built MainMenu, CharacterCreate, GatekeeperDuel, and CallFloor scenes.");
+        }
+
+        private static void BuildGatekeeperDuelScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var camGo = new GameObject("Main Camera");
+            camGo.tag = "MainCamera";
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.10f, 0.05f, 0.06f);
+            camGo.transform.position = new Vector3(0f, 1f, -10f);
+            camGo.AddComponent<AudioListener>();
+
+            var controller = new GameObject("GatekeeperDuel");
+            controller.AddComponent<Fitzmark.BDRSim.UI.GatekeeperDuelController>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, GatekeeperDuelScenePath);
         }
 
         private static void BuildCharacterCreateScene()
@@ -390,9 +411,10 @@ namespace Fitzmark.BDRSim.Editor
             {
                 new EditorBuildSettingsScene(MainMenuScenePath, true),
                 new EditorBuildSettingsScene(CharacterCreateScenePath, true),
+                new EditorBuildSettingsScene(GatekeeperDuelScenePath, true),
                 new EditorBuildSettingsScene(CallFloorScenePath, true)
             };
-            Debug.Log("[Fitzmark BDR] Build settings set to MainMenu + CharacterCreate + CallFloor.");
+            Debug.Log("[Fitzmark BDR] Build settings set to MainMenu + CharacterCreate + GatekeeperDuel + CallFloor.");
         }
 
         // ---- URP (best-effort, via reflection so there is no compile-time dep) --

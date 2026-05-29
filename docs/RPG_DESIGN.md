@@ -115,13 +115,41 @@ Style traits + tree nodes flow into calls via `CharacterModifiers.FromCharacter`
 into XP via `ProgressionSystem`, and into the daily call budget via `CareerSystem`
 — all through a single `PerkSystem.Aggregate`.
 
-## Roadmap (remaining)
+## Gatekeeper Gauntlet (verbal combat)
 
-1. **Promotions & milestones** — real gates and ceremony at rank-ups, a rival or
-   leaderboard, streaks and achievements.
-2. **Events & variety** — random call events, prospect moods, hot/cold streaks,
-   special "boss" accounts.
-3. **AAA presentation** — swap the primitive avatar for rigged characters +
-   Animator clips (the `AvatarBuilder.SetConfig` seam is ready), a richer office,
-   VO, music, and VFX.
-4. **Audio & juice** — sound effects, feedback animations, and UI polish.
+When a meeting has a gatekeeper, you fight your way past them in a turn-based
+"verbal duel" before reaching the decision-maker
+([`GatekeeperDuel`](../Assets/Scripts/Simulation/GatekeeperDuel.cs)):
+
+- You have **Composure** (HP); the gatekeeper has **Resolve** (HP).
+- Each turn the gatekeeper shows a **stance** with a readable **tell**. Pick the
+  move it's weak to for a **critical hit** on their Resolve; pick the move it
+  resists and it **backfires** onto your Composure; anything else makes some
+  progress but takes pushback.
+- The four moves key off your stats — **Charm** (Charisma), **Credibility**
+  (Product Knowledge), **Urgency** (Negotiation), **Curveball** (Prospecting) —
+  and **Resilience** raises Composure and softens hits.
+- Win → you're put through (into the call). Lose → they hang up (no meeting).
+
+The stance/weakness mappings mirror real gatekeeper tactics, so it trains while it
+entertains. Flow: a gatekeeper scenario routes through the `GatekeeperDuel` scene,
+then `CallFloor` on a win.
+
+## Roadmap — toward the full open-world title
+
+Built so far: create-a-BDR, stat-driven calls, career loop, skill trees, and the
+Gatekeeper Gauntlet. Remaining, in planned phases:
+
+1. **Explorable world** — third-person walk + drivable car, a greybox city, and
+   an interaction system to drive to client buildings and start meetings in person.
+2. **The office** — greybox interior with a bullpen, meeting room, and break room;
+   senior-rep NPCs you talk to for advice and side-quests.
+3. **Quest system** — objectives, a quest log + HUD tracker, and rewards that
+   thread the world, calls, and duels together.
+4. **Promotions & events** — rank-up ceremony, rival/leaderboard, streaks,
+   achievements, random events, and "boss" accounts.
+5. **AAA presentation** — rigged characters + Animator (the `AvatarBuilder.SetConfig`
+   seam is ready), city/office art, VO, music, and VFX.
+
+Each phase ships as a self-contained, compiling, greybox-playable slice with clean
+seams where real art and audio drop in.

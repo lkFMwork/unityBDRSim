@@ -101,16 +101,14 @@ namespace Fitzmark.BDRSim.Simulation
                 return;
             }
 
-            Prospect.Stage = Scenario.gatekeeperPresent ? CallStage.Gatekeeper : CallStage.Opening;
+            // The gatekeeper (if any) is handled by the Gatekeeper Gauntlet before
+            // this scene loads, so the call always opens with the decision-maker.
+            Prospect.Stage = CallStage.Opening;
             Prospect.AdjustTrust(Modifiers.TrustBonus); // your Charisma warms the open
-            Narrate($"— Dialing {Prospect.Profile.companyName} —");
+            Narrate($"— Connected with {Prospect.Profile.companyName} —");
             if (!string.IsNullOrEmpty(Scenario.briefing))
                 Narrate($"Briefing: {Scenario.briefing}");
-
-            if (Scenario.gatekeeperPresent)
-                ProspectSays("Front desk, how can I help you?");
-            else
-                ProspectSays($"This is {FirstName()}.");
+            ProspectSays($"This is {FirstName()}.");
 
             StateChanged?.Invoke();
             RefreshChoices();

@@ -89,7 +89,7 @@ namespace Fitzmark.BDRSim.Core
             IsCareerCall = false;
             SelectedScenario = scenario;
             LastReport = null;
-            SceneManager.LoadScene(SceneNames.CallFloor);
+            EnterMeeting(scenario);
         }
 
         /// <summary>Run a career call that counts toward the day/week.</summary>
@@ -98,7 +98,27 @@ namespace Fitzmark.BDRSim.Core
             IsCareerCall = true;
             SelectedScenario = scenario;
             LastReport = null;
-            SceneManager.LoadScene(SceneNames.CallFloor);
+            EnterMeeting(scenario);
+        }
+
+        // A gatekeeper means you must win the duel before reaching the decision-maker.
+        private void EnterMeeting(ScenarioDefinition scenario)
+        {
+            if (scenario != null && scenario.gatekeeperPresent)
+                SceneManager.LoadScene(SceneNames.GatekeeperDuel);
+            else
+                SceneManager.LoadScene(SceneNames.CallFloor);
+        }
+
+        /// <summary>Called when the player wins the gatekeeper duel — proceed to the call.</summary>
+        public void OnGatekeeperCleared() => SceneManager.LoadScene(SceneNames.CallFloor);
+
+        /// <summary>Called when the player loses the gatekeeper duel — back to the hub.</summary>
+        public void OnGatekeeperFailed()
+        {
+            if (IsCareerCall)
+                CareerFlash = "A gatekeeper shut you down — no meeting today.";
+            ReturnToMenu();
         }
 
         public void ReturnToMenu() => SceneManager.LoadScene(SceneNames.MainMenu);

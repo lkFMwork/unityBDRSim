@@ -41,12 +41,13 @@ namespace Fitzmark.BDRSim.Tests
         private static void Choose(CallSession s, int index) => s.Choose(s.CurrentChoices[index]);
 
         [Test]
-        public void GatekeeperScenarioStartsAtGatekeeperThenOpening()
+        public void CallAlwaysOpensWithTheDecisionMaker()
         {
+            // The gatekeeper is handled by the duel before the call, so the call
+            // itself always starts at Opening (even for gatekeeper scenarios).
             var withGatekeeper = new CallSession(MakeScenario(true, null));
             withGatekeeper.Begin();
-            Assert.AreEqual(CallStage.Gatekeeper, withGatekeeper.Stage);
-            Assert.AreEqual(CallStage.Opening, withGatekeeper.NextStage(CallStage.Gatekeeper));
+            Assert.AreEqual(CallStage.Opening, withGatekeeper.Stage);
 
             var noGatekeeper = new CallSession(MakeScenario(false, null));
             noGatekeeper.Begin();
