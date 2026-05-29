@@ -159,6 +159,7 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.VLayout(panel, pad: 18, spacing: 10, expandH: true, align: TextAnchor.UpperCenter);
 
             UiFactory.Label(panel.transform, "GO TO", 18, UiTheme.AccentStrong, TextAnchor.MiddleCenter, FontStyle.Bold);
+            QuickButton(panel.transform, "CRM Dashboard", OpenCrm);
             QuickButton(panel.transform, "Freight Desk", () => GameManager.Instance.GoToFreightDesk());
             QuickButton(panel.transform, "The Office", () => GameManager.Instance.GoToOffice());
             QuickButton(panel.transform, "Texas — local clients", () => GameManager.Instance.GoToTexas());
@@ -179,6 +180,12 @@ namespace Fitzmark.BDRSim.UI
         {
             var c = GameManager.Instance.Profile;
             if (c != null) new OutreachView(_canvas.transform, c, null).Open();
+        }
+
+        private void OpenCrm()
+        {
+            var c = GameManager.Instance.Profile;
+            if (c != null) new CrmView(_canvas.transform, c, null).Open();
         }
 
         private void QuickButton(Transform parent, string label, System.Action action)

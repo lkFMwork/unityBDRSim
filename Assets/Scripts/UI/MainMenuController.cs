@@ -66,6 +66,11 @@ namespace Fitzmark.BDRSim.UI
 
             BuildCharacterHeader(root.transform, gm.Profile);
             BuildCareerPanel(root.transform, gm.Profile);
+
+            var dash = UiFactory.Button(root.transform, "Open CRM Dashboard", OpenCrm,
+                UiTheme.AccentStrong, Color.white, 17, TextAnchor.MiddleCenter);
+            UiFactory.Size(dash.gameObject, prefH: 48f, flexW: 1f);
+
             BuildActionButtons(root.transform, gm.Profile);
 
             var placesRow = UiFactory.Panel(root.transform, UiTheme.Background, "Places").gameObject;
@@ -212,6 +217,11 @@ namespace Fitzmark.BDRSim.UI
             new OutreachView(_canvas.transform, GameManager.Instance.Profile, null).Open();
         }
 
+        private void OpenCrm()
+        {
+            new CrmView(_canvas.transform, GameManager.Instance.Profile, null).Open();
+        }
+
         private void MaybeShowPromotion(BDRCharacter c)
         {
             string rank = ProgressionSystem.RankTitle(c.level);
@@ -249,20 +259,7 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.Size(ok.gameObject, prefW: 240f, prefH: 54f);
         }
 
-        private void TakeCareerCall()
-        {
-            var c = GameManager.Instance.Profile;
-            if (!CareerSystem.HasCallsLeft(c)) return;
-
-            CareerSystem.ConsumeCall(c);
-            GameManager.Instance.SaveProfile();
-
-            int week = CareerSystem.Week(c.career.day);
-            int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1) + EconomySystem.LeadQuality(c), 1, 10);
-            int seed = unchecked(System.Environment.TickCount + c.callsMade * 7 + c.career.day);
-            var scenario = ProspectGenerator.Generate(difficulty, seed);
-            GameManager.Instance.StartCareerCall(scenario);
-        }
+        private void TakeCareerCall() => GameManager.Instance.TakeColdCall();
 
         private void EndDay()
         {

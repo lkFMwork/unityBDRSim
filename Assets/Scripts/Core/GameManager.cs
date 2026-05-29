@@ -106,6 +106,23 @@ namespace Fitzmark.BDRSim.Core
             EnterMeeting(scenario);
         }
 
+        /// <summary>
+        /// Spend a call from today's budget on a fresh cold prospect (scaled by level,
+        /// week, and the Lead Intelligence upgrade) and head into the meeting. Shared by
+        /// the menu and the CRM dashboard.
+        /// </summary>
+        public void TakeColdCall()
+        {
+            var c = Profile;
+            if (c == null || !CareerSystem.HasCallsLeft(c)) return;
+            CareerSystem.ConsumeCall(c);
+            SaveProfile();
+            int week = CareerSystem.Week(c.career.day);
+            int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1) + EconomySystem.LeadQuality(c), 1, 10);
+            int seed = unchecked(System.Environment.TickCount + c.callsMade * 7 + c.career.day);
+            StartCareerCall(ProspectGenerator.Generate(difficulty, seed));
+        }
+
         /// <summary>Run a career call that counts toward the day/week.</summary>
         public void StartCareerCall(ScenarioDefinition scenario)
         {
