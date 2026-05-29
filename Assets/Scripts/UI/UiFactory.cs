@@ -171,12 +171,21 @@ namespace Fitzmark.BDRSim.UI
         {
             public RectTransform Fill;
             public Text Caption;
+            public bool Mirror; // fill from the right (for a right-side fighter bar)
 
             public void Set(float value01)
             {
                 value01 = Mathf.Clamp01(value01);
-                Fill.anchorMin = new Vector2(0f, 0f);
-                Fill.anchorMax = new Vector2(value01, 1f);
+                if (Mirror)
+                {
+                    Fill.anchorMin = new Vector2(1f - value01, 0f);
+                    Fill.anchorMax = new Vector2(1f, 1f);
+                }
+                else
+                {
+                    Fill.anchorMin = new Vector2(0f, 0f);
+                    Fill.anchorMax = new Vector2(value01, 1f);
+                }
                 Fill.offsetMin = Vector2.zero;
                 Fill.offsetMax = Vector2.zero;
             }

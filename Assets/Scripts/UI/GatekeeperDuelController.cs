@@ -8,11 +8,11 @@ using UnityEngine.UI;
 namespace Fitzmark.BDRSim.UI
 {
     /// <summary>
-    /// The Gatekeeper Gauntlet screen: a turn-based verbal duel. Reads the
-    /// scenario's difficulty for the gatekeeper's strength and the player's
-    /// attributes for damage, runs a <see cref="GatekeeperDuel"/>, and routes on
-    /// win (into the call) or loss (back to the hub). Attach to a GameObject in the
-    /// GatekeeperDuel scene.
+    /// The Gatekeeper Gauntlet: a turn-based verbal duel staged like an old-school
+    /// fighting game. Two procedural fighters face off in a side-on arena; reading
+    /// the gatekeeper correctly makes your fighter land a hit (their Resolve drops),
+    /// a wrong read makes them counter (your Composure drops). The HUD frames it
+    /// with health bars on top and your four moves on the bottom.
     /// </summary>
     public class GatekeeperDuelController : MonoBehaviour
     {
@@ -21,17 +21,17 @@ namespace Fitzmark.BDRSim.UI
         private UiFactory.Meter _resolveMeter;
         private UiFactory.Meter _composureMeter;
         private Text _tellLabel;
-        private UiFactory.ScrollLog _log;
+        private Text _actionLabel;
+        private string _companyName = "Front Desk";
         private readonly List<(GatekeeperMove move, Button button)> _moveButtons = new();
+
+        private FighterRig _playerFighter;
+        private FighterRig _gkFighter;
 
         private void Start()
         {
             var scenario = GameManager.Instance.ResolveActiveScenario();
-            if (scenario == null)
-            {
-                BuildErrorUi();
-                return;
-            }
+            if (scenario == null) { BuildErrorUi(); return; }
 
             int resolve; float scale;
             switch (scenario.difficulty)
@@ -40,17 +40,18 @@ namespace Fitzmark.BDRSim.UI
                 case DifficultyTier.Medium: resolve = 75; scale = 1.0f; break;
                 default: resolve = 55; scale = 0.8f; break;
             }
-            if (scenario.isKeyAccount) resolve += 25; // key accounts guard the gate harder
+            if (scenario.isKeyAccount) resolve += 25;
 
             var attrs = GameManager.Instance.Profile != null ? GameManager.Instance.Profile.attributes : null;
-            int seed = unchecked(System.Environment.TickCount);
-            _duel = new GatekeeperDuel(resolve, attrs, scale, seed);
+            _duel = new GatekeeperDuel(resolve, attrs, scale, unchecked(System.Environment.TickCount));
 
-            BuildUi(scenario);
+            BuildArena(scenario);
+            BuildHud(scenario);
 
             _duel.Log += OnLog;
             _duel.StateChanged += UpdateHud;
             _duel.Ended += OnEnded;
+            _duel.MoveResolved += OnMoveResolved;
 
             _duel.Begin();
             UpdateHud();
@@ -62,48 +63,101 @@ namespace Fitzmark.BDRSim.UI
             _duel.Log -= OnLog;
             _duel.StateChanged -= UpdateHud;
             _duel.Ended -= OnEnded;
+            _duel.MoveResolved -= OnMoveResolved;
         }
 
-        // ---- layout ---------------------------------------------------------
+        // ---- arena (3D) -----------------------------------------------------
 
-        private void BuildUi(ScenarioDefinition scenario)
+        private void BuildArena(ScenarioDefinition scenario)
+        {
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                cam.transform.position = new Vector3(0f, 2.2f, -7f);
+                cam.transform.LookAt(new Vector3(0f, 1.1f, 0f));
+                cam.fieldOfView = 42f;
+                cam.clearFlags = CameraClearFlags.SolidColor;
+                cam.backgroundColor = new Color(0.10f, 0.06f, 0.08f);
+            }
+
+            if (Object.FindFirstObjectByType<Light>() == null)
+            {
+                var lgo = new GameObject("Arena Light");
+                var l = lgo.AddComponent<Light>();
+                l.type = LightType.Directional;
+                l.intensity = 1.1f;
+                lgo.transform.rotation = Quaternion.Euler(50f, -20f, 0f);
+            }
+
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "Arena Floor";
+            floor.transform.localScale = new Vector3(2f, 1f, 1f);
+            var fr = floor.GetComponent<Renderer>();
+            if (fr != null) fr.sharedMaterial = Mat(new Color(0.18f, 0.16f, 0.20f));
+
+            var playerCfg = GameManager.Instance.Profile != null
+                ? GameManager.Instance.Profile.avatar
+                : new AvatarConfig();
+            _playerFighter = SpawnFighter(new Vector3(-2.2f, 0f, 0f), true, playerCfg);
+            _gkFighter = SpawnFighter(new Vector3(2.2f, 0f, 0f), false, GatekeeperConfig());
+        }
+
+        private static FighterRig SpawnFighter(Vector3 pos, bool faceRight, AvatarConfig config)
+        {
+            var go = new GameObject(faceRight ? "PlayerFighter" : "GatekeeperFighter");
+            go.transform.position = pos;
+            go.transform.rotation = Quaternion.Euler(0f, faceRight ? 90f : -90f, 0f);
+
+            var avatar = go.AddComponent<AvatarBuilder>();
+            avatar.AnimateIdle = false; // FighterRig drives motion
+            avatar.SetConfig(config);
+
+            var rig = go.AddComponent<FighterRig>();
+            rig.facingRight = faceRight;
+            return rig;
+        }
+
+        private static AvatarConfig GatekeeperConfig() => new AvatarConfig
+        {
+            skinTone = 2, outfitColor = 1, accentColor = 4, hairColor = 0, build = 2, height = 1.05f
+        };
+
+        // ---- HUD ------------------------------------------------------------
+
+        private void BuildHud(ScenarioDefinition scenario)
         {
             _canvas = UiFactory.CreateScreenCanvas("DuelCanvas");
-            var root = UiFactory.Panel(_canvas.transform, UiTheme.Background, "Root");
-            UiFactory.Stretch(root.rectTransform);
-            UiFactory.VLayout(root.gameObject, pad: 16, spacing: 10, expandH: false);
+            _companyName = scenario.prospect != null ? scenario.prospect.companyName : scenario.title;
 
-            UiFactory.Label(root.transform, "GATEKEEPER GAUNTLET", 30, UiTheme.Danger,
+            var title = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.4f), "Title");
+            Anchor(title.rectTransform, new Vector2(0f, 0.93f), new Vector2(1f, 1f));
+            UiFactory.Stretch(UiFactory.Label(title.transform,
+                scenario.isKeyAccount ? "★ KEY ACCOUNT — GATEKEEPER GAUNTLET" : "GATEKEEPER GAUNTLET",
+                20, UiTheme.Danger, TextAnchor.MiddleCenter, FontStyle.Bold).rectTransform);
+
+            _composureMeter = MakeBar(new Vector2(0.03f, 0.85f), new Vector2(0.47f, 0.91f), UiTheme.Positive, false);
+            _resolveMeter = MakeBar(new Vector2(0.53f, 0.85f), new Vector2(0.97f, 0.91f), UiTheme.Danger, true);
+
+            var tellPanel = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.5f), "Tell");
+            Anchor(tellPanel.rectTransform, new Vector2(0.10f, 0.75f), new Vector2(0.90f, 0.83f));
+            _tellLabel = UiFactory.Label(tellPanel.transform, "", 16, UiTheme.TextPrimary,
                 TextAnchor.MiddleCenter, FontStyle.Bold);
-            string company = scenario.prospect != null ? scenario.prospect.companyName : scenario.title;
-            UiFactory.Label(root.transform, $"Front desk at {company} — get past them.", 15,
-                UiTheme.TextMuted, TextAnchor.MiddleCenter, FontStyle.Italic);
+            var trt = _tellLabel.rectTransform;
+            UiFactory.Stretch(trt);
+            trt.offsetMin = new Vector2(12f, 4f);
+            trt.offsetMax = new Vector2(-12f, -4f);
 
-            // Gatekeeper resolve
-            UiFactory.Label(root.transform, "Gatekeeper Resolve", 13, UiTheme.TextMuted,
-                TextAnchor.MiddleLeft, FontStyle.Bold);
-            _resolveMeter = UiFactory.MakeMeter(root.transform, "", UiTheme.Danger, 26f);
+            var bottom = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.62f), "Bottom");
+            Anchor(bottom.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.30f));
+            UiFactory.VLayout(bottom.gameObject, pad: 12, spacing: 8, expandH: false);
 
-            // The "tell" the player reads
-            var tellPanel = UiFactory.Panel(root.transform, UiTheme.Panel, "Tell").gameObject;
-            UiFactory.VLayout(tellPanel, pad: 12, spacing: 0, expandH: false);
-            UiFactory.Size(tellPanel, prefH: 70f);
-            _tellLabel = UiFactory.Label(tellPanel.transform, "", 17, UiTheme.TextPrimary,
-                TextAnchor.MiddleCenter, FontStyle.Bold);
+            _actionLabel = UiFactory.Label(bottom.transform, "", 14, UiTheme.TextMuted,
+                TextAnchor.MiddleCenter, FontStyle.Italic);
+            UiFactory.Size(_actionLabel.gameObject, prefH: 26f);
 
-            // Transcript
-            _log = UiFactory.MakeScrollLog(root.transform, UiTheme.PanelDark, UiTheme.TextPrimary);
-            UiFactory.Size(_log.Scroll.gameObject, flexH: 1f);
-
-            // Player composure
-            UiFactory.Label(root.transform, "Your Composure", 13, UiTheme.TextMuted,
-                TextAnchor.MiddleLeft, FontStyle.Bold);
-            _composureMeter = UiFactory.MakeMeter(root.transform, "", UiTheme.Positive, 26f);
-
-            // Moves
-            var moves = UiFactory.Panel(root.transform, UiTheme.Background, "Moves").gameObject;
+            var moves = UiFactory.Panel(bottom.transform, new Color(0f, 0f, 0f, 0f), "Moves").gameObject;
             UiFactory.HLayout(moves, spacing: 8, expandW: true, expandH: true);
-            UiFactory.Size(moves, prefH: 84f);
+            UiFactory.Size(moves, flexH: 1f);
 
             foreach (var move in _duel.Moves)
             {
@@ -117,9 +171,32 @@ namespace Fitzmark.BDRSim.UI
             }
         }
 
+        private UiFactory.Meter MakeBar(Vector2 anchorMin, Vector2 anchorMax, Color color, bool mirror)
+        {
+            var bg = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.55f), "Bar");
+            Anchor(bg.rectTransform, anchorMin, anchorMax);
+
+            var fill = UiFactory.Panel(bg.transform, color, "Fill");
+            var caption = UiFactory.Label(bg.transform, "", 13, Color.white, TextAnchor.MiddleCenter,
+                FontStyle.Bold, "Caption");
+            UiFactory.Stretch(caption.rectTransform);
+
+            var meter = new UiFactory.Meter { Fill = fill.rectTransform, Caption = caption, Mirror = mirror };
+            meter.Set(1f);
+            return meter;
+        }
+
+        private static void Anchor(RectTransform rt, Vector2 min, Vector2 max)
+        {
+            rt.anchorMin = min;
+            rt.anchorMax = max;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+
         // ---- events ---------------------------------------------------------
 
-        private void OnLog(string line) => _log.Append(line);
+        private void OnLog(string line) { if (_actionLabel != null) _actionLabel.text = line; }
 
         private void UpdateHud()
         {
@@ -127,11 +204,11 @@ namespace Fitzmark.BDRSim.UI
 
             _resolveMeter.Set(_duel.GatekeeperMaxResolve > 0
                 ? (float)_duel.GatekeeperResolve / _duel.GatekeeperMaxResolve : 0f);
-            _resolveMeter.Caption.text = $"{_duel.GatekeeperResolve} / {_duel.GatekeeperMaxResolve}";
+            _resolveMeter.Caption.text = $"{_companyName}   {_duel.GatekeeperResolve}/{_duel.GatekeeperMaxResolve}";
 
             _composureMeter.Set(_duel.PlayerMaxComposure > 0
                 ? (float)_duel.PlayerComposure / _duel.PlayerMaxComposure : 0f);
-            _composureMeter.Caption.text = $"{_duel.PlayerComposure} / {_duel.PlayerMaxComposure}";
+            _composureMeter.Caption.text = $"YOU   {_duel.PlayerComposure}/{_duel.PlayerMaxComposure}";
 
             _tellLabel.text = _duel.IsOver ? "" : GatekeeperCombatData.StanceTell(_duel.CurrentStance);
 
@@ -139,8 +216,27 @@ namespace Fitzmark.BDRSim.UI
                 entry.button.interactable = !_duel.IsOver;
         }
 
+        private void OnMoveResolved(MoveOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case MoveOutcome.Critical:
+                case MoveOutcome.Neutral:
+                    _playerFighter?.Attack();
+                    _gkFighter?.TakeHit();
+                    break;
+                case MoveOutcome.Backfire:
+                    _gkFighter?.Attack();
+                    _playerFighter?.TakeHit();
+                    break;
+            }
+        }
+
         private void OnEnded(bool won)
         {
+            if (won) { _gkFighter?.Defeat(); _playerFighter?.Victory(); }
+            else { _playerFighter?.Defeat(); _gkFighter?.Victory(); }
+
             var overlay = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.82f), "Result");
             UiFactory.Stretch(overlay.rectTransform);
             UiFactory.VLayout(overlay.gameObject, pad: 40, spacing: 16, expandH: true,
@@ -182,6 +278,16 @@ namespace Fitzmark.BDRSim.UI
             GatekeeperMove.Curveball => "break the script",
             _ => ""
         };
+
+        private static Material Mat(Color color)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+            var m = new Material(shader) { color = color };
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", color);
+            return m;
+        }
 
         private void BuildErrorUi()
         {

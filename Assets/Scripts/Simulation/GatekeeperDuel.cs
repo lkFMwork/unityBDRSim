@@ -6,6 +6,9 @@ namespace Fitzmark.BDRSim.Simulation
 {
     public enum DuelOutcome { InProgress, Won, Lost }
 
+    /// <summary>What a played move did — drives the fighter animations.</summary>
+    public enum MoveOutcome { Critical, Neutral, Backfire }
+
     /// <summary>
     /// The "Gatekeeper Gauntlet": a turn-based verbal duel. Each turn the gatekeeper
     /// shows a stance (with a readable tell); the player picks a move. The move that
@@ -31,6 +34,7 @@ namespace Fitzmark.BDRSim.Simulation
         public event Action<string> Log;
         public event Action StateChanged;
         public event Action<bool> Ended; // true = won
+        public event Action<MoveOutcome> MoveResolved;
 
         public GatekeeperMove[] Moves => GatekeeperCombatData.Moves;
 
@@ -71,17 +75,20 @@ namespace Fitzmark.BDRSim.Simulation
 
             Log?.Invoke($"You: {GatekeeperCombatData.MoveLine(move)}");
 
+            MoveOutcome outcome;
             if (move == weakness)
             {
                 int dmg = Mathf.Max(1, 34 + Mathf.RoundToInt(statBonus * 1.5f));
                 GatekeeperResolve -= dmg;
                 Log?.Invoke($"Critical read — that lands hard.  (-{dmg} resolve)");
+                outcome = MoveOutcome.Critical;
             }
             else if (move == resist)
             {
                 int self = SelfDamage(26);
                 PlayerComposure -= self;
                 Log?.Invoke($"Wrong read — they shut you down cold.  (-{self} composure)");
+                outcome = MoveOutcome.Backfire;
             }
             else
             {
@@ -90,7 +97,9 @@ namespace Fitzmark.BDRSim.Simulation
                 GatekeeperResolve -= dmg;
                 PlayerComposure -= self;
                 Log?.Invoke($"Some progress, but they push back.  (-{dmg} resolve, -{self} composure)");
+                outcome = MoveOutcome.Neutral;
             }
+            MoveResolved?.Invoke(outcome);
 
             if (GatekeeperResolve <= 0)
             {

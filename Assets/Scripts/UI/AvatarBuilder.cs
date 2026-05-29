@@ -19,6 +19,9 @@ namespace Fitzmark.BDRSim.UI
         [SerializeField] private float swaySpeed = 0.8f;
         [SerializeField] private float bobHeight = 0.02f;
 
+        /// <summary>When false, the default idle sway is off (e.g. fighters drive their own motion).</summary>
+        public bool AnimateIdle = true;
+
         private Transform _pivot;
         private AvatarConfig _config;
         private float _baseY;
@@ -31,7 +34,7 @@ namespace Fitzmark.BDRSim.UI
 
         private void Update()
         {
-            if (_pivot == null) return;
+            if (_pivot == null || !AnimateIdle) return;
             float t = Time.time;
             _pivot.localRotation = Quaternion.Euler(0f, Mathf.Sin(t * swaySpeed) * swayDegrees, 0f);
             var p = _pivot.localPosition;
