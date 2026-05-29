@@ -265,14 +265,17 @@ namespace Fitzmark.BDRSim.UI
             var report = CallEvaluator.Evaluate(_session);
             GameManager.Instance.LastReport = report;
 
-            // Award career progress and persist it.
+            // Award career progress, update quests, and persist it.
             ProgressionResult prog = default;
             var profile = GameManager.Instance.Profile;
             bool career = GameManager.Instance.IsCareerCall;
+            List<QuestDefinition> doneQuests = new List<QuestDefinition>();
             if (profile != null)
             {
                 prog = ProgressionSystem.ApplyCall(profile, report, _session);
                 if (career) CareerSystem.RecordResult(profile, report);
+                doneQuests = QuestSystem.Sync(profile);
+                if (doneQuests.Count > 0) GameManager.Instance.CareerFlash = QuestSystem.FlashFor(doneQuests);
                 GameManager.Instance.SaveProfile();
             }
 
@@ -304,6 +307,10 @@ namespace Fitzmark.BDRSim.UI
                     prog.LeveledUp ? UiTheme.Positive : UiTheme.AccentStrong,
                     TextAnchor.MiddleCenter, FontStyle.Bold);
             }
+
+            if (doneQuests.Count > 0)
+                UiFactory.Label(card.transform, QuestSystem.FlashFor(doneQuests), 16, UiTheme.Positive,
+                    TextAnchor.MiddleCenter, FontStyle.Bold);
 
             UiFactory.Label(card.transform, BuildBreakdown(report), 15, UiTheme.TextPrimary);
             UiFactory.Label(card.transform, "What went well", 15, UiTheme.Positive,

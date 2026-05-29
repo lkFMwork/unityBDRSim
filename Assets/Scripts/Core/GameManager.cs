@@ -114,7 +114,15 @@ namespace Fitzmark.BDRSim.Core
         }
 
         /// <summary>Called when the player wins the gatekeeper duel — proceed to the call.</summary>
-        public void OnGatekeeperCleared() => SceneManager.LoadScene(SceneNames.CallFloor);
+        public void OnGatekeeperCleared()
+        {
+            if (Profile != null)
+            {
+                Profile.gatekeepersBeaten++;
+                SaveProfile();
+            }
+            SceneManager.LoadScene(SceneNames.CallFloor);
+        }
 
         /// <summary>Called when the player loses the gatekeeper duel — back to the hub.</summary>
         public void OnGatekeeperFailed()

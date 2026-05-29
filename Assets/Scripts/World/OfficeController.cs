@@ -245,6 +245,15 @@ namespace Fitzmark.BDRSim.World
             var mentor = MentorLibrary.Get(mentorIndex);
             if (mentor == null) return;
 
+            var profile = GameManager.Instance.Profile;
+            if (profile != null)
+            {
+                profile.mentorTalks++;
+                var done = QuestSystem.Sync(profile);
+                if (done.Count > 0) GameManager.Instance.CareerFlash = QuestSystem.FlashFor(done);
+                GameManager.Instance.SaveProfile();
+            }
+
             int tip = _tipIndex.TryGetValue(mentorIndex, out var t) ? t : 0;
             _tipIndex[mentorIndex] = tip + 1;
             string advice = mentor.Tips.Length > 0 ? mentor.Tips[tip % mentor.Tips.Length] : "...";

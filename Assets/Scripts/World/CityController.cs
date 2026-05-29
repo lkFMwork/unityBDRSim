@@ -235,6 +235,9 @@ namespace Fitzmark.BDRSim.World
             }
 
             CareerSystem.ConsumeCall(c);
+            c.inPersonMeetings++;
+            var doneQuests = QuestSystem.Sync(c);
+            if (doneQuests.Count > 0) GameManager.Instance.CareerFlash = QuestSystem.FlashFor(doneQuests);
             GameManager.Instance.SaveProfile();
 
             int week = CareerSystem.Week(c.career.day);

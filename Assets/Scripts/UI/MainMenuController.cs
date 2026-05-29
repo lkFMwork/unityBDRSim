@@ -45,8 +45,12 @@ namespace Fitzmark.BDRSim.UI
             }
 
             CareerSystem.EnsureStarted(gm.Profile);
-            gm.SaveProfile();
             gm.HubScene = SceneNames.MainMenu;
+
+            var doneQuests = QuestSystem.Sync(gm.Profile);
+            if (doneQuests.Count > 0 && string.IsNullOrEmpty(gm.CareerFlash))
+                gm.CareerFlash = QuestSystem.FlashFor(doneQuests);
+            gm.SaveProfile();
 
             if (!string.IsNullOrEmpty(gm.CareerFlash))
             {
@@ -134,6 +138,15 @@ namespace Fitzmark.BDRSim.UI
             var skills = UiFactory.Button(row.transform, "Skill Tree", OpenSkillTree,
                 UiTheme.Panel, UiTheme.TextPrimary, 16, TextAnchor.MiddleCenter);
             UiFactory.Size(skills.gameObject, prefW: 130f);
+
+            var quests = UiFactory.Button(row.transform, "Quests", OpenQuestLog,
+                UiTheme.Panel, UiTheme.TextPrimary, 16, TextAnchor.MiddleCenter);
+            UiFactory.Size(quests.gameObject, prefW: 130f);
+        }
+
+        private void OpenQuestLog()
+        {
+            new QuestLogView(_canvas.transform, GameManager.Instance.Profile, null).Open();
         }
 
         private void TakeCareerCall()

@@ -43,6 +43,7 @@ namespace Fitzmark.BDRSim.Core
                     character.attributes ??= new BDRAttributes();
                     character.career ??= new CareerState();
                     character.unlockedPerks ??= new System.Collections.Generic.List<string>();
+                    character.completedQuests ??= new System.Collections.Generic.List<string>();
                 }
                 return character;
             }

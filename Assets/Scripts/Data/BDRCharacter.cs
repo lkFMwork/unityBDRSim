@@ -34,6 +34,12 @@ namespace Fitzmark.BDRSim.Data
         public int dealsWon = 0;
         public int callsHungUp = 0;
         public float totalWeeklyMarginWon = 0f;
+        public int gatekeepersBeaten = 0;
+        public int mentorTalks = 0;
+        public int inPersonMeetings = 0;
+
+        // Quests
+        public List<string> completedQuests = new List<string>();
 
         public string DisplayName => $"{firstName} {lastName}".Trim();
 
