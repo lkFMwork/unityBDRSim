@@ -9,11 +9,11 @@ namespace Fitzmark.BDRSim.World
     /// </summary>
     public class Interactable : MonoBehaviour
     {
-        public enum Kind { Client, Office }
+        public enum Kind { Client, Office, Npc, Desk, Exit }
 
         public Kind kind = Kind.Client;
         public string label = "Client Site";
-        public int seed = 0;
+        public int seed = 0; // client: meeting seed; npc: mentor index
         public float range = 4.5f;
     }
 }

@@ -34,6 +34,7 @@ namespace Fitzmark.BDRSim.Editor
         private const string MainMenuScenePath = ScenesFolder + "/MainMenu.unity";
         private const string CharacterCreateScenePath = ScenesFolder + "/CharacterCreate.unity";
         private const string CityScenePath = ScenesFolder + "/City.unity";
+        private const string OfficeScenePath = ScenesFolder + "/Office.unity";
         private const string GatekeeperDuelScenePath = ScenesFolder + "/GatekeeperDuel.unity";
         private const string CallFloorScenePath = ScenesFolder + "/CallFloor.unity";
 
@@ -259,10 +260,77 @@ namespace Fitzmark.BDRSim.Editor
             BuildMainMenuScene();
             BuildCharacterCreateScene();
             BuildCityScene();
+            BuildOfficeScene();
             BuildGatekeeperDuelScene();
             BuildCallFloorScene();
-            Debug.Log("[Fitzmark BDR] Built MainMenu, CharacterCreate, City, GatekeeperDuel, and CallFloor scenes.");
+            Debug.Log("[Fitzmark BDR] Built MainMenu, CharacterCreate, City, Office, GatekeeperDuel, and CallFloor scenes.");
         }
+
+        private static void BuildOfficeScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var camGo = new GameObject("Main Camera");
+            camGo.tag = "MainCamera";
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.08f, 0.09f, 0.12f);
+            camGo.transform.position = new Vector3(0f, 10f, -16f);
+            camGo.transform.rotation = Quaternion.Euler(45f, 0f, 0f);
+            camGo.AddComponent<AudioListener>();
+
+            var lightGo = new GameObject("Directional Light");
+            var light = lightGo.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.05f;
+            light.shadows = LightShadows.Soft;
+            lightGo.transform.rotation = Quaternion.Euler(55f, -25f, 0f);
+
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            floor.name = "Floor";
+            floor.transform.localScale = new Vector3(3f, 1f, 3f); // 30 x 30
+            SetMat(floor, CityMaterial("office_floor", new Color(0.40f, 0.38f, 0.34f)));
+
+            // Perimeter walls (fully enclosed; you leave via the Exit interactable)
+            Wall("Wall_N", new Vector3(0f, 2f, 15f), new Vector3(30f, 4f, 0.5f));
+            Wall("Wall_S", new Vector3(0f, 2f, -15f), new Vector3(30f, 4f, 0.5f));
+            Wall("Wall_E", new Vector3(15f, 2f, 0f), new Vector3(0.5f, 4f, 30f));
+            Wall("Wall_W", new Vector3(-15f, 2f, 0f), new Vector3(0.5f, 4f, 30f));
+
+            var deskMat = CityMaterial("office_desk", new Color(0.45f, 0.34f, 0.26f));
+            var tableMat = CityMaterial("office_table", new Color(0.30f, 0.30f, 0.34f));
+            var loungeMat = CityMaterial("office_lounge", new Color(0.30f, 0.42f, 0.40f));
+
+            // Bullpen
+            Building("Desk", new Vector3(7f, 0.5f, 4f), new Vector3(2.4f, 1f, 1.3f), deskMat);
+            Building("Desk", new Vector3(7f, 0.5f, 1f), new Vector3(2.4f, 1f, 1.3f), deskMat);
+            Building("Desk", new Vector3(11f, 0.5f, 4f), new Vector3(2.4f, 1f, 1.3f), deskMat);
+            var myDesk = Building("Your Desk", new Vector3(11f, 0.5f, 1f), new Vector3(2.4f, 1f, 1.3f), deskMat);
+            AddInteractable(myDesk, Interactable.Kind.Desk, "Your Desk — make a call", 0, 3.5f);
+            Marker(myDesk, "desk", new Color(0.3f, 0.8f, 0.4f));
+
+            // Meeting room
+            Building("Meeting Table", new Vector3(-7f, 0.5f, -6f), new Vector3(6f, 1f, 2.4f), tableMat);
+
+            // Break room
+            Building("Counter", new Vector3(-11f, 0.7f, 11f), new Vector3(5f, 1.4f, 1.2f), loungeMat);
+            Building("Couch", new Vector3(-5f, 0.4f, 12f), new Vector3(3.4f, 0.8f, 1.4f), loungeMat);
+
+            // Exit (south wall)
+            var exit = Building("Exit", new Vector3(0f, 1.5f, -14.6f), new Vector3(2.6f, 3f, 0.4f),
+                CityMaterial("office_exit", new Color(0.20f, 0.40f, 0.75f)));
+            AddInteractable(exit, Interactable.Kind.Exit, "Leave to the City", 0, 4.5f);
+            Marker(exit, "office", new Color(0.30f, 0.60f, 1f));
+
+            var controller = new GameObject("OfficeController");
+            controller.AddComponent<OfficeController>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, OfficeScenePath);
+        }
+
+        private static void Wall(string name, Vector3 pos, Vector3 scale) =>
+            Building(name, pos, scale, CityMaterial("office_wall", new Color(0.52f, 0.52f, 0.58f)));
 
         private static void BuildCityScene()
         {
@@ -551,10 +619,11 @@ namespace Fitzmark.BDRSim.Editor
                 new EditorBuildSettingsScene(MainMenuScenePath, true),
                 new EditorBuildSettingsScene(CharacterCreateScenePath, true),
                 new EditorBuildSettingsScene(CityScenePath, true),
+                new EditorBuildSettingsScene(OfficeScenePath, true),
                 new EditorBuildSettingsScene(GatekeeperDuelScenePath, true),
                 new EditorBuildSettingsScene(CallFloorScenePath, true)
             };
-            Debug.Log("[Fitzmark BDR] Build settings: MainMenu, CharacterCreate, City, GatekeeperDuel, CallFloor.");
+            Debug.Log("[Fitzmark BDR] Build settings: MainMenu, CharacterCreate, City, Office, GatekeeperDuel, CallFloor.");
         }
 
         // ---- URP (best-effort, via reflection so there is no compile-time dep) --

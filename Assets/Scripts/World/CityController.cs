@@ -216,7 +216,7 @@ namespace Fitzmark.BDRSim.World
         {
             if (target.kind == Interactable.Kind.Office)
             {
-                GameManager.Instance.ReturnToMenu();
+                GameManager.Instance.GoToOffice();
                 return;
             }
 

@@ -59,11 +59,20 @@ namespace Fitzmark.BDRSim.UI
             BuildCareerPanel(root.transform, gm.Profile);
             BuildActionButtons(root.transform, gm.Profile);
 
-            var cityBtn = UiFactory.Button(root.transform,
-                "Drive the City — meet clients in person ▶",
+            var placesRow = UiFactory.Panel(root.transform, UiTheme.Background, "Places").gameObject;
+            UiFactory.HLayout(placesRow, spacing: 10, expandW: true, expandH: true);
+            UiFactory.Size(placesRow, prefH: 50f);
+
+            var officeBtn = UiFactory.Button(placesRow.transform, "Go to the Office",
+                () => GameManager.Instance.GoToOffice(), UiTheme.Accent, UiTheme.TextPrimary,
+                16, TextAnchor.MiddleCenter);
+            UiFactory.Size(officeBtn.gameObject, flexW: 1f);
+
+            var cityBtn = UiFactory.Button(placesRow.transform,
+                "Drive the City — meet clients ▶",
                 () => GameManager.Instance.GoToCity(), UiTheme.AccentStrong, Color.white,
-                17, TextAnchor.MiddleCenter);
-            UiFactory.Size(cityBtn.gameObject, prefH: 50f, flexW: 1f);
+                16, TextAnchor.MiddleCenter);
+            UiFactory.Size(cityBtn.gameObject, flexW: 1.4f);
 
             UiFactory.Label(root.transform, "Practice calls (no quota)", 16, UiTheme.TextMuted,
                 TextAnchor.MiddleLeft, FontStyle.Bold, "PracticeHeader");

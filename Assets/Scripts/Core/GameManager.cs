@@ -136,6 +136,12 @@ namespace Fitzmark.BDRSim.Core
             SceneManager.LoadScene(SceneNames.City);
         }
 
+        public void GoToOffice()
+        {
+            HubScene = SceneNames.Office;
+            SceneManager.LoadScene(SceneNames.Office);
+        }
+
         public void ReplayCurrent()
         {
             LastReport = null;
