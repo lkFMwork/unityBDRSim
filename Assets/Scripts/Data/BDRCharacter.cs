@@ -63,6 +63,9 @@ namespace Fitzmark.BDRSim.Data
         // Living economy — business upgrades bought with cash
         public List<UpgradeLevel> upgrades = new List<UpgradeLevel>();
 
+        // Multi-channel outreach — the national prospecting pipeline
+        public List<OutreachLead> leads = new List<OutreachLead>();
+
         public string DisplayName => $"{firstName} {lastName}".Trim();
 
         public float WinRate => callsMade > 0 ? (float)dealsWon / callsMade : 0f;

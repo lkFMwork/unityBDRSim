@@ -50,6 +50,7 @@ namespace Fitzmark.BDRSim.Core
                     character.accounts ??= new System.Collections.Generic.List<FreightAccount>();
                     character.loads ??= new System.Collections.Generic.List<FreightLoad>();
                     character.upgrades ??= new System.Collections.Generic.List<UpgradeLevel>();
+                    character.leads ??= new System.Collections.Generic.List<OutreachLead>();
                     character.acknowledgedRank ??= "";
                 }
                 return character;

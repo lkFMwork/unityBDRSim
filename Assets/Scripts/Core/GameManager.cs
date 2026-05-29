@@ -208,6 +208,7 @@ namespace Fitzmark.BDRSim.Core
             var rng = new System.Random(unchecked(System.Environment.TickCount ^ (Profile.career.day * 92821)));
             freight = FreightSystem.OnDayAdvanced(Profile, Profile.career.day, rng);
             economy = EconomySystem.OnDayAdvanced(Profile, Profile.career.day, rng, result.WeekEnded);
+            OutreachSystem.OnDayAdvanced(Profile); // refill the day's touches, cool neglected leads
             SaveProfile();
             return result;
         }

@@ -170,6 +170,10 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.Size(take.gameObject, flexW: 1f);
             take.interactable = canCall;
 
+            var outreach = UiFactory.Button(row.transform, "Outreach", OpenOutreach,
+                UiTheme.AccentStrong, Color.white, 16, TextAnchor.MiddleCenter);
+            UiFactory.Size(outreach.gameObject, prefW: 150f);
+
             var endDay = UiFactory.Button(row.transform, "End Day ▶", EndDay,
                 UiTheme.Accent, UiTheme.TextPrimary, 16, TextAnchor.MiddleCenter);
             UiFactory.Size(endDay.gameObject, prefW: 130f);
@@ -201,6 +205,11 @@ namespace Fitzmark.BDRSim.UI
         private void OpenUpgrades()
         {
             new UpgradesView(_canvas.transform, GameManager.Instance.Profile, null).Open();
+        }
+
+        private void OpenOutreach()
+        {
+            new OutreachView(_canvas.transform, GameManager.Instance.Profile, null).Open();
         }
 
         private void MaybeShowPromotion(BDRCharacter c)

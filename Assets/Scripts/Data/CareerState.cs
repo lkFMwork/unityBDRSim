@@ -15,5 +15,8 @@ namespace Fitzmark.BDRSim.Data
         public int callsRemainingToday = 5;
         public int weekDealsWon = 0;
         public int weekDealsGoal = 3;
+
+        // Multi-channel outreach: touches you can spend warming leads each day.
+        public int outreachRemainingToday = 8;
     }
 }
