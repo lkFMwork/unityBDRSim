@@ -1,16 +1,14 @@
 {
-    "name": "Fitzmark.BDRSim.Editor",
-    "rootNamespace": "Fitzmark.BDRSim.Editor",
+    "name": "Fitzmark.BDRSim.World",
+    "rootNamespace": "Fitzmark.BDRSim.World",
     "references": [
         "Fitzmark.BDRSim.Data",
         "Fitzmark.BDRSim.Simulation",
         "Fitzmark.BDRSim.Core",
         "Fitzmark.BDRSim.UI",
-        "Fitzmark.BDRSim.World"
+        "UnityEngine.UI"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

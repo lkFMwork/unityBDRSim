@@ -45,6 +45,9 @@ namespace Fitzmark.BDRSim.Core
         /// <summary>Transient message shown once on the menu (e.g. a week-end summary).</summary>
         public string CareerFlash { get; set; }
 
+        /// <summary>Where meetings return to — the menu, or the city if you set it there.</summary>
+        public string HubScene { get; set; } = SceneNames.MainMenu;
+
         private void Awake()
         {
             if (_instance != null && _instance != this)
@@ -118,10 +121,20 @@ namespace Fitzmark.BDRSim.Core
         {
             if (IsCareerCall)
                 CareerFlash = "A gatekeeper shut you down — no meeting today.";
-            ReturnToMenu();
+            ReturnToHub();
         }
 
         public void ReturnToMenu() => SceneManager.LoadScene(SceneNames.MainMenu);
+
+        /// <summary>Return to whichever hub the current meeting was launched from.</summary>
+        public void ReturnToHub() =>
+            SceneManager.LoadScene(string.IsNullOrEmpty(HubScene) ? SceneNames.MainMenu : HubScene);
+
+        public void GoToCity()
+        {
+            HubScene = SceneNames.City;
+            SceneManager.LoadScene(SceneNames.City);
+        }
 
         public void ReplayCurrent()
         {

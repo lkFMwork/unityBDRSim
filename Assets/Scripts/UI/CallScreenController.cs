@@ -321,7 +321,7 @@ namespace Fitzmark.BDRSim.UI
 
             if (career)
             {
-                UiFactory.Button(buttons.transform, "Continue ▶", () => GameManager.Instance.ReturnToMenu(),
+                UiFactory.Button(buttons.transform, "Continue ▶", () => GameManager.Instance.ReturnToHub(),
                     UiTheme.Positive, Color.white, 18, TextAnchor.MiddleCenter);
             }
             else

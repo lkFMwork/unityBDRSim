@@ -8,6 +8,7 @@ namespace Fitzmark.BDRSim.Core
     {
         public const string MainMenu = "MainMenu";
         public const string CharacterCreate = "CharacterCreate";
+        public const string City = "City";
         public const string GatekeeperDuel = "GatekeeperDuel";
         public const string CallFloor = "CallFloor";
     }

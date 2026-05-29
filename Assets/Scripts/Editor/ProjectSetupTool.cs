@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.UI;
+using Fitzmark.BDRSim.World;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -32,6 +33,7 @@ namespace Fitzmark.BDRSim.Editor
 
         private const string MainMenuScenePath = ScenesFolder + "/MainMenu.unity";
         private const string CharacterCreateScenePath = ScenesFolder + "/CharacterCreate.unity";
+        private const string CityScenePath = ScenesFolder + "/City.unity";
         private const string GatekeeperDuelScenePath = ScenesFolder + "/GatekeeperDuel.unity";
         private const string CallFloorScenePath = ScenesFolder + "/CallFloor.unity";
 
@@ -256,9 +258,146 @@ namespace Fitzmark.BDRSim.Editor
             EnsureFolders();
             BuildMainMenuScene();
             BuildCharacterCreateScene();
+            BuildCityScene();
             BuildGatekeeperDuelScene();
             BuildCallFloorScene();
-            Debug.Log("[Fitzmark BDR] Built MainMenu, CharacterCreate, GatekeeperDuel, and CallFloor scenes.");
+            Debug.Log("[Fitzmark BDR] Built MainMenu, CharacterCreate, City, GatekeeperDuel, and CallFloor scenes.");
+        }
+
+        private static void BuildCityScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var camGo = new GameObject("Main Camera");
+            camGo.tag = "MainCamera";
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.45f, 0.60f, 0.80f); // sky
+            cam.farClipPlane = 500f;
+            camGo.transform.position = new Vector3(0f, 12f, -14f);
+            camGo.transform.rotation = Quaternion.Euler(42f, 0f, 0f);
+            camGo.AddComponent<AudioListener>();
+
+            var lightGo = new GameObject("Directional Light");
+            var light = lightGo.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.intensity = 1.1f;
+            light.shadows = LightShadows.Soft;
+            lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            ground.name = "Ground";
+            ground.transform.localScale = new Vector3(12f, 1f, 12f); // 120 x 120
+            SetMat(ground, CityMaterial("ground", new Color(0.30f, 0.34f, 0.30f)));
+
+            CreateRoad("Road_NS", new Vector3(0f, 0.02f, 0f), new Vector3(6f, 0.06f, 110f));
+            CreateRoad("Road_EW", new Vector3(0f, 0.02f, 0f), new Vector3(110f, 0.06f, 6f));
+            CreateRoad("Road_NS2", new Vector3(20f, 0.02f, 0f), new Vector3(6f, 0.06f, 110f));
+            CreateRoad("Road_EW2", new Vector3(0f, 0.02f, 20f), new Vector3(110f, 0.06f, 6f));
+
+            var office = Building("FitzMark Office", new Vector3(-8f, 2.5f, 7f),
+                new Vector3(7f, 5f, 7f), CityMaterial("office", new Color(0.20f, 0.40f, 0.75f)));
+            AddInteractable(office, Interactable.Kind.Office, "FitzMark Office", 0, 6f);
+            Marker(office, "office", new Color(0.30f, 0.60f, 1f));
+
+            AddClient("Acme Foods", 12f, 10f, 4f, 1);
+            AddClient("Vertex Components", -14f, -12f, 5f, 2);
+            AddClient("Harbor Distribution", 30f, -8f, 6f, 3);
+            AddClient("Pioneer Mills", -26f, 26f, 4f, 4);
+
+            var fillers = new (float x, float z, float h, int c)[]
+            {
+                (10f, -16f, 5f, 0), (32f, 12f, 7f, 1), (-30f, -6f, 4f, 2),
+                (-12f, 30f, 6f, 0), (34f, 28f, 8f, 1), (-34f, 18f, 5f, 2),
+                (26f, -28f, 6f, 0), (-24f, -28f, 7f, 1), (38f, 2f, 4f, 2), (-38f, -2f, 9f, 0)
+            };
+            var fillerMats = new[]
+            {
+                CityMaterial("b1", new Color(0.52f, 0.52f, 0.56f)),
+                CityMaterial("b2", new Color(0.60f, 0.55f, 0.50f)),
+                CityMaterial("b3", new Color(0.46f, 0.50f, 0.60f))
+            };
+            foreach (var f in fillers)
+                Building("Building", new Vector3(f.x, f.h * 0.5f, f.z), new Vector3(6f, f.h, 6f), fillerMats[f.c]);
+
+            var controller = new GameObject("CityController");
+            controller.AddComponent<CityController>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, CityScenePath);
+        }
+
+        private static void AddClient(string label, float x, float z, float height, int seed)
+        {
+            var b = Building(label, new Vector3(x, height * 0.5f, z), new Vector3(6f, height, 6f),
+                CityMaterial("client", new Color(0.55f, 0.45f, 0.35f)));
+            AddInteractable(b, Interactable.Kind.Client, label, seed, 5f);
+            Marker(b, "client", new Color(1f, 0.82f, 0.20f));
+        }
+
+        private static GameObject Building(string name, Vector3 pos, Vector3 scale, Material mat)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            go.transform.position = pos;
+            go.transform.localScale = scale;
+            SetMat(go, mat);
+            return go;
+        }
+
+        private static void CreateRoad(string name, Vector3 pos, Vector3 scale)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            go.transform.position = pos;
+            go.transform.localScale = scale;
+            SetMat(go, CityMaterial("road", new Color(0.12f, 0.12f, 0.13f)));
+            var col = go.GetComponent<Collider>();
+            if (col != null) UnityEngine.Object.DestroyImmediate(col); // don't block movement
+        }
+
+        private static void Marker(GameObject building, string key, Color color)
+        {
+            float top = building.transform.position.y + building.transform.localScale.y * 0.5f;
+            var m = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            m.name = building.name + "_Marker";
+            m.transform.position = new Vector3(building.transform.position.x, top + 1.4f, building.transform.position.z);
+            m.transform.localScale = new Vector3(0.7f, 2.8f, 0.7f);
+            var col = m.GetComponent<Collider>();
+            if (col != null) UnityEngine.Object.DestroyImmediate(col);
+            SetMat(m, CityMaterial("marker_" + key, color));
+        }
+
+        private static void AddInteractable(GameObject go, Interactable.Kind kind, string label, int seed, float range)
+        {
+            var it = go.AddComponent<Interactable>();
+            it.kind = kind;
+            it.label = label;
+            it.seed = seed;
+            it.range = range;
+        }
+
+        private static void SetMat(GameObject go, Material mat)
+        {
+            if (mat == null) return;
+            var r = go.GetComponent<Renderer>();
+            if (r != null) r.sharedMaterial = mat;
+        }
+
+        private static Material CityMaterial(string key, Color color)
+        {
+            string path = SettingsFolder + $"/City_{key}.mat";
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing != null) { existing.color = color; return existing; }
+
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit");
+            if (shader == null) shader = Shader.Find("Standard");
+            if (shader == null) return null;
+
+            var mat = new Material(shader) { color = color };
+            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
+            AssetDatabase.CreateAsset(mat, path);
+            return mat;
         }
 
         private static void BuildGatekeeperDuelScene()
@@ -411,10 +550,11 @@ namespace Fitzmark.BDRSim.Editor
             {
                 new EditorBuildSettingsScene(MainMenuScenePath, true),
                 new EditorBuildSettingsScene(CharacterCreateScenePath, true),
+                new EditorBuildSettingsScene(CityScenePath, true),
                 new EditorBuildSettingsScene(GatekeeperDuelScenePath, true),
                 new EditorBuildSettingsScene(CallFloorScenePath, true)
             };
-            Debug.Log("[Fitzmark BDR] Build settings set to MainMenu + CharacterCreate + GatekeeperDuel + CallFloor.");
+            Debug.Log("[Fitzmark BDR] Build settings: MainMenu, CharacterCreate, City, GatekeeperDuel, CallFloor.");
         }
 
         // ---- URP (best-effort, via reflection so there is no compile-time dep) --

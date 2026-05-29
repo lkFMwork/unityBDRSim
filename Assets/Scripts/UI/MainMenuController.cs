@@ -46,6 +46,7 @@ namespace Fitzmark.BDRSim.UI
 
             CareerSystem.EnsureStarted(gm.Profile);
             gm.SaveProfile();
+            gm.HubScene = SceneNames.MainMenu;
 
             if (!string.IsNullOrEmpty(gm.CareerFlash))
             {
@@ -57,6 +58,12 @@ namespace Fitzmark.BDRSim.UI
             BuildCharacterHeader(root.transform, gm.Profile);
             BuildCareerPanel(root.transform, gm.Profile);
             BuildActionButtons(root.transform, gm.Profile);
+
+            var cityBtn = UiFactory.Button(root.transform,
+                "Drive the City — meet clients in person ▶",
+                () => GameManager.Instance.GoToCity(), UiTheme.AccentStrong, Color.white,
+                17, TextAnchor.MiddleCenter);
+            UiFactory.Size(cityBtn.gameObject, prefH: 50f, flexW: 1f);
 
             UiFactory.Label(root.transform, "Practice calls (no quota)", 16, UiTheme.TextMuted,
                 TextAnchor.MiddleLeft, FontStyle.Bold, "PracticeHeader");
