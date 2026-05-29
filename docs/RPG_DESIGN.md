@@ -209,22 +209,41 @@ margin, and level. Open the **Quests** log from the menu to see live progress.
   Gauntlet, a "★ KEY ACCOUNT" banner, and **1.5× XP**. Landing one earns the
   *Whale Hunter* achievement.
 
-## The systems are complete — what's left is the art pass
+## Two channels: local (travel) vs. the national book (remote)
 
-Built so far (all greybox-playable and unit-tested where it's logic):
-create-a-BDR, stat-driven calls, the career loop, skill/ability trees, the
-Gatekeeper Gauntlet, the explorable city, the office with mentors, quests,
-promotions, achievements, streaks, a rival leaderboard, and call variety with key
-accounts.
+The game splits into how you win business:
 
-The remaining work is **AAA presentation** — and that's a content/art effort, not
-a systems one:
+- **Local accounts (Texas)** — visited *in person*. To travel to a local client you
+  beat a side-scrolling platformer "commute" level (run/jump/stomp; see
+  [`PlatformerController`](../Assets/Scripts/World/PlatformerController.cs) +
+  [`PlatformerLevelGenerator`](../Assets/Scripts/World/PlatformerLevelGenerator.cs)).
+  Reach the goal → the meeting happens; fall/lose your lives → you didn't make it.
+  Local clients live on a Texas overworld map (next phase); any client at/under your
+  level is reachable.
+- **The national book (entire USA)** — built *remotely* with no platforming:
+  prospecting, cold calls, email campaigns, and video meetings. These are the
+  desk/phone activities (the existing call loop + future email/video channels).
 
-- Rigged character models + an Animator (walk/idle/talk), swapped in behind the
-  `AvatarBuilder.SetConfig` seam.
-- City and office environment art, props, and lighting.
-- Real vehicle physics + collisions for the car.
-- VO, music, SFX, and UI/VFX polish (the code-built uGUI is a placeholder for a
-  TextMeshPro / UI Toolkit pass).
+**The sales cycle takes time.** A local account advances through meeting *stages*
+(first meeting → follow-up → … → close); after each stage there's a mandatory
+**in-game time gap** (days/weeks) before the next, harder stage opens — modeling
+real B2B pacing. (Implemented with the next phase's territory/cooldown system.)
 
-Every system above exposes clean seams for that art and audio to drop into.
+## Roadmap
+
+Built (greybox-playable, logic unit-tested): create-a-BDR, stat-driven calls,
+career loop, skill/ability trees, the Gatekeeper Gauntlet (fighting-game style),
+explorable city, office + mentors, quests, promotions, achievements, streaks,
+rival leaderboard, call variety + key accounts, and the **platformer commute** for
+in-person visits. Remaining:
+
+1. **Texas overworld map** — replace the city with a Super Mario World-style Texas
+   map of local client nodes; level-gating, and the stage cooldown / time-gap /
+   harder-tier-on-revisit progression for advancing accounts toward a close.
+2. **Remote channels** — email campaigns + video meetings to build the national
+   (USA) book without travel.
+3. **AAA presentation** — rigged models/Animator (behind `AvatarBuilder.SetConfig`),
+   environment art, real vehicle physics, audio (procedural now, recorded later),
+   VFX, and a TextMeshPro/UI Toolkit pass.
+
+Every system exposes clean seams for that art and audio to drop into.

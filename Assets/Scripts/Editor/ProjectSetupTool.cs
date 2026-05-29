@@ -35,6 +35,7 @@ namespace Fitzmark.BDRSim.Editor
         private const string CharacterCreateScenePath = ScenesFolder + "/CharacterCreate.unity";
         private const string CityScenePath = ScenesFolder + "/City.unity";
         private const string OfficeScenePath = ScenesFolder + "/Office.unity";
+        private const string PlatformerScenePath = ScenesFolder + "/Platformer.unity";
         private const string GatekeeperDuelScenePath = ScenesFolder + "/GatekeeperDuel.unity";
         private const string CallFloorScenePath = ScenesFolder + "/CallFloor.unity";
 
@@ -261,9 +262,30 @@ namespace Fitzmark.BDRSim.Editor
             BuildCharacterCreateScene();
             BuildCityScene();
             BuildOfficeScene();
+            BuildPlatformerScene();
             BuildGatekeeperDuelScene();
             BuildCallFloorScene();
-            Debug.Log("[Fitzmark BDR] Built MainMenu, CharacterCreate, City, Office, GatekeeperDuel, and CallFloor scenes.");
+            Debug.Log("[Fitzmark BDR] Built 7 scenes (MainMenu, CharacterCreate, City, Office, Platformer, GatekeeperDuel, CallFloor).");
+        }
+
+        private static void BuildPlatformerScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            var camGo = new GameObject("Main Camera");
+            camGo.tag = "MainCamera";
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.45f, 0.62f, 0.85f);
+            cam.farClipPlane = 500f;
+            camGo.transform.position = new Vector3(0f, 3.2f, -12f);
+            camGo.AddComponent<AudioListener>();
+
+            var controller = new GameObject("PlatformerLevel");
+            controller.AddComponent<PlatformerSceneController>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, PlatformerScenePath);
         }
 
         private static void BuildOfficeScene()
@@ -620,6 +642,7 @@ namespace Fitzmark.BDRSim.Editor
                 new EditorBuildSettingsScene(CharacterCreateScenePath, true),
                 new EditorBuildSettingsScene(CityScenePath, true),
                 new EditorBuildSettingsScene(OfficeScenePath, true),
+                new EditorBuildSettingsScene(PlatformerScenePath, true),
                 new EditorBuildSettingsScene(GatekeeperDuelScenePath, true),
                 new EditorBuildSettingsScene(CallFloorScenePath, true)
             };

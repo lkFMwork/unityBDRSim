@@ -247,7 +247,7 @@ namespace Fitzmark.BDRSim.World
             var scenario = ProspectGenerator.Generate(difficulty, seed);
 
             GameManager.Instance.HubScene = SceneNames.City;
-            GameManager.Instance.StartCareerCall(scenario);
+            GameManager.Instance.StartTravel(scenario, true); // beat the commute level, then meet in person
         }
 
         private void Flash(string message)

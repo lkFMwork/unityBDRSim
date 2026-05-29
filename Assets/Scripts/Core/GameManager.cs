@@ -133,6 +133,28 @@ namespace Fitzmark.BDRSim.Core
             ReturnToHub();
         }
 
+        // ---- in-person travel (the platformer "commute" to a local client) ----
+
+        /// <summary>Play a platformer level to reach a local client in person.</summary>
+        public void StartTravel(ScenarioDefinition scenario, bool career)
+        {
+            IsCareerCall = career;
+            SelectedScenario = scenario;
+            LastReport = null;
+            SceneManager.LoadScene(SceneNames.Platformer);
+        }
+
+        /// <summary>Reached the client — proceed into the meeting.</summary>
+        public void OnTravelComplete() => EnterMeeting(SelectedScenario);
+
+        /// <summary>Didn't make it — back to the hub.</summary>
+        public void OnTravelFailed()
+        {
+            if (IsCareerCall)
+                CareerFlash = "You didn't make it to the client — no meeting today.";
+            ReturnToHub();
+        }
+
         public void ReturnToMenu() => SceneManager.LoadScene(SceneNames.MainMenu);
 
         /// <summary>Return to whichever hub the current meeting was launched from.</summary>
