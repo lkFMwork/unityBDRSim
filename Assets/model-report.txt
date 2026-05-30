@@ -1,0 +1,195 @@
+=== FITZMARK MODEL REPORT ===
+name: Ch33_nonPBR
+asset: Assets/Resources/Models/people/Ch33_nonPBR.fbx
+import: scaleFactor=1, rig=Human, materials=ImportViaMaterialDescription, optimizeMesh=True
+world bounds size: (1.79, 1.94, 0.62)  (~1.94 tall, 1.79 wide as imported)
+animation clips: 1
+  - mixamo.com  (0.03s, once)
+skinned meshes: 9
+  mesh 'Ch33_Belt': 2328 tris, 5 bones
+    bone: mixamorig7:Hips
+    bone: mixamorig7:Spine
+    bone: mixamorig7:Spine1
+    bone: mixamorig7:LeftUpLeg
+    bone: mixamorig7:RightUpLeg
+  mesh 'Ch33_Body': 18128 tris, 58 bones
+    bone: mixamorig7:Spine2
+    bone: mixamorig7:Neck
+    bone: mixamorig7:Head
+    bone: mixamorig7:HeadTop_End
+    bone: mixamorig7:LeftShoulder
+    bone: mixamorig7:LeftForeArm
+    bone: mixamorig7:LeftHand
+    bone: mixamorig7:LeftHandThumb1
+    bone: mixamorig7:LeftHandThumb2
+    bone: mixamorig7:LeftHandThumb3
+    bone: mixamorig7:LeftHandThumb4
+    bone: mixamorig7:LeftHandIndex1
+    bone: mixamorig7:LeftHandIndex2
+    bone: mixamorig7:LeftHandIndex3
+    bone: mixamorig7:LeftHandIndex4
+    bone: mixamorig7:LeftHandMiddle1
+    bone: mixamorig7:LeftHandMiddle2
+    bone: mixamorig7:LeftHandMiddle3
+    bone: mixamorig7:LeftHandMiddle4
+    bone: mixamorig7:LeftHandRing1
+    bone: mixamorig7:LeftHandRing2
+    bone: mixamorig7:LeftHandRing3
+    bone: mixamorig7:LeftHandRing4
+    bone: mixamorig7:LeftHandPinky1
+    bone: mixamorig7:LeftHandPinky2
+    bone: mixamorig7:LeftHandPinky3
+    bone: mixamorig7:LeftHandPinky4
+    bone: mixamorig7:RightShoulder
+    bone: mixamorig7:RightForeArm
+    bone: mixamorig7:RightHand
+    bone: mixamorig7:RightHandThumb1
+    bone: mixamorig7:RightHandThumb2
+    bone: mixamorig7:RightHandThumb3
+    bone: mixamorig7:RightHandThumb4
+    bone: mixamorig7:RightHandIndex1
+    bone: mixamorig7:RightHandIndex2
+    bone: mixamorig7:RightHandIndex3
+    bone: mixamorig7:RightHandIndex4
+    bone: mixamorig7:RightHandMiddle1
+    bone: mixamorig7:RightHandMiddle2
+    bone: mixamorig7:RightHandMiddle3
+    bone: mixamorig7:RightHandMiddle4
+    bone: mixamorig7:RightHandRing1
+    bone: mixamorig7:RightHandRing2
+    bone: mixamorig7:RightHandRing3
+    bone: mixamorig7:RightHandRing4
+    bone: mixamorig7:RightHandPinky1
+    bone: mixamorig7:RightHandPinky2
+    bone: mixamorig7:RightHandPinky3
+    bone: mixamorig7:RightHandPinky4
+    bone: mixamorig7:LeftLeg
+    bone: mixamorig7:LeftFoot
+    bone: mixamorig7:LeftToeBase
+    bone: mixamorig7:LeftToe_End
+    bone: mixamorig7:RightLeg
+    bone: mixamorig7:RightFoot
+    bone: mixamorig7:RightToeBase
+    bone: mixamorig7:RightToe_End
+  mesh 'Ch33_Eyelashes': 832 tris, 6 bones
+    bone: mixamorig7:Spine2
+    bone: mixamorig7:Neck
+    bone: mixamorig7:Head
+    bone: mixamorig7:HeadTop_End
+    bone: mixamorig7:LeftShoulder
+    bone: mixamorig7:RightShoulder
+  mesh 'Ch33_Hair': 9774 tris, 6 bones
+    bone: mixamorig7:Spine2
+    bone: mixamorig7:Neck
+    bone: mixamorig7:Head
+    bone: mixamorig7:HeadTop_End
+    bone: mixamorig7:LeftShoulder
+    bone: mixamorig7:RightShoulder
+  mesh 'Ch33_Pants': 7100 tris, 13 bones
+    bone: mixamorig7:Hips
+    bone: mixamorig7:Spine
+    bone: mixamorig7:Spine1
+    bone: mixamorig7:LeftUpLeg
+    bone: mixamorig7:LeftLeg
+    bone: mixamorig7:LeftFoot
+    bone: mixamorig7:LeftToeBase
+    bone: mixamorig7:LeftToe_End
+    bone: mixamorig7:RightUpLeg
+    bone: mixamorig7:RightLeg
+    bone: mixamorig7:RightFoot
+    bone: mixamorig7:RightToeBase
+    bone: mixamorig7:RightToe_End
+  mesh 'Ch33_Shirt': 742 tris, 12 bones
+    bone: mixamorig7:Hips
+    bone: mixamorig7:Spine
+    bone: mixamorig7:Spine1
+    bone: mixamorig7:Spine2
+    bone: mixamorig7:Neck
+    bone: mixamorig7:Head
+    bone: mixamorig7:LeftShoulder
+    bone: mixamorig7:LeftArm
+    bone: mixamorig7:RightShoulder
+    bone: mixamorig7:RightArm
+    bone: mixamorig7:LeftUpLeg
+    bone: mixamorig7:RightUpLeg
+  mesh 'Ch33_Shoes': 4892 tris, 8 bones
+    bone: mixamorig7:LeftLeg
+    bone: mixamorig7:LeftFoot
+    bone: mixamorig7:LeftToeBase
+    bone: mixamorig7:LeftToe_End
+    bone: mixamorig7:RightLeg
+    bone: mixamorig7:RightFoot
+    bone: mixamorig7:RightToeBase
+    bone: mixamorig7:RightToe_End
+  mesh 'Ch33_Suit': 9970 tris, 28 bones
+    bone: mixamorig7:Hips
+    bone: mixamorig7:Spine
+    bone: mixamorig7:Spine1
+    bone: mixamorig7:Spine2
+    bone: mixamorig7:Neck
+    bone: mixamorig7:Head
+    bone: mixamorig7:LeftShoulder
+    bone: mixamorig7:LeftArm
+    bone: mixamorig7:LeftForeArm
+    bone: mixamorig7:LeftHand
+    bone: mixamorig7:LeftHandThumb1
+    bone: mixamorig7:LeftHandThumb2
+    bone: mixamorig7:LeftHandThumb3
+    bone: mixamorig7:LeftHandIndex1
+    bone: mixamorig7:LeftHandMiddle1
+    bone: mixamorig7:LeftHandPinky1
+    bone: mixamorig7:RightShoulder
+    bone: mixamorig7:RightArm
+    bone: mixamorig7:RightForeArm
+    bone: mixamorig7:RightHand
+    bone: mixamorig7:RightHandThumb1
+    bone: mixamorig7:RightHandThumb2
+    bone: mixamorig7:RightHandThumb3
+    bone: mixamorig7:RightHandIndex1
+    bone: mixamorig7:RightHandMiddle1
+    bone: mixamorig7:RightHandPinky1
+    bone: mixamorig7:LeftUpLeg
+    bone: mixamorig7:RightUpLeg
+  mesh 'Ch33_Tie': 1172 tris, 8 bones
+    bone: mixamorig7:Hips
+    bone: mixamorig7:Spine
+    bone: mixamorig7:Spine1
+    bone: mixamorig7:Spine2
+    bone: mixamorig7:Neck
+    bone: mixamorig7:Head
+    bone: mixamorig7:LeftShoulder
+    bone: mixamorig7:RightShoulder
+materials: 2
+  - Ch33_body  (shader: Universal Render Pipeline/Lit)
+  - Ch33_hair  (shader: Universal Render Pipeline/Lit)
+hierarchy:
+  Ch33_nonPBR  [Animator]
+    Ch33_Belt  [SkinnedMeshRenderer]
+    Ch33_Body  [SkinnedMeshRenderer]
+    Ch33_Eyelashes  [SkinnedMeshRenderer]
+    Ch33_Hair  [SkinnedMeshRenderer]
+    Ch33_Pants  [SkinnedMeshRenderer]
+    Ch33_Shirt  [SkinnedMeshRenderer]
+    Ch33_Shoes  [SkinnedMeshRenderer]
+    Ch33_Suit  [SkinnedMeshRenderer]
+    Ch33_Tie  [SkinnedMeshRenderer]
+    mixamorig7:Hips
+      mixamorig7:LeftUpLeg
+        mixamorig7:LeftLeg
+          mixamorig7:LeftFoot
+            mixamorig7:LeftToeBase
+              mixamorig7:LeftToe_End
+      mixamorig7:RightUpLeg
+        mixamorig7:RightLeg
+          mixamorig7:RightFoot
+            mixamorig7:RightToeBase
+              mixamorig7:RightToe_End
+      mixamorig7:Spine
+        mixamorig7:Spine1
+          mixamorig7:Spine2
+            mixamorig7:LeftShoulder
+              mixamorig7:LeftArm
+            mixamorig7:Neck
+              mixamorig7:Head
+            mixamorig7:RightShoulder
+              mixamorig7:RightArm

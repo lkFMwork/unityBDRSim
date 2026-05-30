@@ -1,0 +1,14 @@
+=== FITZMARK MODEL REPORT ===
+name: desk
+asset: Assets/Resources/Models/kenney_furniture-kit/Models/FBX format/desk.fbx
+import: scaleFactor=1, rig=Generic, materials=ImportViaMaterialDescription, optimizeMesh=True
+world bounds size: (7.34, 3.84, 3.92)  (~3.84 tall, 7.34 wide as imported)
+animation clips: 0
+skinned meshes: 0
+static meshes: 2  (198 tris total)
+materials: 2
+  - wood  (shader: Universal Render Pipeline/Lit)
+  - metal  (shader: Universal Render Pipeline/Lit)
+hierarchy:
+  desk  [MeshFilter, MeshRenderer]
+    drawer  [MeshFilter, MeshRenderer]

@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e725ca0b3389448458558e3064d9b3c2, type: 3}
+  m_Name: Scenario_MidwestManufacturer
+  m_EditorClassIdentifier: Fitzmark.BDRSim.Data::Fitzmark.BDRSim.Data.ScenarioDefinition
+  scenarioId: cold-midwest-mfg
+  title: 'Cold Call: Midwest Manufacturer'
+  difficulty: 0
+  briefing: Hoosier Components ships parts to the Detroit auto corridor and has been
+    let down on capacity. Build rapport, run discovery, and earn a load.
+  prospect: {fileID: 11400000, guid: 30994e0ce87eb4e4f8e5c0e2f900008a, type: 2}
+  gatekeeperPresent: 0
+  isKeyAccount: 0
+  targetWeeklyMargin: 500

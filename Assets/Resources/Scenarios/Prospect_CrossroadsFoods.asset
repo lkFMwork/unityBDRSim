@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36e58213e36881348a3ebafb3d9dc435, type: 3}
+  m_Name: Prospect_CrossroadsFoods
+  m_EditorClassIdentifier: Fitzmark.BDRSim.Data::Fitzmark.BDRSim.Data.ProspectProfile
+  contactName: Dana Cole
+  title: Director of Logistics
+  companyName: Crossroads Foods
+  industry: Food & Beverage Distribution
+  location: Indianapolis, IN
+  personality: 2
+  startingPatience: 0.6
+  startingTrust: 0.3
+  priceSensitivity: 0.55
+  incumbentProvider: two core carriers
+  painPoints:
+  - Reefer capacity falls apart every summer
+  - Got burned on a temperature claim last year
+  likelyObjections: 0600000001000000
+  lanes:
+  - label: Indianapolis, IN -> Atlanta, GA
+    origin: Indianapolis, IN
+    destination: Atlanta, GA
+    miles: 530
+    mode: 5
+    equipment: 1
+    loadsPerWeek: 5
+    currentRatePerMile: 3.1
+    fitzmarkCostPerMile: 2.65

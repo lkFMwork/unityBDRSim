@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36e58213e36881348a3ebafb3d9dc435, type: 3}
+  m_Name: Prospect_HoosierComponents
+  m_EditorClassIdentifier: Fitzmark.BDRSim.Data::Fitzmark.BDRSim.Data.ProspectProfile
+  contactName: Pat Morgan
+  title: Logistics Manager
+  companyName: Hoosier Components Co.
+  industry: Industrial / Manufacturing
+  location: Indianapolis, IN
+  personality: 1
+  startingPatience: 0.75
+  startingTrust: 0.4
+  priceSensitivity: 0.4
+  incumbentProvider: a regional broker
+  painPoints:
+  - Carriers no-show during peak season
+  - Spotty communication once freight is picked up
+  likelyObjections: 00000000
+  lanes:
+  - label: Indianapolis, IN -> Detroit, MI
+    origin: Indianapolis, IN
+    destination: Detroit, MI
+    miles: 290
+    mode: 0
+    equipment: 0
+    loadsPerWeek: 8
+    currentRatePerMile: 2.55
+    fitzmarkCostPerMile: 2.15
