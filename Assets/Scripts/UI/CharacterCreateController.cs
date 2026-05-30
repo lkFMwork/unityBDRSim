@@ -255,7 +255,7 @@ namespace Fitzmark.BDRSim.UI
             _draft.career = new CareerState();
 
             GameManager.Instance.CreateProfile(_draft);
-            GameManager.Instance.ReturnToMenu();
+            GameManager.Instance.GoToTexas(); // drop straight onto the overworld hub
         }
 
         // ---- derived --------------------------------------------------------
