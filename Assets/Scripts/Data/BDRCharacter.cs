@@ -78,7 +78,8 @@ namespace Fitzmark.BDRSim.Data
             return new BDRCharacter
             {
                 styleId = SalesStyleLibrary.All[0].Id,
-                attributes = PointBuy.NewBaseline()
+                attributes = PointBuy.NewBaseline(),
+                cash = 600f // a small starting cushion so week one isn't a death spiral
             };
         }
     }

@@ -40,7 +40,7 @@ namespace Fitzmark.BDRSim.Simulation
     public static class EconomySystem
     {
         public const float PoachBaseChance = 0.05f;
-        public const float BaseWeeklyOverhead = 350f;
+        public const float BaseWeeklyOverhead = 250f; // gentler early game; scales up with the book
 
         public static void EnsureStarted(BDRCharacter c)
         {
@@ -164,7 +164,9 @@ namespace Fitzmark.BDRSim.Simulation
             }
             if (target == null) return (0, null);
 
-            float chance = PoachBaseChance * (1.3f - Mathf.Clamp01(target.health)) * resist;
+            // Good service protects you: well-kept accounts (health >= ~0.8) are safe;
+            // only genuinely neglected accounts are exposed to rivals.
+            float chance = PoachBaseChance * Mathf.Max(0f, 0.8f - Mathf.Clamp01(target.health)) * resist;
             if (rng.NextDouble() < chance)
             {
                 target.active = false;
