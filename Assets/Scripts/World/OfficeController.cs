@@ -11,18 +11,25 @@ using AvatarBuilder = Fitzmark.BDRSim.UI.AvatarBuilder; // disambiguate from Uni
 namespace Fitzmark.BDRSim.World
 {
     /// <summary>
-    /// The FitzMark office — the working hub, built at runtime as a set of walkable rooms,
-    /// each one an activity: Reception (leave to the map), the Bullpen (prospect / cold
-    /// call), Outreach, the Freight Desk, Operations/CRM, Training (skill tree), Supply &amp;
-    /// IT (upgrades + market), records boards, and a break room. Furniture comes from
-    /// <see cref="ModelLibrary"/>, so labeled stand-ins today become real models the moment
-    /// you drop them into Resources/Models. Walk with WASD, interact with E.
+    /// The FitzMark office — a first-person, walkable building of enclosed rooms off a
+    /// central corridor, each room an activity: Reception (leave to the map, trophies,
+    /// rankings, quests), Bullpen (cold call), Operations (CRM), Training (skill tree),
+    /// Outreach, Supply &amp; IT (upgrades + market), Freight Desk, and a break room. Rooms,
+    /// doorways and lighting are built at runtime via <see cref="RoomBuilder"/>; furniture
+    /// and people are real models via <see cref="ModelLibrary"/> / <see cref="OfficeWorker"/>.
+    /// Move with WASD + mouse, interact with E, toggle first/third person with V.
     /// </summary>
     public class OfficeController : MonoBehaviour
     {
+        private const float H = 3.2f;                          // room height
+        private static readonly Color WallCol = new(0.82f, 0.83f, 0.87f);
+        private static readonly Color CeilCol = new(0.90f, 0.91f, 0.94f);
+        private static readonly Color LightCol = new(1f, 0.96f, 0.86f);
+        private static readonly Color DeskBrown = new(0.50f, 0.36f, 0.24f);
+        private static readonly Color Dark = new(0.18f, 0.20f, 0.24f);
+
         private GameObject _player;
-        private PlayerController _playerCtrl;
-        private FollowCamera _cam;
+        private FirstPersonController _fp;
         private Transform _root;
         private Canvas _hud;
         private Interactable[] _interactables;
@@ -34,6 +41,7 @@ namespace Fitzmark.BDRSim.World
         private readonly Dictionary<int, int> _tipIndex = new();
         private float _flashUntil;
         private string _flashText = "";
+        private int _mentorsPlaced;
 
         private void Start()
         {
@@ -41,10 +49,9 @@ namespace Fitzmark.BDRSim.World
 
             _root = new GameObject("OfficeRooms").transform;
             SetupCamera();
-            BuildEnvironment();
+            BuildShell();
             BuildRooms();
             SpawnPlayer();
-            SpawnMentors();
 
             _interactables = Object.FindObjectsByType<Interactable>(FindObjectsSortMode.None);
 
@@ -60,133 +67,183 @@ namespace Fitzmark.BDRSim.World
             UpdatePrompt(near);
         }
 
-        // ---- environment ----------------------------------------------------
+        // ---- shell (corridor + lighting) ------------------------------------
 
-        private void BuildEnvironment()
+        private void BuildShell()
         {
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "Floor";
-            floor.transform.SetParent(_root, false);
-            floor.transform.localScale = new Vector3(3f, 1f, 3f); // 30 x 30
-            SetMat(floor, Mat(new Color(0.32f, 0.31f, 0.29f)));
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.42f, 0.43f, 0.48f);
+            RenderSettings.fog = false;
 
-            var carpet = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            carpet.name = "Carpet";
-            carpet.transform.SetParent(_root, false);
-            carpet.transform.localScale = new Vector3(1.4f, 1f, 1.4f);
-            carpet.transform.position = new Vector3(0f, 0.01f, 3f);
-            var cc = carpet.GetComponent<Collider>(); if (cc != null) Destroy(cc);
-            SetMat(carpet, Mat(new Color(0.22f, 0.27f, 0.34f)));
+            // Central corridor running south(-z, reception) to north(+z, break room).
+            var cMin = new Vector3(-3f, 0f, -16f);
+            var cMax = new Vector3(3f, 0f, 16f);
+            RoomBuilder.Floor(_root, cMin, cMax, new Color(0.30f, 0.33f, 0.40f));
+            RoomBuilder.Ceiling(_root, cMin, cMax, H, CeilCol);
 
-            Wall("Wall_N", new Vector3(0f, 1.6f, 15f), new Vector3(30f, 3.2f, 0.4f));
-            Wall("Wall_S", new Vector3(0f, 1.6f, -15f), new Vector3(30f, 3.2f, 0.4f));
-            Wall("Wall_E", new Vector3(15f, 1.6f, 0f), new Vector3(0.4f, 3.2f, 30f));
-            Wall("Wall_W", new Vector3(-15f, 1.6f, 0f), new Vector3(0.4f, 3.2f, 30f));
+            float t = RoomBuilder.WallThickness;
+            // South wall with the exit doorway; solid north wall.
+            RoomBuilder.WallX(_root, -3f, 3f, -16f + t / 2f, 0f, H, WallCol, 0f);
+            RoomBuilder.WallX(_root, -3f, 3f, 16f - t / 2f, 0f, H, WallCol);
+            // Corridor side walls only in the reception (south) and break (north) caps;
+            // the six rooms supply the side walls (with doors) in between.
+            RoomBuilder.WallZ(_root, -16f, -12f, -3f + t / 2f, 0f, H, WallCol);
+            RoomBuilder.WallZ(_root, -16f, -12f, 3f - t / 2f, 0f, H, WallCol);
+            RoomBuilder.WallZ(_root, 12f, 16f, -3f + t / 2f, 0f, H, WallCol);
+            RoomBuilder.WallZ(_root, 12f, 16f, 3f - t / 2f, 0f, H, WallCol);
 
-            // Partial dividers suggest wings without trapping the player.
-            Divider(new Vector3(4.5f, 0.7f, 2f), new Vector3(0.3f, 1.4f, 9f));
-            Divider(new Vector3(-4.5f, 0.7f, 3f), new Vector3(0.3f, 1.4f, 9f));
-            Divider(new Vector3(-9.5f, 0.7f, -2f), new Vector3(7f, 1.4f, 0.3f));
-        }
-
-        private void Wall(string name, Vector3 pos, Vector3 size)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = name;
-            go.transform.SetParent(_root, false);
-            go.transform.position = pos;
-            go.transform.localScale = size;
-            SetMat(go, Mat(new Color(0.34f, 0.36f, 0.42f)));
-        }
-
-        private void Divider(Vector3 pos, Vector3 size)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "Divider";
-            go.transform.SetParent(_root, false);
-            go.transform.position = pos;
-            go.transform.localScale = size;
-            SetMat(go, Mat(new Color(0.40f, 0.42f, 0.48f)));
+            RoomBuilder.CeilingLight(_root, new Vector3(0f, H - 0.15f, -13f), LightCol);
+            RoomBuilder.CeilingLight(_root, new Vector3(0f, H - 0.15f, -4f), LightCol);
+            RoomBuilder.CeilingLight(_root, new Vector3(0f, H - 0.15f, 4f), LightCol);
+            RoomBuilder.CeilingLight(_root, new Vector3(0f, H - 0.15f, 14f), LightCol);
         }
 
         // ---- rooms ----------------------------------------------------------
 
         private void BuildRooms()
         {
-            // Reception (south) — leave, plus the records boards.
-            Prop("office/reception", new Vector3(0f, 0f, -13.2f), 0f, new Vector3(3f, 1.1f, 1.2f), new Color(0.55f, 0.42f, 0.30f));
-            Prop("office/plant", new Vector3(-3.2f, 0f, -13.6f), 0f, new Vector3(0.6f, 1.4f, 0.6f), new Color(0.26f, 0.50f, 0.28f));
-            Prop("office/plant", new Vector3(3.2f, 0f, -13.6f), 0f, new Vector3(0.6f, 1.4f, 0.6f), new Color(0.26f, 0.50f, 0.28f), label: false);
-            Prop("office/trophycase", new Vector3(6f, 0f, -13.4f), 0f, new Vector3(1.2f, 1.6f, 0.5f), new Color(0.85f, 0.72f, 0.30f));
-            Prop("office/rankings_board", new Vector3(-6f, 0f, -13.4f), 0f, new Vector3(1.4f, 1.6f, 0.2f), new Color(0.70f, 0.74f, 0.80f));
-            RoomSign("RECEPTION", new Vector3(0f, 3.2f, -13f));
-            Zone("Leave to the overworld ▶", new Vector3(0f, 0f, -14.2f), 3.6f,
-                () => GameManager.Instance.GoToTexas(), new Color(0.30f, 0.55f, 0.95f));
-            Zone("Trophies", new Vector3(6f, 0f, -12.3f), 2.6f,
-                () => OpenModal((cv, close) => new AchievementsView(cv, Profile, close).Open()), new Color(0.90f, 0.78f, 0.34f));
-            Zone("Rankings", new Vector3(-6f, 0f, -12.3f), 2.6f,
-                () => OpenModal((cv, close) => new LeaderboardView(cv, Profile, close).Open()), new Color(0.74f, 0.78f, 0.84f));
+            // West wing (doors face east, onto the corridor).
+            BuildBullpen(new Vector3(-13f, 0f, -12f), new Vector3(-3f, 0f, -4f));
+            BuildOperations(new Vector3(-13f, 0f, -4f), new Vector3(-3f, 0f, 4f));
+            BuildTraining(new Vector3(-13f, 0f, 4f), new Vector3(-3f, 0f, 12f));
 
-            // Freight desk + assignments (center).
-            Prop("office/desk", new Vector3(0f, 0f, 3f), 180f, new Vector3(2.6f, 1f, 1.3f), new Color(0.46f, 0.34f, 0.26f));
-            Prop("office/board", new Vector3(-3.6f, 0f, 6.4f), 0f, new Vector3(1.4f, 1.6f, 0.2f), new Color(0.36f, 0.62f, 0.64f));
-            RoomSign("FREIGHT DESK", new Vector3(0f, 3.0f, 3f));
-            Zone("Your freight book ▶", new Vector3(0f, 0f, 1.4f), 3f,
-                () => GameManager.Instance.GoToFreightDesk(), new Color(0.34f, 0.78f, 0.56f));
-            Zone("Quest board", new Vector3(-3.6f, 0f, 5.2f), 2.6f,
-                () => OpenModal((cv, close) => new QuestLogView(cv, Profile, close).Open()), new Color(0.40f, 0.78f, 0.80f));
+            // East wing (doors face west).
+            BuildOutreach(new Vector3(3f, 0f, -12f), new Vector3(13f, 0f, -4f));
+            BuildSupply(new Vector3(3f, 0f, -4f), new Vector3(13f, 0f, 4f));
+            BuildFreight(new Vector3(3f, 0f, 4f), new Vector3(13f, 0f, 12f));
 
-            // Bullpen / prospecting (east).
-            var deskBrown = new Color(0.46f, 0.34f, 0.26f);
-            Prop("office/desk", new Vector3(7f, 0f, -2f), 0f, new Vector3(2.2f, 1f, 1.2f), deskBrown);
-            Prop("office/desk", new Vector3(11f, 0f, -2f), 0f, new Vector3(2.2f, 1f, 1.2f), deskBrown, label: false);
-            Prop("office/desk", new Vector3(7f, 0f, 3f), 0f, new Vector3(2.2f, 1f, 1.2f), deskBrown, label: false);
-            Prop("office/desk", new Vector3(11f, 0f, 3f), 0f, new Vector3(2.2f, 1f, 1.2f), deskBrown, label: false);
-            Prop("office/computer", new Vector3(9f, 0f, -3.4f), 0f, new Vector3(0.7f, 0.6f, 0.5f), new Color(0.20f, 0.22f, 0.26f));
-            RoomSign("BULLPEN — PROSPECTING", new Vector3(9f, 3.0f, 2.5f));
-            Zone("Work a cold call", new Vector3(9f, 0f, -2.6f), 3f, MakeDeskCall, new Color(0.34f, 0.80f, 0.44f));
-
-            // Outreach (north-east).
-            Prop("office/outreach_desk", new Vector3(9f, 0f, 10.5f), 0f, new Vector3(2.4f, 1f, 1.2f), new Color(0.30f, 0.45f, 0.70f));
-            RoomSign("OUTREACH", new Vector3(9f, 3.0f, 10.5f));
-            Zone("Email & social outreach", new Vector3(9f, 0f, 9f), 3f,
-                () => OpenModal((cv, close) => new OutreachView(cv, Profile, close).Open()), new Color(0.30f, 0.62f, 1f));
-
-            // Operations / CRM (north-west).
-            Prop("office/exec_desk", new Vector3(-9f, 0f, 10.5f), 0f, new Vector3(3f, 1f, 1.5f), new Color(0.38f, 0.30f, 0.24f));
-            RoomSign("OPERATIONS — CRM", new Vector3(-9f, 3.0f, 10.5f));
-            Zone("CRM dashboard", new Vector3(-9f, 0f, 8.8f), 3f,
-                () => OpenModal((cv, close) => new CrmView(cv, Profile, close).Open()), new Color(0.45f, 0.60f, 0.95f));
-
-            // Training (west).
-            Prop("office/whiteboard", new Vector3(-12.6f, 0f, 2.5f), 90f, new Vector3(0.3f, 2f, 3f), new Color(0.86f, 0.88f, 0.90f));
-            RoomSign("TRAINING", new Vector3(-9.5f, 3.0f, 2.5f));
-            Zone("Train — skill tree", new Vector3(-9.5f, 0f, 1.5f), 3f,
-                () => OpenModal((cv, close) => new SkillTreeView(cv, Profile, close).Open()), new Color(0.66f, 0.50f, 0.90f));
-
-            // Supply & IT (south-west).
-            Prop("office/shelf", new Vector3(-12.6f, 0f, -7.5f), 90f, new Vector3(0.5f, 2f, 3f), new Color(0.50f, 0.52f, 0.56f));
-            Prop("office/server", new Vector3(-9.5f, 0f, -9.5f), 0f, new Vector3(1f, 2f, 1f), new Color(0.20f, 0.22f, 0.26f));
-            RoomSign("SUPPLY & IT", new Vector3(-10.5f, 3.0f, -8f));
-            Zone("Buy upgrades", new Vector3(-9.5f, 0f, -6.5f), 3f,
-                () => OpenModal((cv, close) => new UpgradesView(cv, Profile, close).Open()), new Color(0.93f, 0.70f, 0.28f));
-            Zone("Freight market", new Vector3(-12.6f, 0f, -4.5f), 2.6f,
-                () => OpenModal((cv, close) => new MarketView(cv, Profile, close).Open()), new Color(0.92f, 0.52f, 0.34f));
-
-            // Break room (north-center).
-            Prop("office/couch", new Vector3(0f, 0f, 12.8f), 0f, new Vector3(2.6f, 0.8f, 1f), new Color(0.30f, 0.42f, 0.40f));
-            Prop("office/watercooler", new Vector3(2.8f, 0f, 12.8f), 0f, new Vector3(0.6f, 1.5f, 0.6f), new Color(0.40f, 0.60f, 0.80f));
-            RoomSign("BREAK ROOM", new Vector3(0f, 3.0f, 12.8f));
-            Zone("Grab coffee", new Vector3(0f, 0f, 11.2f), 3f,
-                () => Flash("☕  Coffee break. Back to the grind."), new Color(0.62f, 0.46f, 0.32f));
+            BuildReception();
+            BuildBreakRoom();
         }
 
-        // Spawn a prop: a real model auto-fitted to `size` metres when imported, else a
-        // clean (unlabeled) placeholder box of that size.
-        private GameObject Prop(string key, Vector3 pos, float yaw, Vector3 size, Color color, bool label = false)
+        private void BuildBullpen(Vector3 min, Vector3 max)
+        {
+            RoomBuilder.Room(_root, min, max, H, WallCol, new Color(0.34f, 0.36f, 0.42f), CeilCol,
+                RoomBuilder.Side.E, LightCol);
+            Workstation(new Vector3(-11.5f, 0f, -10f), 90f);
+            Workstation(new Vector3(-11.5f, 0f, -6f), 90f);
+            Workstation(new Vector3(-5f, 0f, -10.5f), 0f);
+            Prop("plant", new Vector3(-4f, 0f, -5f), 0f, new Vector3(0.6f, 1.3f, 0.6f), Dark);
+            Zone("Work a cold call", new Vector3(-8f, 0f, -8f), 3f, MakeDeskCall, default);
+            if (MixamoLibrary.Available)
+            {
+                OfficeWorker.Spawn(_root, new Vector3(-11f, 0f, -10f), 90f, "typing");
+                OfficeWorker.Spawn(_root, new Vector3(-11f, 0f, -6f), 90f, "phone");
+            }
+            SpawnMentor(new Vector3(-6f, 0f, -6f), 120f);
+        }
+
+        private void BuildOperations(Vector3 min, Vector3 max)
+        {
+            RoomBuilder.Room(_root, min, max, H, WallCol, new Color(0.30f, 0.34f, 0.40f), CeilCol,
+                RoomBuilder.Side.E, LightCol);
+            Prop("office/exec_desk", new Vector3(-11f, 0f, 0f), 90f, new Vector3(1.8f, 0.78f, 0.9f), DeskBrown);
+            Prop("computer", new Vector3(-11f, 0.78f, 0f), 90f, new Vector3(0.45f, 0.42f, 0.12f), Dark);
+            Prop("office/shelf", new Vector3(-12.6f, 0f, 3f), 90f, new Vector3(0.5f, 2f, 1.2f), DeskBrown);
+            Zone("CRM dashboard", new Vector3(-8f, 0f, 0f), 3f,
+                () => OpenModal((cv, c) => new CrmView(cv, Profile, c).Open()), default);
+            Zone("Quest board", new Vector3(-5.5f, 0f, 2.5f), 2.6f,
+                () => OpenModal((cv, c) => new QuestLogView(cv, Profile, c).Open()), default);
+            SpawnMentor(new Vector3(-6f, 0f, 2f), 120f);
+        }
+
+        private void BuildTraining(Vector3 min, Vector3 max)
+        {
+            RoomBuilder.Room(_root, min, max, H, WallCol, new Color(0.32f, 0.36f, 0.34f), CeilCol,
+                RoomBuilder.Side.E, LightCol);
+            Prop("office/whiteboard", new Vector3(-12.7f, 1.2f, 8f), 90f, new Vector3(0.1f, 1.4f, 3f),
+                new Color(0.9f, 0.92f, 0.95f));
+            Prop("table", new Vector3(-8f, 0f, 8f), 0f, new Vector3(1.8f, 0.78f, 1.1f), DeskBrown);
+            Prop("chair", new Vector3(-8f, 0f, 6.6f), 0f, new Vector3(0.55f, 1f, 0.55f), Dark);
+            Prop("chair", new Vector3(-8f, 0f, 9.4f), 180f, new Vector3(0.55f, 1f, 0.55f), Dark);
+            Zone("Train — skill tree", new Vector3(-8f, 0f, 8f), 3f,
+                () => OpenModal((cv, c) => new SkillTreeView(cv, Profile, c).Open()), default);
+            SpawnMentor(new Vector3(-6f, 0f, 10f), 120f);
+        }
+
+        private void BuildOutreach(Vector3 min, Vector3 max)
+        {
+            RoomBuilder.Room(_root, min, max, H, WallCol, new Color(0.30f, 0.33f, 0.42f), CeilCol,
+                RoomBuilder.Side.W, LightCol);
+            Workstation(new Vector3(11.5f, 0f, -10f), 270f);
+            Workstation(new Vector3(11.5f, 0f, -6f), 270f);
+            Prop("plant", new Vector3(4f, 0f, -5f), 0f, new Vector3(0.6f, 1.3f, 0.6f), Dark);
+            Zone("Email & social outreach", new Vector3(8f, 0f, -8f), 3f,
+                () => OpenModal((cv, c) => new OutreachView(cv, Profile, c).Open()), default);
+            if (MixamoLibrary.Available)
+                OfficeWorker.Spawn(_root, new Vector3(11f, 0f, -10f), 270f, "typing");
+        }
+
+        private void BuildSupply(Vector3 min, Vector3 max)
+        {
+            RoomBuilder.Room(_root, min, max, H, WallCol, new Color(0.36f, 0.34f, 0.30f), CeilCol,
+                RoomBuilder.Side.W, LightCol);
+            Prop("office/shelf", new Vector3(12.6f, 0f, -1f), 270f, new Vector3(0.5f, 2f, 1.4f), DeskBrown);
+            Prop("office/server", new Vector3(12.6f, 0f, 2.5f), 270f, new Vector3(0.7f, 2f, 0.7f), Dark);
+            Zone("Buy upgrades", new Vector3(8f, 0f, -1f), 3f,
+                () => OpenModal((cv, c) => new UpgradesView(cv, Profile, c).Open()), default);
+            Zone("Freight market", new Vector3(8f, 0f, 2.5f), 2.6f,
+                () => OpenModal((cv, c) => new MarketView(cv, Profile, c).Open()), default);
+        }
+
+        private void BuildFreight(Vector3 min, Vector3 max)
+        {
+            RoomBuilder.Room(_root, min, max, H, WallCol, new Color(0.30f, 0.36f, 0.36f), CeilCol,
+                RoomBuilder.Side.W, LightCol);
+            Prop("desk", new Vector3(11.5f, 0f, 8f), 270f, new Vector3(1.6f, 0.78f, 0.85f), DeskBrown);
+            Prop("computer", new Vector3(11.5f, 0.78f, 8f), 270f, new Vector3(0.45f, 0.42f, 0.12f), Dark);
+            Prop("office/board", new Vector3(12.7f, 1.3f, 10.5f), 270f, new Vector3(0.1f, 1.2f, 1.6f),
+                new Color(0.36f, 0.62f, 0.64f));
+            Zone("Your freight book ▶", new Vector3(8f, 0f, 8f), 3f,
+                () => GameManager.Instance.GoToFreightDesk(), default);
+            if (MixamoLibrary.Available)
+                OfficeWorker.Spawn(_root, new Vector3(11f, 0f, 8f), 270f, "typing");
+        }
+
+        private void BuildReception()
+        {
+            Prop("office/reception", new Vector3(-1f, 0f, -12.8f), 0f, new Vector3(2.2f, 1.1f, 0.8f),
+                new Color(0.55f, 0.42f, 0.30f));
+            Prop("plant", new Vector3(-2.4f, 0f, -15.2f), 0f, new Vector3(0.6f, 1.4f, 0.6f), Dark);
+            Prop("plant", new Vector3(2.4f, 0f, -15.2f), 0f, new Vector3(0.6f, 1.4f, 0.6f), Dark);
+            Prop("office/trophycase", new Vector3(-2.6f, 0f, -13.5f), 90f, new Vector3(0.4f, 1.6f, 1f),
+                new Color(0.85f, 0.72f, 0.30f));
+            Prop("office/rankings_board", new Vector3(2.6f, 0f, -13.5f), 270f, new Vector3(0.4f, 1.6f, 1f),
+                new Color(0.70f, 0.74f, 0.80f));
+
+            Zone("Leave to the overworld ▶", new Vector3(0f, 0f, -15.4f), 2.6f,
+                () => GameManager.Instance.GoToTexas(), default);
+            Zone("Trophies", new Vector3(-2.2f, 0f, -13.5f), 2f,
+                () => OpenModal((cv, c) => new AchievementsView(cv, Profile, c).Open()), default);
+            Zone("Rankings", new Vector3(2.2f, 0f, -13.5f), 2f,
+                () => OpenModal((cv, c) => new LeaderboardView(cv, Profile, c).Open()), default);
+        }
+
+        private void BuildBreakRoom()
+        {
+            Prop("office/couch", new Vector3(0f, 0f, 15f), 180f, new Vector3(2.4f, 0.8f, 0.9f),
+                new Color(0.30f, 0.42f, 0.40f));
+            Prop("table", new Vector3(0f, 0f, 13.4f), 0f, new Vector3(1.2f, 0.6f, 0.8f), DeskBrown);
+            Prop("office/watercooler", new Vector3(2.2f, 0f, 14.8f), 0f, new Vector3(0.6f, 1.5f, 0.6f),
+                new Color(0.40f, 0.60f, 0.80f));
+            Zone("Grab coffee", new Vector3(0f, 0f, 13.2f), 2.6f,
+                () => Flash("☕  Coffee break. Back to the grind."), default);
+        }
+
+        // A desk + monitor + chair workstation facing `yaw` (degrees).
+        private void Workstation(Vector3 deskPos, float yaw)
+        {
+            Prop("desk", deskPos, yaw, new Vector3(1.5f, 0.78f, 0.8f), DeskBrown);
+            Prop("computer", deskPos + new Vector3(0f, 0.78f, 0f), yaw, new Vector3(0.45f, 0.42f, 0.12f), Dark);
+            Vector3 fwd = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+            Prop("chair", deskPos - fwd * 0.8f, yaw + 180f, new Vector3(0.55f, 1f, 0.55f), Dark);
+        }
+
+        // Real model auto-fitted to `size` metres; clean unlabeled placeholder if missing.
+        private GameObject Prop(string key, Vector3 pos, float yaw, Vector3 size, Color color)
             => ModelLibrary.Spawn(key, _root, pos, yaw, 1f, size, color, false, fitSize: size);
 
-        private Interactable Zone(string label, Vector3 pos, float range, System.Action action, Color markerColor)
+        private Interactable Zone(string label, Vector3 pos, float range, System.Action action, Color _)
         {
             var go = new GameObject("Zone:" + label);
             go.transform.SetParent(_root, false);
@@ -198,40 +255,34 @@ namespace Fitzmark.BDRSim.World
             return it;
         }
 
-        private void RoomSign(string text, Vector3 pos)
-        {
-            // Disabled: the big floating signs read as debug clutter. Real wall-mounted
-            // signage comes when the office is rebuilt (first-person) around imported models.
-        }
-
-        // ---- spawn ----------------------------------------------------------
+        // ---- player / mentors ----------------------------------------------
 
         private void SetupCamera()
         {
             GameObject camGo = Camera.main != null ? Camera.main.gameObject : null;
             if (camGo == null)
             {
-                camGo = new GameObject("Main Camera", typeof(Camera));
+                camGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
                 camGo.tag = "MainCamera";
             }
-            _cam = camGo.GetComponent<FollowCamera>();
-            if (_cam == null) _cam = camGo.AddComponent<FollowCamera>();
-            _cam.Offset = new Vector3(0f, 11f, -10f);
+            var cam = camGo.GetComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.04f, 0.05f, 0.07f);
+            var fc = camGo.GetComponent<FollowCamera>();
+            if (fc != null) fc.enabled = false; // first-person controller drives the camera
         }
 
         private void SpawnPlayer()
         {
             _player = new GameObject("Player");
-            _player.transform.position = new Vector3(0f, 0.2f, -11f);
+            _player.transform.position = new Vector3(0f, 0.2f, -14.5f);
+            _player.transform.rotation = Quaternion.identity; // face north, up the corridor
 
             var cc = _player.AddComponent<CharacterController>();
-            cc.height = 2f;
-            cc.radius = 0.4f;
-            cc.center = new Vector3(0f, 1f, 0f);
+            cc.height = 1.8f;
+            cc.radius = 0.3f;
+            cc.center = new Vector3(0f, 0.9f, 0f);
 
-            _playerCtrl = _player.AddComponent<PlayerController>();
-
-            // Real Mixamo body when imported; else the procedural avatar.
             if (OfficeWorker.Attach(_player.transform) == null)
             {
                 var body = new GameObject("Body");
@@ -239,60 +290,31 @@ namespace Fitzmark.BDRSim.World
                 body.AddComponent<AvatarBuilder>().SetConfig(Profile != null ? Profile.avatar : new AvatarConfig());
             }
 
-            _cam.Target = _player.transform;
+            _fp = _player.AddComponent<FirstPersonController>();
         }
 
-        private void SpawnMentors()
+        private void SpawnMentor(Vector3 pos, float yaw)
         {
-            // Mentors stand near key rooms; talk to them for advice. Use the real Mixamo
-            // worker (a "talking" idle) when imported, else the procedural avatar.
-            (Vector3 pos, float yaw, string clip)[] spots =
+            int i = _mentorsPlaced++;
+            if (i >= MentorLibrary.Count) return;
+            var mentor = MentorLibrary.Get(i);
+
+            var go = new GameObject("Mentor_" + mentor.Id);
+            go.transform.position = pos;
+            go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+
+            if (OfficeWorker.Spawn(go.transform, pos, yaw, "talking") == null)
             {
-                (new Vector3(8f, 0f, 6f), 200f, "talking"),    // bullpen lead
-                (new Vector3(-9f, 0f, 8.5f), 180f, "talking"), // operations
-                (new Vector3(-9f, 0f, 3f), 90f, "talking"),    // training
-            };
-
-            for (int i = 0; i < MentorLibrary.Count; i++)
-            {
-                var mentor = MentorLibrary.Get(i);
-                var (pos, yaw, clip) = i < spots.Length ? spots[i] : (new Vector3(-8f + i * 2f, 0f, 7f), 180f, "talking");
-
-                var go = new GameObject("Mentor_" + mentor.Id);
-                go.transform.position = pos;
-                go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
-
-                if (OfficeWorker.Spawn(go.transform, pos, yaw, clip) == null)
-                {
-                    var body = new GameObject("Body");
-                    body.transform.SetParent(go.transform, false);
-                    body.AddComponent<AvatarBuilder>().SetConfig(MentorAvatar(i));
-                }
-
-                var it = go.AddComponent<Interactable>();
-                it.kind = Interactable.Kind.Npc;
-                it.label = mentor.Name;
-                it.seed = i;
-                it.range = 3.5f;
+                var body = new GameObject("Body");
+                body.transform.SetParent(go.transform, false);
+                body.AddComponent<AvatarBuilder>().SetConfig(MentorAvatar(i));
             }
 
-            SpawnDeskWorkers();
-        }
-
-        // Animated background reps typing/phoning at the bullpen desks (real models only).
-        private void SpawnDeskWorkers()
-        {
-            if (!MixamoLibrary.Available) return;
-            (Vector3 pos, float yaw, string clip)[] desks =
-            {
-                (new Vector3(11f, 0f, -2f), 180f, "typing"),
-                (new Vector3(7f, 0f, 3f), 0f, "phone"),
-                (new Vector3(11f, 0f, 3f), 0f, "typing"),
-            };
-            var holder = new GameObject("DeskWorkers").transform;
-            holder.SetParent(_root, false);
-            foreach (var (pos, yaw, clip) in desks)
-                OfficeWorker.Spawn(holder, pos, yaw, clip);
+            var it = go.AddComponent<Interactable>();
+            it.kind = Interactable.Kind.Npc;
+            it.label = mentor.Name;
+            it.seed = i;
+            it.range = 3f;
         }
 
         private static AvatarConfig MentorAvatar(int i) => new AvatarConfig
@@ -330,8 +352,8 @@ namespace Fitzmark.BDRSim.World
 
             var bar = UiFactory.Panel(_hud.transform, new Color(0f, 0f, 0f, 0.55f), "Prompt");
             var brt = bar.rectTransform;
-            brt.anchorMin = new Vector2(0.08f, 0.03f);
-            brt.anchorMax = new Vector2(0.92f, 0.11f);
+            brt.anchorMin = new Vector2(0.06f, 0.03f);
+            brt.anchorMax = new Vector2(0.94f, 0.10f);
             brt.offsetMin = Vector2.zero;
             brt.offsetMax = Vector2.zero;
             _prompt = UiFactory.Label(bar.transform, "", 16, UiTheme.TextPrimary, TextAnchor.MiddleCenter);
@@ -345,8 +367,7 @@ namespace Fitzmark.BDRSim.World
             {
                 CareerSystem.EnsureStarted(c);
                 _callsLabel.text = $"Day {c.career.day}  ·  ${c.cash:N0}  ·  Calls left: " +
-                                   $"{c.career.callsRemainingToday}/{CareerSystem.CallsPerDay(c)}  " +
-                                   $"·  walk the rooms (WASD), interact (E)";
+                                   $"{c.career.callsRemainingToday}/{CareerSystem.CallsPerDay(c)}";
             }
             else
             {
@@ -357,7 +378,7 @@ namespace Fitzmark.BDRSim.World
         private void UpdatePrompt(Interactable near)
         {
             if (Time.time < _flashUntil) { _prompt.text = _flashText; return; }
-            string controls = "WASD move   ·   E interact";
+            string controls = "Mouse look · WASD move · E interact · V view";
             if (near != null) controls = $"[E] {near.label}      " + controls;
             _prompt.text = controls;
         }
@@ -393,14 +414,14 @@ namespace Fitzmark.BDRSim.World
         {
             if (_modalOpen || _hud == null) return;
             _modalOpen = true;
-            if (_playerCtrl != null) _playerCtrl.SetControlEnabled(false);
+            if (_fp != null) _fp.SetControlEnabled(false);
             open(_hud.transform, CloseModal);
         }
 
         private void CloseModal()
         {
             _modalOpen = false;
-            if (_playerCtrl != null) _playerCtrl.SetControlEnabled(true);
+            if (_fp != null) _fp.SetControlEnabled(true);
             RefreshCalls();
         }
 
@@ -446,7 +467,7 @@ namespace Fitzmark.BDRSim.World
             _tipIndex[mentorIndex] = tip + 1;
             string advice = mentor.Tips.Length > 0 ? mentor.Tips[tip % mentor.Tips.Length] : "...";
 
-            _playerCtrl.SetControlEnabled(false);
+            if (_fp != null) _fp.SetControlEnabled(false);
             _modalOpen = true;
 
             Transform parent = _hud != null ? _hud.transform : UiFactory.CreateScreenCanvas("AdviceCanvas").transform;
@@ -478,7 +499,7 @@ namespace Fitzmark.BDRSim.World
             if (_adviceOverlay != null) Destroy(_adviceOverlay);
             _adviceOverlay = null;
             _modalOpen = false;
-            if (_playerCtrl != null) _playerCtrl.SetControlEnabled(true);
+            if (_fp != null) _fp.SetControlEnabled(true);
         }
 
         private void Flash(string message)
@@ -488,13 +509,5 @@ namespace Fitzmark.BDRSim.World
         }
 
         private static BDRCharacter Profile => GameManager.Instance.Profile;
-
-        private static Material Mat(Color c) => MaterialLibrary.Get(c);
-
-        private static void SetMat(GameObject go, Material m)
-        {
-            var r = go.GetComponent<Renderer>();
-            if (r != null && m != null) r.sharedMaterial = m;
-        }
     }
 }
