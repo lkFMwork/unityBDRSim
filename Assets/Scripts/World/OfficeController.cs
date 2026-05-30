@@ -181,8 +181,10 @@ namespace Fitzmark.BDRSim.World
                 () => Flash("☕  Coffee break. Back to the grind."), new Color(0.62f, 0.46f, 0.32f));
         }
 
+        // Spawn a prop: a real model auto-fitted to `size` metres when imported, else a
+        // clean (unlabeled) placeholder box of that size.
         private GameObject Prop(string key, Vector3 pos, float yaw, Vector3 size, Color color, bool label = false)
-            => ModelLibrary.Spawn(key, _root, pos, yaw, 1f, size, color, false); // labels off (debug clutter)
+            => ModelLibrary.Spawn(key, _root, pos, yaw, 1f, size, color, false, fitSize: size);
 
         private Interactable Zone(string label, Vector3 pos, float range, System.Action action, Color markerColor)
         {
@@ -239,24 +241,30 @@ namespace Fitzmark.BDRSim.World
 
         private void SpawnMentors()
         {
-            Vector3[] spots =
+            // Mentors stand near key rooms; talk to them for advice. Use the real Mixamo
+            // worker (a "talking" idle) when imported, else the procedural avatar.
+            (Vector3 pos, float yaw, string clip)[] spots =
             {
-                new Vector3(7f, 0.2f, 5f),    // bullpen
-                new Vector3(11f, 0.2f, 5f),
-                new Vector3(-9f, 0.2f, 4f)    // training
+                (new Vector3(8f, 0f, 6f), 200f, "talking"),    // bullpen lead
+                (new Vector3(-9f, 0f, 8.5f), 180f, "talking"), // operations
+                (new Vector3(-9f, 0f, 3f), 90f, "talking"),    // training
             };
 
             for (int i = 0; i < MentorLibrary.Count; i++)
             {
                 var mentor = MentorLibrary.Get(i);
-                var go = new GameObject("Mentor_" + mentor.Id);
-                go.transform.position = i < spots.Length ? spots[i] : new Vector3(-8f + i * 2f, 0.2f, 7f);
-                go.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                var (pos, yaw, clip) = i < spots.Length ? spots[i] : (new Vector3(-8f + i * 2f, 0f, 7f), 180f, "talking");
 
-                var body = new GameObject("Body");
-                body.transform.SetParent(go.transform, false);
-                var avatar = body.AddComponent<AvatarBuilder>();
-                avatar.SetConfig(MentorAvatar(i));
+                var go = new GameObject("Mentor_" + mentor.Id);
+                go.transform.position = pos;
+                go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+
+                if (OfficeWorker.Spawn(go.transform, pos, yaw, clip) == null)
+                {
+                    var body = new GameObject("Body");
+                    body.transform.SetParent(go.transform, false);
+                    body.AddComponent<AvatarBuilder>().SetConfig(MentorAvatar(i));
+                }
 
                 var it = go.AddComponent<Interactable>();
                 it.kind = Interactable.Kind.Npc;
@@ -264,6 +272,24 @@ namespace Fitzmark.BDRSim.World
                 it.seed = i;
                 it.range = 3.5f;
             }
+
+            SpawnDeskWorkers();
+        }
+
+        // Animated background reps typing/phoning at the bullpen desks (real models only).
+        private void SpawnDeskWorkers()
+        {
+            if (!MixamoLibrary.Available) return;
+            (Vector3 pos, float yaw, string clip)[] desks =
+            {
+                (new Vector3(11f, 0f, -2f), 180f, "typing"),
+                (new Vector3(7f, 0f, 3f), 0f, "phone"),
+                (new Vector3(11f, 0f, 3f), 0f, "typing"),
+            };
+            var holder = new GameObject("DeskWorkers").transform;
+            holder.SetParent(_root, false);
+            foreach (var (pos, yaw, clip) in desks)
+                OfficeWorker.Spawn(holder, pos, yaw, clip);
         }
 
         private static AvatarConfig MentorAvatar(int i) => new AvatarConfig
