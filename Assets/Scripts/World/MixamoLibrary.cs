@@ -15,12 +15,11 @@ namespace Fitzmark.BDRSim.World
         private const string CharacterPath = "Models/people/Ch33_nonPBR";
         private const string ClipPrefix = "Models/people/Ch33_nonPBR@";
 
-        // Friendly name -> the "@"-file holding that take.
+        // Friendly name -> the file holding that take. Most are sibling "@"-suffixed files;
+        // the standing idle is a standalone Idle.fbx.
         private static readonly Dictionary<string, string> ClipFiles = new()
         {
-            // No dedicated standing idle in the imported set; the talking take reads as a
-            // gentle standing idle, so we reuse it for "idle".
-            { "idle", ClipPrefix + "Talking" },
+            { "idle", "Models/people/Idle" },
             { "typing", ClipPrefix + "Typing" },
             { "talking", ClipPrefix + "Talking" },
             { "phone", ClipPrefix + "Talking On Phone" },

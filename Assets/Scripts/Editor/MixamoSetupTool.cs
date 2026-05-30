@@ -55,7 +55,9 @@ namespace Fitzmark.BDRSim.Editor
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 string file = Path.GetFileName(path);
-                if (!file.StartsWith("Ch33_nonPBR@")) continue; // only the @ animation files
+                if (file == CharacterFile) continue;             // skip the character itself
+                // Configure every other model in the folder: the "@" animation files plus
+                // standalone clips like Idle.fbx.
                 if (!(AssetImporter.GetAtPath(path) is ModelImporter anim)) continue;
 
                 anim.animationType = ModelImporterAnimationType.Human;
