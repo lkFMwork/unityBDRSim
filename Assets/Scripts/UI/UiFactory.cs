@@ -66,12 +66,50 @@ namespace Fitzmark.BDRSim.UI
 
         // ---- containers -----------------------------------------------------
 
+        private static Sprite _rounded;
+
+        /// <summary>A procedurally-generated, 9-sliced rounded-rect sprite for soft UI corners.</summary>
+        public static Sprite RoundedSprite
+        {
+            get
+            {
+                if (_rounded != null) return _rounded;
+                const int size = 48;
+                const float r = 12f;
+                var tex = new Texture2D(size, size, TextureFormat.RGBA32, false)
+                {
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp
+                };
+                float half = size / 2f;
+                for (int y = 0; y < size; y++)
+                    for (int x = 0; x < size; x++)
+                    {
+                        float px = x + 0.5f - half, py = y + 0.5f - half;
+                        float qx = Mathf.Abs(px) - (half - r);
+                        float qy = Mathf.Abs(py) - (half - r);
+                        float outside = Mathf.Sqrt(Mathf.Max(qx, 0f) * Mathf.Max(qx, 0f) +
+                                                   Mathf.Max(qy, 0f) * Mathf.Max(qy, 0f));
+                        float inside = Mathf.Min(Mathf.Max(qx, qy), 0f);
+                        float sdf = outside + inside - r;    // <0 inside, >0 outside
+                        float a = Mathf.Clamp01(0.5f - sdf); // 1px antialiased edge
+                        tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                    }
+                tex.Apply();
+                _rounded = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f),
+                    100f, 0, SpriteMeshType.FullRect, new Vector4(r, r, r, r));
+                return _rounded;
+            }
+        }
+
         public static Image Panel(Transform parent, Color color, string name = "Panel")
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
             var img = go.GetComponent<Image>();
             img.color = color;
+            img.sprite = RoundedSprite;
+            img.type = Image.Type.Sliced;
             return img;
         }
 
@@ -148,9 +186,19 @@ namespace Fitzmark.BDRSim.UI
 
             var img = go.GetComponent<Image>();
             img.color = bg;
+            img.sprite = RoundedSprite;
+            img.type = Image.Type.Sliced;
 
             var btn = go.GetComponent<Button>();
             btn.targetGraphic = img;
+            var cb = btn.colors;                                         // tactile hover/press feedback
+            cb.normalColor = new Color(0.86f, 0.86f, 0.86f, 1f);
+            cb.highlightedColor = Color.white;
+            cb.pressedColor = new Color(0.66f, 0.66f, 0.66f, 1f);
+            cb.selectedColor = cb.highlightedColor;
+            cb.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.6f);
+            cb.fadeDuration = 0.08f;
+            btn.colors = cb;
 
             var label2 = Label(go.transform, label, size, fg, align, FontStyle.Normal, "Text");
             var lrt = label2.rectTransform;
