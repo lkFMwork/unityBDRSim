@@ -53,7 +53,7 @@ namespace Fitzmark.BDRSim.UI
         }
 
         private static bool ShowsOn(string sceneName) =>
-            sceneName == SceneNames.Office || sceneName == SceneNames.City;
+            sceneName == SceneNames.City; // the office now builds its own room HUD
 
         private void ApplyVisibility(string sceneName)
         {
