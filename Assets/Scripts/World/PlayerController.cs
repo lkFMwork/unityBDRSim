@@ -18,18 +18,30 @@ namespace Fitzmark.BDRSim.World
         private CharacterController _cc;
         private Fitzmark.BDRSim.UI.AvatarBuilder _avatar; // procedural fallback body
         private OfficeWorker _worker;                     // real Mixamo body, when present
+        private bool _bodyResolved;
         private float _verticalVelocity;
         private bool _controlEnabled = true;
 
         private void Awake()
         {
             _cc = GetComponent<CharacterController>();
+        }
+
+        // Resolved in Start (and lazily), because the body is attached by the spawner
+        // *after* this component is added — so Awake would miss it and the body would
+        // stay stuck on its idle clip, never switching to the walk animation.
+        private void Start() => ResolveBody();
+
+        private void ResolveBody()
+        {
             _avatar = GetComponentInChildren<Fitzmark.BDRSim.UI.AvatarBuilder>();
             _worker = GetComponentInChildren<OfficeWorker>();
+            _bodyResolved = true;
         }
 
         private void SetWalk(float amount)
         {
+            if (!_bodyResolved) ResolveBody();
             if (_worker != null) _worker.SetWalk(amount);
             else if (_avatar != null) _avatar.SetWalk(amount);
         }
