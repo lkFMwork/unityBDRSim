@@ -21,37 +21,13 @@ namespace Fitzmark.BDRSim.Simulation
             QuestObjectiveType.TalkToMentors => c.mentorTalks,
             QuestObjectiveType.EarnWeeklyMargin => (int)c.totalWeeklyMarginWon,
             QuestObjectiveType.ReachLevel => c.level,
-            QuestObjectiveType.DeliverLoads => LoadsDelivered(c),
+            QuestObjectiveType.DeliverLoads => CharacterStats.LoadsDelivered(c),
             QuestObjectiveType.MoveTotalMargin => (int)c.lifetimeMargin,
-            QuestObjectiveType.WinAccounts => c.accounts != null ? c.accounts.Count : 0,
-            QuestObjectiveType.ConvertLeads => ConvertedLeads(c),
-            QuestObjectiveType.BuyUpgrades => UpgradeLevels(c),
+            QuestObjectiveType.WinAccounts => CharacterStats.AccountsWon(c),
+            QuestObjectiveType.ConvertLeads => CharacterStats.ConvertedLeads(c),
+            QuestObjectiveType.BuyUpgrades => CharacterStats.UpgradeLevelsTotal(c),
             _ => 0
         };
-
-        private static int LoadsDelivered(BDRCharacter c)
-        {
-            if (c.accounts == null) return 0;
-            int n = 0;
-            foreach (var a in c.accounts) if (a != null) n += a.loadsDelivered;
-            return n;
-        }
-
-        private static int ConvertedLeads(BDRCharacter c)
-        {
-            if (c.leads == null) return 0;
-            int n = 0;
-            foreach (var l in c.leads) if (l != null && l.status == LeadStatus.Converted) n++;
-            return n;
-        }
-
-        private static int UpgradeLevels(BDRCharacter c)
-        {
-            if (c.upgrades == null) return 0;
-            int n = 0;
-            foreach (var u in c.upgrades) if (u != null) n += u.level;
-            return n;
-        }
 
         public static bool IsComplete(BDRCharacter c, QuestDefinition quest) =>
             c.completedQuests != null && c.completedQuests.Contains(quest.Id);

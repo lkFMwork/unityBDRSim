@@ -11,6 +11,9 @@ namespace Fitzmark.BDRSim.Data
     [Serializable]
     public class BDRCharacter
     {
+        // Save schema version — stamped on save, used to migrate older saves forward.
+        public int saveVersion = 0;
+
         // Identity
         public string firstName = "New";
         public string lastName = "Rep";

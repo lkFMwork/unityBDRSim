@@ -11,18 +11,27 @@ namespace Fitzmark.BDRSim.Core
     /// </summary>
     public static class SaveSystem
     {
+        /// <summary>Current save schema version. Bump when the save shape changes.</summary>
+        public const int CurrentSaveVersion = 1;
+
         private const string FileName = "fitzmark_bdr_save.json";
 
         private static string FilePath => Path.Combine(Application.persistentDataPath, FileName);
+        private static string TempPath => FilePath + ".tmp";
 
         public static bool Exists => File.Exists(FilePath);
 
         public static void Save(BDRCharacter character)
         {
             if (character == null) return;
+            character.saveVersion = CurrentSaveVersion;
             try
             {
-                File.WriteAllText(FilePath, JsonUtility.ToJson(character, true));
+                // Atomic write: serialize to a temp file, then swap it in, so an
+                // interrupted save can never leave a half-written (corrupt) profile.
+                File.WriteAllText(TempPath, JsonUtility.ToJson(character, true));
+                if (File.Exists(FilePath)) File.Replace(TempPath, FilePath, null);
+                else File.Move(TempPath, FilePath);
             }
             catch (System.Exception e)
             {
@@ -52,6 +61,7 @@ namespace Fitzmark.BDRSim.Core
                     character.upgrades ??= new System.Collections.Generic.List<UpgradeLevel>();
                     character.leads ??= new System.Collections.Generic.List<OutreachLead>();
                     character.acknowledgedRank ??= "";
+                    Migrate(character);
                 }
                 return character;
             }
@@ -60,6 +70,16 @@ namespace Fitzmark.BDRSim.Core
                 Debug.LogError($"[Fitzmark BDR] Failed to load profile: {e.Message}");
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Brings an older save forward. The null-guards above already backfill fields
+        /// added over time; per-version data fixes are keyed on <c>saveVersion</c> here.
+        /// </summary>
+        private static void Migrate(BDRCharacter c)
+        {
+            // (No data reshaping needed yet — guards cover added fields.)
+            c.saveVersion = CurrentSaveVersion;
         }
 
         public static void Delete()
