@@ -181,8 +181,8 @@ namespace Fitzmark.BDRSim.World
                 () => Flash("☕  Coffee break. Back to the grind."), new Color(0.62f, 0.46f, 0.32f));
         }
 
-        private GameObject Prop(string key, Vector3 pos, float yaw, Vector3 size, Color color, bool label = true)
-            => ModelLibrary.Spawn(key, _root, pos, yaw, 1f, size, color, label);
+        private GameObject Prop(string key, Vector3 pos, float yaw, Vector3 size, Color color, bool label = false)
+            => ModelLibrary.Spawn(key, _root, pos, yaw, 1f, size, color, false); // labels off (debug clutter)
 
         private Interactable Zone(string label, Vector3 pos, float range, System.Action action, Color markerColor)
         {
@@ -193,36 +193,13 @@ namespace Fitzmark.BDRSim.World
             it.label = label;
             it.range = range;
             it.onInteract = action;
-
-            var pad = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            pad.name = "Pad";
-            pad.transform.SetParent(go.transform, false);
-            pad.transform.localPosition = new Vector3(0f, 0.03f, 0f);
-            pad.transform.localScale = new Vector3(range * 0.7f, 0.03f, range * 0.7f);
-            var col = pad.GetComponent<Collider>(); if (col != null) Destroy(col);
-            SetMat(pad, Mat(markerColor));
             return it;
         }
 
         private void RoomSign(string text, Vector3 pos)
         {
-            var go = new GameObject("Sign:" + text, typeof(MeshRenderer), typeof(TextMesh));
-            go.transform.SetParent(_root, false);
-            go.transform.position = pos;
-            var tm = go.GetComponent<TextMesh>();
-            tm.text = text;
-            tm.anchor = TextAnchor.LowerCenter;
-            tm.alignment = TextAlignment.Center;
-            tm.fontSize = 64;
-            tm.characterSize = 0.22f;
-            tm.color = new Color(0.85f, 0.92f, 1f);
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            if (font != null)
-            {
-                tm.font = font;
-                go.GetComponent<MeshRenderer>().sharedMaterial = font.material;
-            }
-            go.AddComponent<Billboard>();
+            // Disabled: the big floating signs read as debug clutter. Real wall-mounted
+            // signage comes when the office is rebuilt (first-person) around imported models.
         }
 
         // ---- spawn ----------------------------------------------------------
