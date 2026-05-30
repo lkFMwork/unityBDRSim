@@ -24,7 +24,8 @@ namespace Fitzmark.BDRSim.World
         /// Returns the spawned root so callers can add colliders/Interactables/Animators.
         /// </summary>
         public static GameObject Spawn(string key, Transform parent, Vector3 localPos,
-            float yaw = 0f, float scale = 1f, Vector3? placeholderSize = null, Color? placeholderColor = null)
+            float yaw = 0f, float scale = 1f, Vector3? placeholderSize = null,
+            Color? placeholderColor = null, bool placeholderLabel = true)
         {
             var prefab = Resources.Load<GameObject>(Root + key);
             GameObject go;
@@ -36,7 +37,7 @@ namespace Fitzmark.BDRSim.World
             else
             {
                 go = BuildPlaceholder(key, parent, placeholderSize ?? Vector3.one,
-                    placeholderColor ?? new Color(0.50f, 0.55f, 0.65f));
+                    placeholderColor ?? new Color(0.50f, 0.55f, 0.65f), placeholderLabel);
             }
             go.name = key;
             go.transform.localPosition = localPos;
@@ -44,7 +45,7 @@ namespace Fitzmark.BDRSim.World
             return go;
         }
 
-        private static GameObject BuildPlaceholder(string key, Transform parent, Vector3 size, Color color)
+        private static GameObject BuildPlaceholder(string key, Transform parent, Vector3 size, Color color, bool label)
         {
             var go = new GameObject(key);
             go.transform.SetParent(parent, false);
@@ -58,6 +59,8 @@ namespace Fitzmark.BDRSim.World
             if (col != null) Object.Destroy(col); // don't trap the player on stand-ins
             var r = box.GetComponent<Renderer>();
             if (r != null) r.sharedMaterial = MaterialLibrary.Get(color);
+
+            if (!label) return go;
 
             // A floating label so each stand-in reads clearly in screenshots.
             var lblGo = new GameObject("Label", typeof(MeshRenderer), typeof(TextMesh));

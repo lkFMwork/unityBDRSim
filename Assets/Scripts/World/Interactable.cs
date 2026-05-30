@@ -16,5 +16,9 @@ namespace Fitzmark.BDRSim.World
         public int seed = 0;        // client: meeting seed; npc: mentor index
         public string clientId = ""; // local (Texas) account id, when applicable
         public float range = 4.5f;
+
+        /// <summary>If set, runs this instead of the kind switch — lets code-built
+        /// zones (the office's activity rooms) wire arbitrary actions.</summary>
+        public System.Action onInteract;
     }
 }

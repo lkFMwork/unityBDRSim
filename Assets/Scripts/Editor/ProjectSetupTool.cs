@@ -377,41 +377,9 @@ namespace Fitzmark.BDRSim.Editor
             light.shadows = LightShadows.Soft;
             lightGo.transform.rotation = Quaternion.Euler(55f, -25f, 0f);
 
-            var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "Floor";
-            floor.transform.localScale = new Vector3(3f, 1f, 3f); // 30 x 30
-            SetMat(floor, CityMaterial("office_floor", new Color(0.40f, 0.38f, 0.34f)));
-
-            // Perimeter walls (fully enclosed; you leave via the Exit interactable)
-            Wall("Wall_N", new Vector3(0f, 2f, 15f), new Vector3(30f, 4f, 0.5f));
-            Wall("Wall_S", new Vector3(0f, 2f, -15f), new Vector3(30f, 4f, 0.5f));
-            Wall("Wall_E", new Vector3(15f, 2f, 0f), new Vector3(0.5f, 4f, 30f));
-            Wall("Wall_W", new Vector3(-15f, 2f, 0f), new Vector3(0.5f, 4f, 30f));
-
-            var deskMat = CityMaterial("office_desk", new Color(0.45f, 0.34f, 0.26f));
-            var tableMat = CityMaterial("office_table", new Color(0.30f, 0.30f, 0.34f));
-            var loungeMat = CityMaterial("office_lounge", new Color(0.30f, 0.42f, 0.40f));
-
-            // Bullpen
-            Building("Desk", new Vector3(7f, 0.5f, 4f), new Vector3(2.4f, 1f, 1.3f), deskMat);
-            Building("Desk", new Vector3(7f, 0.5f, 1f), new Vector3(2.4f, 1f, 1.3f), deskMat);
-            Building("Desk", new Vector3(11f, 0.5f, 4f), new Vector3(2.4f, 1f, 1.3f), deskMat);
-            var myDesk = Building("Your Desk", new Vector3(11f, 0.5f, 1f), new Vector3(2.4f, 1f, 1.3f), deskMat);
-            AddInteractable(myDesk, Interactable.Kind.Desk, "Your Desk — make a call", 0, 3.5f);
-            Marker(myDesk, "desk", new Color(0.3f, 0.8f, 0.4f));
-
-            // Meeting room
-            Building("Meeting Table", new Vector3(-7f, 0.5f, -6f), new Vector3(6f, 1f, 2.4f), tableMat);
-
-            // Break room
-            Building("Counter", new Vector3(-11f, 0.7f, 11f), new Vector3(5f, 1.4f, 1.2f), loungeMat);
-            Building("Couch", new Vector3(-5f, 0.4f, 12f), new Vector3(3.4f, 0.8f, 1.4f), loungeMat);
-
-            // Exit (south wall)
-            var exit = Building("Exit", new Vector3(0f, 1.5f, -14.6f), new Vector3(2.6f, 3f, 0.4f),
-                CityMaterial("office_exit", new Color(0.20f, 0.40f, 0.75f)));
-            AddInteractable(exit, Interactable.Kind.Exit, "Leave to the City", 0, 4.5f);
-            Marker(exit, "office", new Color(0.30f, 0.60f, 1f));
+            // The office interior (floor, rooms, furniture, activity zones) is built at
+            // runtime by OfficeController via ModelLibrary, so it can use real models from
+            // Resources/Models and be iterated without re-running this setup tool.
 
             var controller = new GameObject("OfficeController");
             controller.AddComponent<OfficeController>();
