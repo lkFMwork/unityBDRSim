@@ -1,6 +1,7 @@
 using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.Simulation;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -371,14 +372,14 @@ namespace Fitzmark.BDRSim.UI
 
             // Replace the empty default label with a richer two-line layout.
             var content = rowBtn.transform.GetChild(0).gameObject; // the "Text" child
-            var txt = content.GetComponent<Text>();
+            var txt = content.GetComponent<TMP_Text>();
             if (txt != null)
             {
                 string contact = scenario.prospect != null ? scenario.prospect.DisplayHeadline : "";
                 txt.text =
                     $"<b>{scenario.title}</b>   <color={DifficultyHex(scenario.difficulty)}>" +
                     $"[{scenario.difficulty}]</color>\n<size=14>{contact}</size>";
-                txt.alignment = TextAnchor.MiddleLeft;
+                txt.alignment = TextAlignmentOptions.Left;
             }
         }
 

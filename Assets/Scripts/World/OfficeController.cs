@@ -3,6 +3,7 @@ using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.Simulation;
 using Fitzmark.BDRSim.UI;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using AvatarBuilder = Fitzmark.BDRSim.UI.AvatarBuilder; // disambiguate from UnityEngine.AvatarBuilder
@@ -22,8 +23,8 @@ namespace Fitzmark.BDRSim.World
         private FollowCamera _cam;
         private Interactable[] _interactables;
 
-        private Text _prompt;
-        private Text _callsLabel;
+        private TMP_Text _prompt;
+        private TMP_Text _callsLabel;
         private GameObject _adviceOverlay;
         private readonly Dictionary<int, int> _tipIndex = new();
         private float _flashUntil;

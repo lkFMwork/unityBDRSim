@@ -1,5 +1,6 @@
 using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -20,7 +21,7 @@ namespace Fitzmark.BDRSim.UI
 
         private Canvas _canvas;
         private GameObject _quickMenu;
-        private Text _name, _cash, _day, _level;
+        private TMP_Text _name, _cash, _day, _level;
         private float _lastCash;
         private int _lastDay = int.MinValue, _lastLevel = int.MinValue;
         private bool _initialized;

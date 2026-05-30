@@ -1,4 +1,5 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -105,7 +106,7 @@ namespace Fitzmark.BDRSim.UI
             StartCoroutine(Rise(label.gameObject, rt, label));
         }
 
-        private IEnumerator Rise(GameObject go, RectTransform rt, Text label)
+        private IEnumerator Rise(GameObject go, RectTransform rt, TMP_Text label)
         {
             float life = 1.2f, t = 0f;
             Color c0 = label.color;

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.Simulation;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -18,17 +19,17 @@ namespace Fitzmark.BDRSim.UI
         private CallSession _session;
 
         private Canvas _canvas;
-        private Text _headerLabel;
-        private Text _stageLabel;
-        private Text _moodLabel;
-        private Text _laneLabel;
-        private Text _objectionLabel;
+        private TMP_Text _headerLabel;
+        private TMP_Text _stageLabel;
+        private TMP_Text _moodLabel;
+        private TMP_Text _laneLabel;
+        private TMP_Text _objectionLabel;
         private UiFactory.Meter _trustMeter;
         private UiFactory.Meter _patienceMeter;
         private UiFactory.ScrollLog _log;
         private GameObject _choicesPanel;
         private GameObject _abilitiesPanel;
-        private readonly List<(AbilityDefinition def, Button button, Text label)> _abilityButtons = new();
+        private readonly List<(AbilityDefinition def, Button button, TMP_Text label)> _abilityButtons = new();
 
         private void Start()
         {
@@ -137,7 +138,7 @@ namespace Fitzmark.BDRSim.UI
                     () => _session.UseAbility(captured), UiTheme.Accent, UiTheme.TextPrimary,
                     13, TextAnchor.MiddleCenter);
                 UiFactory.Size(btn.gameObject, prefW: 150f, prefH: 32f);
-                var label = btn.GetComponentInChildren<Text>();
+                var label = btn.GetComponentInChildren<TMP_Text>();
                 _abilityButtons.Add((captured, btn, label));
             }
         }

@@ -2,6 +2,7 @@ using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.Simulation;
 using Fitzmark.BDRSim.UI;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using AvatarBuilder = Fitzmark.BDRSim.UI.AvatarBuilder; // disambiguate from UnityEngine.AvatarBuilder
@@ -26,8 +27,8 @@ namespace Fitzmark.BDRSim.World
         private Interactable[] _interactables;
         private bool _inCar;
 
-        private Text _prompt;
-        private Text _callsLabel;
+        private TMP_Text _prompt;
+        private TMP_Text _callsLabel;
         private float _flashUntil;
         private string _flashText = "";
 

@@ -1,6 +1,7 @@
 using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.UI;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using AvatarBuilder = Fitzmark.BDRSim.UI.AvatarBuilder; // disambiguate from UnityEngine.AvatarBuilder
@@ -36,7 +37,7 @@ namespace Fitzmark.BDRSim.World
 
         private UiFactory.Meter _pHealth;
         private UiFactory.Meter _gHealth;
-        private Text _pName, _gName, _timer, _announce, _combo;
+        private TMP_Text _pName, _gName, _timer, _announce, _combo;
         private int _comboCount;
         private float _comboTimer;
         private float _announceUntil;
@@ -317,7 +318,7 @@ namespace Fitzmark.BDRSim.World
 
         // ---- HUD helpers ----------------------------------------------------
 
-        private Text AnchoredLabel(Vector2 min, Vector2 max, string text, TextAnchor align)
+        private TMP_Text AnchoredLabel(Vector2 min, Vector2 max, string text, TextAnchor align)
         {
             var panel = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.35f), "Lbl");
             var rt = panel.rectTransform;

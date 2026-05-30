@@ -5,7 +5,8 @@
         "Fitzmark.BDRSim.Data",
         "Fitzmark.BDRSim.Simulation",
         "Fitzmark.BDRSim.Core",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

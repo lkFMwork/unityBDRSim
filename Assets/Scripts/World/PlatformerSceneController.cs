@@ -1,6 +1,7 @@
 using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.UI;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -20,7 +21,7 @@ namespace Fitzmark.BDRSim.World
         private Camera _cam;
         private GameObject _player;
         private PlatformerController _ctrl;
-        private Text _statusLabel;
+        private TMP_Text _statusLabel;
         private string _company = "the client";
         private bool _over;
 

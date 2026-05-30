@@ -1,4 +1,5 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -34,7 +35,7 @@ namespace Fitzmark.BDRSim.UI
         }
 
         /// <summary>Animate a label from one number to another (e.g. a cash balance).</summary>
-        public static void CountUp(Text label, float from, float to, string prefix = "$",
+        public static void CountUp(TMP_Text label, float from, float to, string prefix = "$",
             string format = "N0", float dur = 0.5f)
         {
             if (label == null) return;
@@ -42,7 +43,7 @@ namespace Fitzmark.BDRSim.UI
             R.StartCoroutine(CountRoutine(label, from, to, prefix, format, dur));
         }
 
-        private static IEnumerator CountRoutine(Text label, float from, float to, string prefix,
+        private static IEnumerator CountRoutine(TMP_Text label, float from, float to, string prefix,
             string format, float dur)
         {
             float t = 0f;

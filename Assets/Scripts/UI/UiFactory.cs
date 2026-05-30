@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -159,9 +160,48 @@ namespace Fitzmark.BDRSim.UI
 
         // ---- text / buttons -------------------------------------------------
 
-        public static Text Label(Transform parent, string content, int size, Color color,
+        public static TMP_Text Label(Transform parent, string content, int size, Color color,
             TextAnchor align = TextAnchor.UpperLeft, FontStyle style = FontStyle.Normal,
             string name = "Label")
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            var t = go.GetComponent<TextMeshProUGUI>();
+            t.fontSize = size;
+            t.color = color;
+            t.text = content;
+            t.alignment = ToTmpAlign(align);
+            t.fontStyle = ToTmpStyle(style);
+            t.richText = true;
+            return t;
+        }
+
+        /// <summary>Map a legacy <see cref="TextAnchor"/> to a TMP alignment.</summary>
+        public static TextAlignmentOptions ToTmpAlign(TextAnchor a) => a switch
+        {
+            TextAnchor.UpperLeft => TextAlignmentOptions.TopLeft,
+            TextAnchor.UpperCenter => TextAlignmentOptions.Top,
+            TextAnchor.UpperRight => TextAlignmentOptions.TopRight,
+            TextAnchor.MiddleLeft => TextAlignmentOptions.Left,
+            TextAnchor.MiddleCenter => TextAlignmentOptions.Center,
+            TextAnchor.MiddleRight => TextAlignmentOptions.Right,
+            TextAnchor.LowerLeft => TextAlignmentOptions.BottomLeft,
+            TextAnchor.LowerCenter => TextAlignmentOptions.Bottom,
+            TextAnchor.LowerRight => TextAlignmentOptions.BottomRight,
+            _ => TextAlignmentOptions.TopLeft
+        };
+
+        private static FontStyles ToTmpStyle(FontStyle s) => s switch
+        {
+            FontStyle.Bold => FontStyles.Bold,
+            FontStyle.Italic => FontStyles.Italic,
+            FontStyle.BoldAndItalic => FontStyles.Bold | FontStyles.Italic,
+            _ => FontStyles.Normal
+        };
+
+        // Legacy uGUI Text, used only where a component requires it (the legacy InputField).
+        private static Text LegacyText(Transform parent, string content, int size, Color color,
+            FontStyle style, string name)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Text));
             go.transform.SetParent(parent, false);
@@ -170,11 +210,9 @@ namespace Fitzmark.BDRSim.UI
             t.fontSize = size;
             t.color = color;
             t.text = content;
-            t.alignment = align;
+            t.alignment = TextAnchor.MiddleLeft;
             t.fontStyle = style;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            t.supportRichText = true;
+            t.supportRichText = false;
             return t;
         }
 
@@ -219,7 +257,7 @@ namespace Fitzmark.BDRSim.UI
         public class Meter
         {
             public RectTransform Fill;
-            public Text Caption;
+            public TMP_Text Caption;
             public bool Mirror; // fill from the right (for a right-side fighter bar)
 
             public void Set(float value01)
@@ -262,7 +300,7 @@ namespace Fitzmark.BDRSim.UI
         public class ScrollLog
         {
             public ScrollRect Scroll;
-            public Text Text;
+            public TMP_Text Text;
 
             public void Clear() => Text.text = string.Empty;
 
@@ -295,7 +333,7 @@ namespace Fitzmark.BDRSim.UI
             viewportRt.offsetMax = new Vector2(-10f, -10f);
 
             // Content holds the text and auto-sizes its height.
-            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(Text),
+            var contentGo = new GameObject("Content", typeof(RectTransform), typeof(TextMeshProUGUI),
                 typeof(ContentSizeFitter));
             contentGo.transform.SetParent(viewportGo.transform, false);
             var contentRt = contentGo.GetComponent<RectTransform>();
@@ -305,14 +343,11 @@ namespace Fitzmark.BDRSim.UI
             contentRt.offsetMin = Vector2.zero;
             contentRt.offsetMax = Vector2.zero;
 
-            var text = contentGo.GetComponent<Text>();
-            text.font = Font;
+            var text = contentGo.GetComponent<TextMeshProUGUI>();
             text.fontSize = fontSize;
             text.color = fg;
-            text.alignment = TextAnchor.UpperLeft;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-            text.supportRichText = true;
+            text.alignment = TextAlignmentOptions.TopLeft;
+            text.richText = true;
             text.text = string.Empty;
 
             var fitter = contentGo.GetComponent<ContentSizeFitter>();
@@ -374,16 +409,13 @@ namespace Fitzmark.BDRSim.UI
             go.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.10f);
             var input = go.GetComponent<InputField>();
 
-            var textT = Label(go.transform, string.Empty, 16, UiTheme.TextPrimary,
-                TextAnchor.MiddleLeft, FontStyle.Normal, "Text");
-            textT.supportRichText = false;
+            var textT = LegacyText(go.transform, string.Empty, 16, UiTheme.TextPrimary, FontStyle.Normal, "Text");
             var trt = textT.rectTransform;
             Stretch(trt);
             trt.offsetMin = new Vector2(10f, 4f);
             trt.offsetMax = new Vector2(-10f, -4f);
 
-            var phT = Label(go.transform, placeholder, 16, UiTheme.TextMuted,
-                TextAnchor.MiddleLeft, FontStyle.Italic, "Placeholder");
+            var phT = LegacyText(go.transform, placeholder, 16, UiTheme.TextMuted, FontStyle.Italic, "Placeholder");
             var prt = phT.rectTransform;
             Stretch(prt);
             prt.offsetMin = new Vector2(10f, 4f);

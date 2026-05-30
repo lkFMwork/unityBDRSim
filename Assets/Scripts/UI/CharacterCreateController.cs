@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.Simulation;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -22,8 +23,8 @@ namespace Fitzmark.BDRSim.UI
         private AvatarBuilder _avatar;
         private InputField _firstName;
         private InputField _lastName;
-        private Text _pointsLabel;
-        private Text _previewLabel;
+        private TMP_Text _pointsLabel;
+        private TMP_Text _previewLabel;
         private readonly List<Action> _refreshers = new();
 
         private SalesStyle CurrentStyle => SalesStyleLibrary.All[_styleIndex];
