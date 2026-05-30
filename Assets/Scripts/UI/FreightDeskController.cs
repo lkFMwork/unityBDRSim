@@ -93,6 +93,11 @@ namespace Fitzmark.BDRSim.UI
                 UiTheme.Positive, Color.white, 16, TextAnchor.MiddleCenter);
             UiFactory.Size(advance.gameObject, flexW: 1f);
 
+            var market = UiFactory.Button(footer.transform, "Market",
+                () => new MarketView(_canvas.transform, _c, null).Open(), UiTheme.Accent, UiTheme.TextPrimary,
+                15, TextAnchor.MiddleCenter);
+            UiFactory.Size(market.gameObject, prefW: 130f);
+
             var back = UiFactory.Button(footer.transform, "Back",
                 () => GameManager.Instance.ReturnToHub(), UiTheme.PanelDark, UiTheme.TextMuted,
                 15, TextAnchor.MiddleCenter);

@@ -49,6 +49,41 @@ namespace Fitzmark.BDRSim.Data
                 c => c.mentorTalks >= 5),
             new Achievement("whale", "Whale Hunter", "Land a key account.",
                 c => c.keyAccountsWon >= 1),
+
+            // Freight desk / economy / outreach
+            new Achievement("freight_boss", "Freight Boss", "Deliver 50 freight loads.",
+                c => Delivered(c) >= 50),
+            new Achievement("self_made", "Self-Made", "Bank $5,000 in commission.",
+                c => c.cash >= 5000f),
+            new Achievement("empire", "Empire", "Grow your book to 10 accounts.",
+                c => c.accounts != null && c.accounts.Count >= 10),
+            new Achievement("tycoon", "Logistics Tycoon", "Move $50,000 in lifetime gross margin.",
+                c => c.lifetimeMargin >= 50000f),
+            new Achievement("fully_loaded", "Fully Loaded", "Max out every business upgrade.",
+                c => UpgradeLevels(c) >= 9),
+            new Achievement("networker", "Networker", "Convert 10 warm leads into meetings.",
+                c => Converted(c) >= 10),
         };
+
+        private static int Delivered(BDRCharacter c)
+        {
+            int n = 0;
+            if (c.accounts != null) foreach (var a in c.accounts) if (a != null) n += a.loadsDelivered;
+            return n;
+        }
+
+        private static int Converted(BDRCharacter c)
+        {
+            int n = 0;
+            if (c.leads != null) foreach (var l in c.leads) if (l != null && l.status == LeadStatus.Converted) n++;
+            return n;
+        }
+
+        private static int UpgradeLevels(BDRCharacter c)
+        {
+            int n = 0;
+            if (c.upgrades != null) foreach (var u in c.upgrades) if (u != null) n += u.level;
+            return n;
+        }
     }
 }

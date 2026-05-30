@@ -140,6 +140,7 @@ namespace Fitzmark.BDRSim.UI
             Launch(row.transform, "Call", TakeCall);
             Launch(row.transform, "Outreach", OpenOutreach);
             Launch(row.transform, "Freight", GoFreight);
+            Launch(row.transform, "Market", OpenMarket);
             Launch(row.transform, "Texas", GoTexas);
             Launch(row.transform, "Upgrades", OpenUpgrades);
         }
@@ -167,6 +168,7 @@ namespace Fitzmark.BDRSim.UI
 
         private void OpenOutreach() => new OutreachView(_canvas, _character, null).Open();
         private void OpenUpgrades() => new UpgradesView(_canvas, _character, null).Open();
+        private void OpenMarket() => new MarketView(_canvas, _character, null).Open();
         private void GoFreight() { Dismiss(); GameManager.Instance.GoToFreightDesk(); }
         private void GoTexas() { Dismiss(); GameManager.Instance.GoToTexas(); }
     }
