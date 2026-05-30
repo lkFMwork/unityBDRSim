@@ -18,6 +18,9 @@ namespace Fitzmark.BDRSim.World
         // Friendly name -> the "@"-file holding that take.
         private static readonly Dictionary<string, string> ClipFiles = new()
         {
+            // No dedicated standing idle in the imported set; the talking take reads as a
+            // gentle standing idle, so we reuse it for "idle".
+            { "idle", ClipPrefix + "Talking" },
             { "typing", ClipPrefix + "Typing" },
             { "talking", ClipPrefix + "Talking" },
             { "phone", ClipPrefix + "Talking On Phone" },

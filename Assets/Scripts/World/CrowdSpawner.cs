@@ -27,10 +27,13 @@ namespace Fitzmark.BDRSim.World
             Vector2 p = Random.insideUnitCircle * radius;
             go.transform.position = center + new Vector3(p.x, groundY, p.y);
 
-            var body = new GameObject("Body");
-            body.transform.SetParent(go.transform, false);
-            var avatar = body.AddComponent<AvatarBuilder>();
-            avatar.SetConfig(RandomConfig());
+            // Real Mixamo body when imported; else the procedural avatar.
+            if (OfficeWorker.Attach(go.transform) == null)
+            {
+                var body = new GameObject("Body");
+                body.transform.SetParent(go.transform, false);
+                body.AddComponent<AvatarBuilder>().SetConfig(RandomConfig());
+            }
 
             var npc = go.AddComponent<WanderingNpc>();
             npc.center = center;

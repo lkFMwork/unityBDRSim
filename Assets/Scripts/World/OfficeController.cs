@@ -231,10 +231,13 @@ namespace Fitzmark.BDRSim.World
 
             _playerCtrl = _player.AddComponent<PlayerController>();
 
-            var body = new GameObject("Body");
-            body.transform.SetParent(_player.transform, false);
-            var avatar = body.AddComponent<AvatarBuilder>();
-            avatar.SetConfig(Profile != null ? Profile.avatar : new AvatarConfig());
+            // Real Mixamo body when imported; else the procedural avatar.
+            if (OfficeWorker.Attach(_player.transform) == null)
+            {
+                var body = new GameObject("Body");
+                body.transform.SetParent(_player.transform, false);
+                body.AddComponent<AvatarBuilder>().SetConfig(Profile != null ? Profile.avatar : new AvatarConfig());
+            }
 
             _cam.Target = _player.transform;
         }

@@ -13,14 +13,22 @@ namespace Fitzmark.BDRSim.World
         public float radius = 12f;
         public float speed = 2.2f;
 
-        private Fitzmark.BDRSim.UI.AvatarBuilder _avatar;
+        private Fitzmark.BDRSim.UI.AvatarBuilder _avatar; // procedural fallback
+        private OfficeWorker _worker;                     // real Mixamo body, when present
         private Vector3 _target;
         private float _pause;
 
         private void Start()
         {
             _avatar = GetComponentInChildren<Fitzmark.BDRSim.UI.AvatarBuilder>();
+            _worker = GetComponentInChildren<OfficeWorker>();
             PickTarget();
+        }
+
+        private void SetWalk(float amount)
+        {
+            if (_worker != null) _worker.SetWalk(amount);
+            else if (_avatar != null) _avatar.SetWalk(amount);
         }
 
         private void PickTarget()
@@ -36,7 +44,7 @@ namespace Fitzmark.BDRSim.World
             if (_pause > 0f)
             {
                 _pause -= dt;
-                if (_avatar != null) _avatar.SetWalk(0f);
+                SetWalk(0f);
                 return;
             }
 
@@ -49,14 +57,14 @@ namespace Fitzmark.BDRSim.World
             {
                 _pause = Random.Range(0.8f, 2.6f);
                 PickTarget();
-                if (_avatar != null) _avatar.SetWalk(0f);
+                SetWalk(0f);
                 return;
             }
 
             Vector3 dir = to / dist;
             transform.position = pos + dir * speed * dt;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), 8f * dt);
-            if (_avatar != null) _avatar.SetWalk(1f);
+            SetWalk(1f);
         }
     }
 }

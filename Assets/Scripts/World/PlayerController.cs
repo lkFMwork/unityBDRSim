@@ -16,7 +16,8 @@ namespace Fitzmark.BDRSim.World
         public float Gravity = -22f;
 
         private CharacterController _cc;
-        private Fitzmark.BDRSim.UI.AvatarBuilder _avatar;
+        private Fitzmark.BDRSim.UI.AvatarBuilder _avatar; // procedural fallback body
+        private OfficeWorker _worker;                     // real Mixamo body, when present
         private float _verticalVelocity;
         private bool _controlEnabled = true;
 
@@ -24,20 +25,27 @@ namespace Fitzmark.BDRSim.World
         {
             _cc = GetComponent<CharacterController>();
             _avatar = GetComponentInChildren<Fitzmark.BDRSim.UI.AvatarBuilder>();
+            _worker = GetComponentInChildren<OfficeWorker>();
+        }
+
+        private void SetWalk(float amount)
+        {
+            if (_worker != null) _worker.SetWalk(amount);
+            else if (_avatar != null) _avatar.SetWalk(amount);
         }
 
         public void SetControlEnabled(bool value) => _controlEnabled = value;
 
         private void Update()
         {
-            if (!_controlEnabled) { if (_avatar != null) _avatar.SetWalk(0f); return; }
+            if (!_controlEnabled) { SetWalk(0f); return; }
 
             float h = Input.GetAxisRaw("Horizontal");
             float v = Input.GetAxisRaw("Vertical");
 
             Vector3 move = new Vector3(h, 0f, v);
             if (move.sqrMagnitude > 1f) move.Normalize();
-            if (_avatar != null) _avatar.SetWalk(move.magnitude);
+            SetWalk(move.magnitude);
 
             if (_cc.isGrounded && _verticalVelocity < 0f) _verticalVelocity = -2f;
             _verticalVelocity += Gravity * Time.deltaTime;
