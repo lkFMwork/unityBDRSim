@@ -70,26 +70,21 @@ namespace Fitzmark.BDRSim.World
             _player = new GameObject("Player");
             _player.transform.position = start;
 
-            // Single convention: transform.position = the player's CENTER. The body collider
-            // (solid, cast for movement) and the trigger (pickups) are both centered at origin,
-            // and the sprite child is centered too — so everything is aligned with zero offset.
+            // The player is a DYNAMIC Rigidbody2D so Unity's solver resolves all ground/wall/
+            // ceiling collision (no hand-rolled casts). A friction-free capsule is the SOLID body
+            // (capsules slide over tile seams); a slightly larger trigger handles pickups.
             var rb = _player.AddComponent<Rigidbody2D>();
-            rb.bodyType = RigidbodyType2D.Kinematic;
-            rb.gravityScale = 0f;
-            // None, NOT Interpolate: we drive the transform every frame in Update(), so the
-            // rigidbody isn't physics-stepped. Interpolation then smooths between stale FixedUpdate
-            // positions and fights our movement — that's the jitter that read as a slow/uneven
-            // fall and made the sprite animation look weird.
-            rb.interpolation = RigidbodyInterpolation2D.None;
 
-            // One trigger collider for pickups (coins/enemies/goal). Solid-tile collision is the
-            // controller's own explicit-box casts, so no separate solid collider is needed.
-            var trigger = _player.AddComponent<BoxCollider2D>();
-            trigger.isTrigger = true;
-            trigger.size = new Vector2(0.8f, 1.1f);
+            var mat = new PhysicsMaterial2D("PlayerSlippery") { friction = 0f, bounciness = 0f };
+            var body = _player.AddComponent<CapsuleCollider2D>();
+            body.size = new Vector2(0.7f, 1.0f);
+            body.direction = CapsuleDirection2D.Vertical;
+            body.sharedMaterial = mat;
+            // The capsule also triggers prop pickups: overlapping a trigger-prop fires
+            // OnTriggerEnter2D on the player (one collider → no double counting).
 
             _ctrl = _player.AddComponent<Platformer2DController>();
-            _ctrl.halfHeight = 0.5f; // body half-height (used for the spawn-center offset)
+            _ctrl.halfHeight = 0.5f; // matches the capsule half-height (feet ground-check offset)
 
             // Sprite body: a child SpriteRenderer driven by SpriteAnimator (Kenney pixel
             // character frames when imported, a colored placeholder square until then).
@@ -111,10 +106,10 @@ namespace Fitzmark.BDRSim.World
             }
             anim.baseScale = baseScale;
 
-            // start is the surface point; raise it by the body half-height so the CENTER spawns
-            // with feet on the ground (single convention: transform = center).
-            var spawn = start + new Vector3(0f, _ctrl.halfHeight, 0f);
-            _ctrl.Init(spawn, anim, 1 << SolidLayer);
+            // start is the surface point; raise the CENTER by the body half-height (+ a hair) so
+            // the capsule spawns just above the ground and settles onto it via physics.
+            var spawn = start + new Vector3(0f, _ctrl.halfHeight + 0.05f, 0f);
+            _ctrl.Init(spawn, anim, 1 << SolidLayer, rb);
             _ctrl.Won += OnWon;
             _ctrl.Failed += OnFailed;
             _ctrl.LivesChanged += _ => RefreshStatus();
