@@ -288,17 +288,29 @@ namespace Fitzmark.BDRSim.World
 
         private static GameObject PropObject(Transform parent, string key, Vector3 pos, float size, Color fallback)
         {
-            var go = new GameObject("Prop", typeof(SpriteRenderer), typeof(Platformer2DProp));
+            var go = new GameObject("Prop", typeof(Platformer2DProp));
             go.transform.SetParent(parent, false);
             go.transform.position = pos;
-            var sr = go.GetComponent<SpriteRenderer>();
+
+            // Kinematic rigidbody: moving this collider (patrolling enemies) no longer forces a
+            // static-collider tree rebuild each frame — the main per-frame stutter source.
+            var rb = go.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.gravityScale = 0f;
+
+            var col = go.AddComponent<BoxCollider2D>();
+            col.isTrigger = true;
+            col.size = Vector2.one * size;
+
+            // Sprite on a CHILD so spin/flip animates the visual without resizing the collider.
+            var vis = new GameObject("Visual", typeof(SpriteRenderer));
+            vis.transform.SetParent(go.transform, false);
+            var sr = vis.GetComponent<SpriteRenderer>();
             sr.sprite = SpriteLibrary.Get(key, fallback);
             sr.color = SpriteLibrary.Has(key) ? Color.white : fallback;
             sr.sortingOrder = 5;
             FitSprite(sr, size);
-            var col = go.AddComponent<BoxCollider2D>();
-            col.isTrigger = true;
-            col.size = Vector2.one * size;
+            go.GetComponent<Platformer2DProp>().visual = vis.transform;
             return go;
         }
 

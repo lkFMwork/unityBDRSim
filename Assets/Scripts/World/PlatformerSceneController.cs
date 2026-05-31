@@ -24,6 +24,9 @@ namespace Fitzmark.BDRSim.World
         private GameObject _player;
         private Platformer2DController _ctrl;
         private TMP_Text _statusLabel;
+        private TMP_Text _fpsLabel;
+        private float _fpsTime;
+        private int _fpsFrames;
         private string _company = "the client";
         private bool _over;
 
@@ -124,6 +127,15 @@ namespace Fitzmark.BDRSim.World
 
         private void LateUpdate()
         {
+            // FPS readout, averaged over 1s (cheap; helps diagnose stutter vs low framerate).
+            _fpsFrames++;
+            _fpsTime += Time.unscaledDeltaTime;
+            if (_fpsTime >= 1f && _fpsLabel != null)
+            {
+                _fpsLabel.text = $"fps {Mathf.RoundToInt(_fpsFrames / _fpsTime)}";
+                _fpsFrames = 0; _fpsTime = 0f;
+            }
+
             if (_cam == null || _player == null) return;
             // Frame-rate-independent exponential smoothing (1 - e^-k·dt), so the follow is the
             // same at any framerate and doesn't add its own jitter on top of the player's motion.
@@ -152,6 +164,13 @@ namespace Fitzmark.BDRSim.World
                 "← →  move    Shift  run    Space  jump (hold higher)    stomp enemies, mind the gaps",
                 14, UiTheme.TextMuted, TextAnchor.MiddleCenter, FontStyle.Normal);
             UiFactory.Stretch(hint.rectTransform);
+
+            // Temporary FPS readout (top-left), refreshed once a second so it costs nothing.
+            var fps = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.6f), "Fps");
+            Anchor(fps.rectTransform, new Vector2(0f, 0.85f), new Vector2(0.18f, 0.92f));
+            _fpsLabel = UiFactory.Label(fps.transform, "fps —", 16, new Color(0.5f, 1f, 0.5f),
+                TextAnchor.MiddleCenter, FontStyle.Bold);
+            UiFactory.Stretch(_fpsLabel.rectTransform);
 
             RefreshStatus();
         }
