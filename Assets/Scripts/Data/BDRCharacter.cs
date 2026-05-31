@@ -19,6 +19,10 @@ namespace Fitzmark.BDRSim.Data
         public string lastName = "Rep";
         public string styleId = "closer";
 
+        // Home branch chosen at character creation; its state is World 1 of the SMW overworld.
+        public string homeBranchId = "indianapolis";
+        public string homeStateId = "indiana";
+
         // Look + build
         public AvatarConfig avatar = new AvatarConfig();
         public BDRAttributes attributes = new BDRAttributes();

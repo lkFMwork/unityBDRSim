@@ -12,5 +12,6 @@ namespace Fitzmark.BDRSim.Data
         public int lastMeetingDay = -999; // never met
         public bool closed = false;
         public bool cityUnlocked = false; // beaten the commute platformer → fast-travel enabled
+        public bool cleared = false;      // SMW: this city-level is cleared → opens the next on the path
     }
 }

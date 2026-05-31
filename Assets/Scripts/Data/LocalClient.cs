@@ -1,55 +1,50 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Fitzmark.BDRSim.Data
 {
     /// <summary>
-    /// A LOCAL account (Texas). You travel to these in person (via a platformer
-    /// level) and advance them through meeting stages over in-game time. The wider
-    /// national (USA) book is grown remotely (calls/email/video) — not here.
-    /// MapX/MapZ are rough geographic positions on the Texas overworld.
+    /// A city-level you travel to in person (via a commute platformer) and advance through
+    /// meeting stages. Cities are grouped into <see cref="StateWorld"/>s (states) on the
+    /// SMW-style overworld; one city per branch state is the company's branch office.
+    /// MapX/MapZ are rough positions WITHIN that state's world map.
     /// </summary>
     public class LocalClient
     {
         public readonly string Id;
         public readonly string Company;
         public readonly string City;
+        public readonly string StateId;     // the StateWorld this city belongs to
         public readonly float MapX;
         public readonly float MapZ;
         public readonly int RequiredLevel;
+        public readonly bool IsBranch;       // a FITZMARK branch office (selectable at creation)
 
-        public LocalClient(string id, string company, string city, float mapX, float mapZ, int requiredLevel)
+        public LocalClient(string id, string company, string city, string stateId,
+            float mapX, float mapZ, int requiredLevel, bool isBranch = false)
         {
             Id = id;
             Company = company;
             City = city;
+            StateId = stateId;
             MapX = mapX;
             MapZ = mapZ;
             RequiredLevel = requiredLevel;
+            IsBranch = isBranch;
         }
     }
 
+    /// <summary>
+    /// Flat lookup over every city across every world. Kept as the single by-id registry the
+    /// rest of the game uses (city scene, territory progression); the worlds themselves live in
+    /// <see cref="WorldRegistry"/>.
+    /// </summary>
     public static class TerritoryRegistry
     {
-        // Positions are rough: x = west→east, z = south→north (reads as Texas).
-        public static readonly List<LocalClient> All = new()
-        {
-            new LocalClient("austin", "Hill Country Materials", "Austin, TX", 4f, -6f, 1),
-            new LocalClient("san_antonio", "Alamo Distribution", "San Antonio, TX", 0f, -16f, 1),
-            new LocalClient("waco", "Brazos Manufacturing", "Waco, TX", 6f, 4f, 1),
-            new LocalClient("fort_worth", "Stockyard Supply Co.", "Fort Worth, TX", 2f, 14f, 2),
-            new LocalClient("dallas", "Trinity Freight Foods", "Dallas, TX", 9f, 14f, 2),
-            new LocalClient("corpus", "Gulf Coast Mills", "Corpus Christi, TX", 14f, -26f, 2),
-            new LocalClient("houston", "Bayou City Components", "Houston, TX", 22f, -10f, 3),
-            new LocalClient("lubbock", "Plains Industrial", "Lubbock, TX", -16f, 18f, 3),
-            new LocalClient("amarillo", "Panhandle Products", "Amarillo, TX", -12f, 30f, 4),
-            new LocalClient("el_paso", "Sun City Logistics Group", "El Paso, TX", -34f, 6f, 5),
-        };
+        public static IReadOnlyList<LocalClient> All =>
+            WorldRegistry.All.SelectMany(w => w.Cities).ToList();
 
-        public static LocalClient Get(string id)
-        {
-            foreach (var c in All)
-                if (c.Id == id) return c;
-            return null;
-        }
+        public static LocalClient Get(string id) =>
+            WorldRegistry.All.SelectMany(w => w.Cities).FirstOrDefault(c => c.Id == id);
     }
 }
