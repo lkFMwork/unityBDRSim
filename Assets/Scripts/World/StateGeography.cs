@@ -60,5 +60,42 @@ namespace Fitzmark.BDRSim.World
                 default:          return G(MapEdge.None, MapEdge.None, 0f);
             }
         }
+
+        /// <summary>
+        /// Continuous terrain sample at a normalized state position (nx,ny ∈ 0..1): an elevation in
+        /// roughly [-0.4 .. 1] (negative = below the waterline → lake/sea) and a water flag. The 3D
+        /// city terrain samples this around the city's location so the ground rises toward the
+        /// state's mountains and dips toward its water — matching the overworld's "9 points".
+        /// </summary>
+        public float Elevation(float nx, float ny, out bool water)
+        {
+            water = false;
+            // Open-water edges → below the waterline, deeper the closer to the edge.
+            float edge = 0f;
+            if ((Water & MapEdge.N) != 0) edge = Mathf.Max(edge, ny);
+            if ((Water & MapEdge.S) != 0) edge = Mathf.Max(edge, 1f - ny);
+            if ((Water & MapEdge.E) != 0) edge = Mathf.Max(edge, nx);
+            if ((Water & MapEdge.W) != 0) edge = Mathf.Max(edge, 1f - nx);
+            if (edge > 0.78f) { water = true; return -0.35f * Mathf.InverseLerp(0.78f, 1f, edge) - 0.05f; }
+
+            // Internal river line → a thin water channel.
+            if (River.Exists)
+            {
+                float p = River.Horizontal ? ny : nx;
+                if (Mathf.Abs(p - River.Pos) < 0.05f) { water = true; return -0.12f; }
+            }
+
+            // Mountain band → ramp up toward the far edge (peaks highest at the border).
+            float d = MountainDepth <= 0f ? 0.25f : MountainDepth;
+            float m = 0f;
+            if ((Mountains & MapEdge.E) != 0 && nx > 1f - d) m = Mathf.Max(m, (nx - (1f - d)) / d);
+            if ((Mountains & MapEdge.W) != 0 && nx < d) m = Mathf.Max(m, ((d - nx) / d));
+            if ((Mountains & MapEdge.N) != 0 && ny > 1f - d) m = Mathf.Max(m, (ny - (1f - d)) / d);
+            if ((Mountains & MapEdge.S) != 0 && ny < d) m = Mathf.Max(m, ((d - ny) / d));
+            if (m > 0f) return Mathf.Lerp(0.28f, 1f, m);
+
+            // Rolling lowland (a little higher near desert/plains centres).
+            return 0.22f;
+        }
     }
 }
