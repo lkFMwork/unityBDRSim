@@ -147,12 +147,6 @@ namespace Fitzmark.BDRSim.World
         private void BuildTileMap()
         {
             var theme = WorldMapTheme.For(_world.Id);
-            string baseKey = theme.Biome switch
-            {
-                MapBiome.Desert => MapPackArt.Sand,
-                MapBiome.Forest => MapPackArt.Grass,
-                _ => MapPackArt.Grass
-            };
             var rng = new System.Random(StableHash(_world.Id));
 
             // Build the set of path directions per cell by walking the trail between consecutive cells.
@@ -163,22 +157,40 @@ namespace Fitzmark.BDRSim.World
                 for (int gx = 0; gx < GridCols; gx++)
                 {
                     var cell = new Vector2Int(gx, gy);
-                    // Base terrain (tint subtly per theme so states differ).
-                    var baseImg = TileImage(baseKey, cell, sorting: 0);
-                    baseImg.color = Color.Lerp(Color.white, theme.GrassDark, 0.0f); // base art carries its colour
+                    // Regional terrain: a west→east band gives each state internal geography
+                    // (e.g. TN: greener west, plains centre, stony/snowy "mountains" east).
+                    float ew = gx / (float)(GridCols - 1);
+                    string baseKey = RegionBase(theme, ew, gy, rng);
+                    TileImage(baseKey, cell, sorting: 0);
 
-                    // Path overlay where the trail runs.
                     if (dirs.TryGetValue(cell, out var d))
                     {
                         var key = PathTileFor(d);
                         if (key != null) TileImage(key, cell, sorting: 1);
                     }
-                    // Decoration on a few empty grass cells away from the trail.
-                    else if (theme.Biome != MapBiome.Desert && rng.NextDouble() < 0.14 && !NearTrail(dirs, cell))
-                        Decoration(theme, cell, rng);
-                    else if (theme.Biome == MapBiome.Desert && rng.NextDouble() < 0.12 && !NearTrail(dirs, cell))
-                        TileImage(MapPackArt.Cactus, cell, sorting: 2);
+                    else if (!NearTrail(dirs, cell) && rng.NextDouble() < 0.16)
+                        Decoration(theme, cell, ew, rng);
                 }
+        }
+
+        // Base terrain for a cell given its east–west position, themed per biome so states have
+        // internal geography rather than one flat colour.
+        private static string RegionBase(WorldMapTheme theme, float ew, int gy, System.Random rng)
+        {
+            switch (theme.Biome)
+            {
+                case MapBiome.Desert: // sand everywhere, a little stone in the far east
+                    return ew > 0.8f && rng.NextDouble() < 0.5 ? MapPackArt.Stone : MapPackArt.Sand;
+                case MapBiome.Forest: // green, snowy stone in the east (mountains)
+                    return ew > 0.78f ? MapPackArt.Snow : MapPackArt.Grass;
+                case MapBiome.Bluegrass: // TN/AL/GA: lush west, plains centre, stony mountains east
+                    if (ew > 0.82f) return MapPackArt.Snow;        // snow-capped peaks
+                    if (ew > 0.66f) return MapPackArt.Stone;       // mountain stone
+                    if (ew < 0.25f) return MapPackArt.Grass;       // forested west
+                    return MapPackArt.Grass;
+                default: // Heartland/Plains: mostly grass, occasional dirt patch
+                    return rng.NextDouble() < 0.12 ? MapPackArt.Dirt : MapPackArt.Grass;
+            }
         }
 
         [System.Flags]
@@ -250,31 +262,50 @@ namespace Fitzmark.BDRSim.World
             return null;
         }
 
-        // An Image showing a map tile in grid cell (gx,gy), sized to one cell of the map rect.
-        private Image TileImage(string spriteKey, Vector2Int cell, int sorting)
+        // Layer containers so z-order is correct regardless of creation order: base < path < decor.
+        private RectTransform _baseLayer, _pathLayer, _decorLayer;
+
+        private RectTransform Layer(ref RectTransform layer, string name)
         {
-            var go = new GameObject("Tile", typeof(RectTransform), typeof(Image));
+            if (layer != null) return layer;
+            var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(_root, false);
+            layer = go.GetComponent<RectTransform>();
+            UiFactory.Stretch(layer);
+            return layer;
+        }
+
+        // An Image showing a map tile in grid cell (gx,gy). sorting 0=base,1=path,2=decor selects
+        // the layer; scale<1 insets a centered object (decorations) so they don't fill the cell.
+        private Image TileImage(string spriteKey, Vector2Int cell, int sorting, float scale = 1f)
+        {
+            RectTransform parent = sorting == 0 ? Layer(ref _baseLayer, "Base")
+                : sorting == 1 ? Layer(ref _pathLayer, "Path") : Layer(ref _decorLayer, "Decor");
+            var go = new GameObject("Tile", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
             var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(cell.x / (float)GridCols, cell.y / (float)GridRows);
-            rt.anchorMax = new Vector2((cell.x + 1f) / GridCols, (cell.y + 1f) / GridRows);
+            float pad = (1f - scale) * 0.5f;
+            rt.anchorMin = new Vector2((cell.x + pad) / GridCols, (cell.y + pad) / GridRows);
+            rt.anchorMax = new Vector2((cell.x + 1f - pad) / GridCols, (cell.y + 1f - pad) / GridRows);
             rt.offsetMin = rt.offsetMax = Vector2.zero;
             var img = go.GetComponent<Image>();
             img.sprite = SpriteLibrary.GetUnit(spriteKey, new Color(0.4f, 0.6f, 0.35f));
+            img.preserveAspect = true;
             img.raycastTarget = false;
-            go.transform.SetSiblingIndex(sorting); // base under paths under decor
             return img;
         }
 
-        private void Decoration(WorldMapTheme theme, Vector2Int cell, System.Random rng)
+        private void Decoration(WorldMapTheme theme, Vector2Int cell, float ew, System.Random rng)
         {
             string key = theme.Biome switch
             {
-                MapBiome.Forest => rng.Next(2) == 0 ? MapPackArt.Pine : MapPackArt.Tree,
-                MapBiome.Desert => MapPackArt.Cactus,
+                MapBiome.Forest => ew > 0.78f ? MapPackArt.Rock : (rng.Next(2) == 0 ? MapPackArt.Pine : MapPackArt.Tree),
+                MapBiome.Desert => rng.Next(2) == 0 ? MapPackArt.Cactus : MapPackArt.Rock,
+                MapBiome.Bluegrass => ew > 0.66f ? MapPackArt.Rock                       // mountains → rocks
+                    : (rng.Next(3) switch { 0 => MapPackArt.Tree, 1 => MapPackArt.Pine, _ => MapPackArt.Bush }),
                 _ => rng.Next(3) switch { 0 => MapPackArt.Tree, 1 => MapPackArt.Bush, _ => MapPackArt.Rock }
             };
-            TileImage(key, cell, sorting: 2);
+            TileImage(key, cell, sorting: 2, scale: 0.7f); // centered object, not a full-cell fill
         }
 
         // Assign each city — and the next-world gate — a grid cell along a serpentine route that
@@ -318,8 +349,8 @@ namespace Fitzmark.BDRSim.World
                 MakeMarker(node, CityColor(node), false);
                 _nodes.Add(node);
 
-                // HQ home-base node sits just above the branch office in the home world only.
-                if (city.IsBranch && _c != null && city.StateId == _c.homeStateId)
+                // HQ home-base node sits just above the player's OWN branch office (one only).
+                if (_c != null && city.Id == _c.homeBranchId)
                 {
                     var hq = new Node
                     {
