@@ -13,7 +13,7 @@ namespace Fitzmark.BDRSim.World
     /// </summary>
     public class CityBuilder
     {
-        public float TileSize { get; private set; } = 8f; // measured from the road model
+        public float TileSize { get; private set; } = 12f; // fixed real-world block size (metres)
         public Vector3 PlayerSpawn { get; private set; }
         public readonly List<(Vector3 pos, float yaw, int index)> Businesses = new();
 
@@ -30,7 +30,10 @@ namespace Fitzmark.BDRSim.World
 
         public void Build()
         {
-            MeasureTile();
+            // Fixed real-world block size (metres) — the grid is deterministic and
+            // human-scaled regardless of the road FBX's native size; each road tile is
+            // fit to exactly TileSize, so streets always tile seamlessly.
+            TileSize = 12f;
             int r = _theme.Blocks;                 // grid radius in road cells
             float span = (2 * r + 1) * TileSize;
 
@@ -40,14 +43,6 @@ namespace Fitzmark.BDRSim.World
 
             // Spawn on the south end of the central avenue, facing north up the street.
             PlayerSpawn = new Vector3(0f, 0.2f, -(r + 0.5f) * TileSize);
-        }
-
-        private void MeasureTile()
-        {
-            var probe = ModelLibrary.Spawn(CityThemes.RoadStraight, _root, new Vector3(0f, -50f, 0f));
-            if (ModelLibrary.TryWorldBounds(probe, out var b) && b.size.x > 0.1f)
-                TileSize = Mathf.Max(b.size.x, b.size.z);
-            Object.Destroy(probe);
         }
 
         private void Ground(float size)

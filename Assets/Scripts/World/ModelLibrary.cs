@@ -158,14 +158,43 @@ namespace Fitzmark.BDRSim.World
             go.transform.position += new Vector3(0f, lift, 0f);
         }
 
+        /// <summary>
+        /// World-space bounds computed from each mesh's *local* bounds transformed by its
+        /// renderer matrix. Unlike Renderer.bounds, mesh bounds are valid immediately after
+        /// Instantiate (no wait for a render/transform sync), so auto-fit is deterministic —
+        /// fixing the bug where a model occasionally measured zero, skipped its fit, and
+        /// stayed at giant native size.
+        /// </summary>
         public static bool TryWorldBounds(GameObject go, out Bounds b)
         {
             b = default;
-            var rends = go.GetComponentsInChildren<Renderer>();
-            if (rends.Length == 0) return false;
-            b = rends[0].bounds;
-            for (int i = 1; i < rends.Length; i++) b.Encapsulate(rends[i].bounds);
-            return true;
+            bool has = false;
+            foreach (var mf in go.GetComponentsInChildren<MeshFilter>())
+            {
+                if (mf.sharedMesh == null) continue;
+                Accumulate(ref b, ref has, mf.sharedMesh.bounds, mf.transform.localToWorldMatrix);
+            }
+            foreach (var smr in go.GetComponentsInChildren<SkinnedMeshRenderer>())
+            {
+                if (smr.sharedMesh == null) continue;
+                Accumulate(ref b, ref has, smr.sharedMesh.bounds, smr.transform.localToWorldMatrix);
+            }
+            return has;
+        }
+
+        private static void Accumulate(ref Bounds b, ref bool has, Bounds local, Matrix4x4 m)
+        {
+            Vector3 c = local.center, e = local.extents;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 corner = c + new Vector3(
+                    (i & 1) == 0 ? -e.x : e.x,
+                    (i & 2) == 0 ? -e.y : e.y,
+                    (i & 4) == 0 ? -e.z : e.z);
+                Vector3 w = m.MultiplyPoint3x4(corner);
+                if (!has) { b = new Bounds(w, Vector3.zero); has = true; }
+                else b.Encapsulate(w);
+            }
         }
 
         private static GameObject BuildPlaceholder(string key, Transform parent, Vector3 size, Color color, bool label)
