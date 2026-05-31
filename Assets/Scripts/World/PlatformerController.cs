@@ -28,6 +28,9 @@ namespace Fitzmark.BDRSim.World
         public int Coins { get; private set; }
         public bool IsActive = true;
 
+        /// <summary>Optional Mixamo body; driven for walk/idle when present.</summary>
+        public OfficeWorker Worker;
+
         private CharacterController _cc;
         private Vector3 _velocity;
         private Vector3 _start;
@@ -60,6 +63,7 @@ namespace Fitzmark.BDRSim.World
             float h = Input.GetAxisRaw("Horizontal");
             _velocity.x = h * runSpeed;
             if (Mathf.Abs(h) > 0.01f) _facing = h > 0f ? 1 : -1;
+            if (Worker != null) Worker.SetWalk(Mathf.Abs(h)); // drive walk/idle on the Mixamo body
 
             bool grounded = _cc.isGrounded;
             if (grounded)

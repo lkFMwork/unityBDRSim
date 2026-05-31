@@ -196,11 +196,19 @@ namespace Fitzmark.BDRSim.World
             cc.radius = 0.4f;
             cc.center = new Vector3(0f, 0.9f, 0f);
 
+            // Body carries the FighterRig (lunge/recoil/flash via localPosition); the real
+            // Mixamo character is parented inside it so animations compose with the lunges.
+            // Fall back to the procedural avatar only if the model isn't imported.
             var body = new GameObject("Body");
             body.transform.SetParent(go.transform, false);
-            var avatar = body.AddComponent<AvatarBuilder>();
-            avatar.AnimateIdle = false;
-            avatar.SetConfig(cfg);
+
+            var worker = OfficeWorker.Attach(body.transform);
+            if (worker == null)
+            {
+                var avatar = body.AddComponent<AvatarBuilder>();
+                avatar.AnimateIdle = false;
+                avatar.SetConfig(cfg);
+            }
             body.AddComponent<FighterRig>();
 
             var fighter = go.AddComponent<Fighter>(); // Awake grabs the CC + the child rig

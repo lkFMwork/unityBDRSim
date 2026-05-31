@@ -1,126 +1,132 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace Fitzmark.BDRSim.World
 {
     /// <summary>
-    /// Builds a real side-scrolling platformer level from the Kenney platformer kit:
-    /// solid grass blocks at varying heights, ascending staircases, floating-platform
-    /// chains spanning pits, spring pads, enemy gauntlets, coin arcs over gaps, and a
-    /// flag goal. Difficulty (1–10) scales length, pit width, climb height and enemy
-    /// density. Real models when present (auto-fit to the tile grid), primitive fallback
-    /// otherwise. Keeps the same <see cref="PlatformerProp"/> kinds, so the existing
-    /// platformer controller (stomp/coins/goal) works unchanged.
+    /// Builds a real, *guaranteed-beatable* side-scroller from the Kenney platformer kit.
+    /// The cardinal rule of the genre: derive geometry from the jump arc, not magic numbers.
+    /// Every gap is clamped under the player's safe jump distance and every step under the
+    /// safe jump height (see <see cref="JumpArc"/>), so no pit or climb is impossible.
+    /// Difficulty (1–10) scales length and pushes gaps/steps toward those safe limits — never
+    /// past them. Keeps the same <see cref="PlatformerProp"/> kinds so the controller is unchanged.
     /// </summary>
     public static class PlatformerLevelGenerator
     {
         private const string Kit = "Models/kenney_platformer-kit/Models/FBX format/";
-        private const float Tile = 2f;     // world units per grid cell (and block footprint)
+        private const float Tile = 2f;        // world units per ground block (footprint)
+
+        // The arc the player actually has (matches PlatformerController defaults). The
+        // generator measures gaps/heights against this so everything is reachable.
+        private static readonly JumpArc Arc = new JumpArc(runSpeed: 7f, jumpSpeed: 13f, gravity: 32f);
 
         public static float Build(int difficulty, int seed, Transform parent, out Vector3 start)
         {
             var rng = new System.Random(seed);
             difficulty = Mathf.Clamp(difficulty, 1, 10);
+            float diff01 = (difficulty - 1) / 9f;
+
+            // Reachability budget (with margins), then a hard cap so a bad roll can't exceed it.
+            float maxGap = Arc.SafeGap();          // ~4.3m  (the player can clear ~5.7m)
+            float maxStep = Arc.SafeStepUp();      // ~1.8m  (the player can rise ~2.6m)
 
             float x = 0f;
             float groundY = 0f;
-            int length = 16 + difficulty * 3;     // number of "sections"
 
-            // Safe starting platform.
-            Run(parent, ref x, groundY, 5, rng);
-            start = new Vector3(2f, 2f, 0f);
+            // Safe starting flat.
+            for (int i = 0; i < 4; i++) { GroundBlock(parent, x, groundY); x += Tile; }
+            start = new Vector3(2f, groundY + 2f, 0f);
 
-            for (int i = 0; i < length; i++)
+            int sections = 14 + difficulty * 2;
+            for (int s = 0; s < sections; s++)
             {
-                // Pick a section type, weighted by difficulty.
-                int roll = rng.Next(0, 100);
-                if (roll < 24) SectionStairs(parent, ref x, ref groundY, rng, difficulty);
-                else if (roll < 48) SectionPit(parent, ref x, ref groundY, rng, difficulty);
-                else if (roll < 68) SectionPlatformChain(parent, ref x, ref groundY, rng, difficulty);
-                else if (roll < 84) SectionSpring(parent, ref x, ref groundY, rng, difficulty);
-                else SectionGauntlet(parent, ref x, ref groundY, rng, difficulty);
+                switch (rng.Next(0, 5))
+                {
+                    case 0: Stairs(parent, ref x, ref groundY, rng, diff01, maxStep); break;
+                    case 1: Pit(parent, ref x, ref groundY, rng, diff01, maxGap); break;
+                    case 2: PlatformChain(parent, ref x, ref groundY, rng, diff01, maxGap, maxStep); break;
+                    case 3: Spring(parent, ref x, ref groundY, rng); break;
+                    default: Gauntlet(parent, ref x, ref groundY, rng, difficulty); break;
+                }
+                // A short breather flat between sections keeps things fair and readable.
+                GroundBlock(parent, x, groundY); x += Tile;
             }
 
-            // Run-up to the goal flag.
-            Run(parent, ref x, groundY, 4, rng);
+            for (int i = 0; i < 3; i++) { GroundBlock(parent, x, groundY); x += Tile; }
             float goalX = x - Tile;
-            Spawn(parent, Kit + "flag", new Vector3(goalX, groundY + 1f, 0f), 2.6f, PlatformerProp.Kind.Goal,
+            Pickup(parent, Kit + "flag", new Vector3(goalX, groundY + 1.2f, 0f), 2.8f, PlatformerProp.Kind.Goal,
                 new Color(0.30f, 0.70f, 1f));
             return goalX;
         }
 
-        // ---- sections -------------------------------------------------------
+        // ---- sections (all bounded by the jump arc) -------------------------
 
-        // Flat run of ground blocks at the current height; scatters a coin or enemy.
-        private static void Run(Transform parent, ref float x, float y, int cells, System.Random rng)
-        {
-            for (int i = 0; i < cells; i++)
-            {
-                GroundBlock(parent, x, y);
-                x += Tile;
-            }
-        }
-
-        // Ascending or descending staircase of blocks.
-        private static void SectionStairs(Transform parent, ref float x, ref float groundY,
-            System.Random rng, int diff)
+        private static void Stairs(Transform parent, ref float x, ref float groundY,
+            System.Random rng, float diff01, float maxStep)
         {
             int steps = 2 + rng.Next(0, 3);
-            int dir = rng.NextDouble() < 0.7 ? 1 : -1;            // mostly climb
+            int dir = rng.NextDouble() < 0.72 ? 1 : -1;
+            float rise = Mathf.Min(Tile, maxStep);          // one tile, but never above the cap
             for (int s = 0; s < steps; s++)
             {
                 GroundBlock(parent, x, groundY);
-                if (rng.NextDouble() < 0.4) Coin(parent, x, groundY + 2.2f);
-                groundY = Mathf.Max(0f, groundY + dir * Tile);
+                if (rng.NextDouble() < 0.4) Coin(parent, x, groundY + 2.0f);
+                groundY = Mathf.Max(0f, groundY + dir * rise);
                 x += Tile;
             }
             GroundBlock(parent, x, groundY);
             x += Tile;
         }
 
-        // A pit you clear by jumping; a coin arc rewards the leap.
-        private static void SectionPit(Transform parent, ref float x, ref float groundY,
-            System.Random rng, int diff)
+        private static void Pit(Transform parent, ref float x, ref float groundY,
+            System.Random rng, float diff01, float maxGap)
         {
             GroundBlock(parent, x, groundY); x += Tile;
-            int gap = 1 + Mathf.Clamp(diff / 3, 0, 2);            // 1–3 cells wide
-            float midX = x + gap * Tile * 0.5f - Tile * 0.5f;
-            for (int c = 0; c < gap; c++)
+
+            // Gap width grows with difficulty but is hard-capped at the safe jump distance.
+            float gap = Mathf.Lerp(Tile * 0.8f, maxGap, diff01) * (0.85f + (float)rng.NextDouble() * 0.15f);
+            gap = Mathf.Min(gap, maxGap);
+
+            // Coin arc over the leap (follows the parabola so it rewards the jump).
+            int coins = Mathf.Max(2, Mathf.RoundToInt(gap / 1.2f));
+            for (int c = 0; c < coins; c++)
             {
-                Coin(parent, x + c * Tile, groundY + 2.2f + Mathf.Sin((c + 0.5f) / gap * Mathf.PI) * 1.4f); // arc
+                float t = (c + 0.5f) / coins;
+                float cx = x + t * gap;
+                float cy = groundY + 1.6f + Mathf.Sin(t * Mathf.PI) * 1.6f;
+                Coin(parent, cx, cy);
             }
-            x += gap * Tile;
+            x += gap;
             GroundBlock(parent, x, groundY); x += Tile;
         }
 
-        // Floating platforms across a wider pit (the path is the platforms).
-        private static void SectionPlatformChain(Transform parent, ref float x, ref float groundY,
-            System.Random rng, int diff)
+        private static void PlatformChain(Transform parent, ref float x, ref float groundY,
+            System.Random rng, float diff01, float maxGap, float maxStep)
         {
             GroundBlock(parent, x, groundY); x += Tile;
-            int plats = 2 + rng.Next(0, 1 + Mathf.Clamp(diff / 2, 1, 3));
-            float py = groundY + Tile;
+
+            int plats = 2 + rng.Next(0, 1 + Mathf.RoundToInt(diff01 * 2f));
+            float py = groundY + Mathf.Min(Tile, maxStep);
+            float hop = Mathf.Min(Mathf.Lerp(Tile * 1.2f, maxGap * 0.8f, diff01), maxGap * 0.85f);
             for (int p = 0; p < plats; p++)
             {
-                py = Mathf.Clamp(py + (rng.NextDouble() < 0.5 ? Tile : -Tile) * 0.5f, groundY + 1f, groundY + 4f);
                 Platform(parent, x, py);
                 if (rng.NextDouble() < 0.6) Coin(parent, x, py + 1.4f);
-                if (diff >= 5 && rng.NextDouble() < 0.3) Enemy(parent, x, py + 0.9f, x - 0.8f, x + 0.8f);
-                x += Tile + Tile * 0.4f;       // a real gap between platforms
+                // Next platform: vary height within a safe step, advance within a safe hop.
+                float dy = (rng.NextDouble() < 0.5 ? 1f : -1f) * Mathf.Min(Tile, maxStep) * 0.6f;
+                py = Mathf.Clamp(py + dy, groundY + 1f, groundY + maxStep * 1.4f);
+                x += hop;
             }
             GroundBlock(parent, x, groundY); x += Tile;
         }
 
-        // A spring pad that launches you up to a high reward platform.
-        private static void SectionSpring(Transform parent, ref float x, ref float groundY,
-            System.Random rng, int diff)
+        private static void Spring(Transform parent, ref float x, ref float groundY, System.Random rng)
         {
             GroundBlock(parent, x, groundY);
-            Spawn(parent, Kit + "spring", new Vector3(x, groundY + 0.5f, 0f), 1.2f, PlatformerProp.Kind.Spring,
+            Pickup(parent, Kit + "spring", new Vector3(x, groundY + 0.5f, 0f), 1.2f, PlatformerProp.Kind.Spring,
                 new Color(0.95f, 0.85f, 0.25f));
             x += Tile;
-            // High platform + coins as the payoff.
-            float hy = groundY + 4f;
+            // The spring launches ~1.6× jump height, so a reward platform up high is reachable.
+            float hy = groundY + Arc.MaxJumpHeight * 1.4f;
             Platform(parent, x, hy);
             Coin(parent, x, hy + 1.3f);
             Coin(parent, x + Tile, hy + 1.3f);
@@ -128,75 +134,74 @@ namespace Fitzmark.BDRSim.World
             GroundBlock(parent, x, groundY); x += Tile;
         }
 
-        // A run of ground with a couple of patrolling enemies and a heart.
-        private static void SectionGauntlet(Transform parent, ref float x, ref float groundY,
-            System.Random rng, int diff)
+        private static void Gauntlet(Transform parent, ref float x, ref float groundY,
+            System.Random rng, int difficulty)
         {
             int cells = 4 + rng.Next(0, 3);
             float startX = x;
             for (int i = 0; i < cells; i++) { GroundBlock(parent, x, groundY); x += Tile; }
-            int enemies = 1 + Mathf.Clamp(diff / 3, 0, 2);
+            int enemies = 1 + Mathf.Clamp(difficulty / 3, 0, 2);
             for (int e = 0; e < enemies; e++)
             {
                 float ex = startX + Tile * (1 + e * 2);
                 Enemy(parent, ex, groundY + 0.9f, startX + Tile, x - Tile);
             }
-            if (rng.NextDouble() < 0.4) Spawn(parent, Kit + "heart",
-                new Vector3(startX + cells * Tile * 0.5f, groundY + 2.2f, 0f), 0.9f, PlatformerProp.Kind.Heart,
-                new Color(0.9f, 0.3f, 0.4f));
+            if (rng.NextDouble() < 0.4)
+                Pickup(parent, Kit + "heart", new Vector3(startX + cells * Tile * 0.5f, groundY + 2.0f, 0f),
+                    0.9f, PlatformerProp.Kind.Heart, new Color(0.9f, 0.3f, 0.4f));
         }
 
         // ---- pieces ---------------------------------------------------------
 
         private static void GroundBlock(Transform parent, float x, float y)
         {
-            var go = Spawn(parent, Kit + "block-grass", new Vector3(x, y, 0f), Tile, PlatformerProp.Kind.None,
+            var go = Solid(parent, Kit + "block-grass", new Vector3(x, y, 0f), Tile,
                 new Color(0.34f, 0.52f, 0.30f));
             EnsureSolidBox(go, new Vector3(Tile, Tile, Tile), y);
         }
 
         private static void Platform(Transform parent, float x, float y)
         {
-            var go = Spawn(parent, Kit + "platform", new Vector3(x, y, 0f), Tile, PlatformerProp.Kind.None,
+            var go = Solid(parent, Kit + "platform", new Vector3(x, y, 0f), Tile,
                 new Color(0.55f, 0.45f, 0.30f));
             EnsureSolidBox(go, new Vector3(Tile, 0.6f, Tile), y);
         }
 
         private static void Enemy(Transform parent, float x, float y, float minX, float maxX)
         {
-            var go = Spawn(parent, Kit + "character-oozi", new Vector3(x, y, 0f), 1.1f, PlatformerProp.Kind.Enemy,
-                new Color(0.80f, 0.25f, 0.25f));
-            var prop = go.GetComponent<PlatformerProp>();
+            var go = ModelLibrary.Spawn(Kit + "character-oozi", parent, new Vector3(x, y, 0f), 0f, 1f,
+                placeholderColor: new Color(0.80f, 0.25f, 0.25f), placeholderLabel: false, fitHeight: 1.1f);
+            var prop = go.GetComponent<PlatformerProp>() ?? go.AddComponent<PlatformerProp>();
+            prop.kind = PlatformerProp.Kind.Enemy;
             prop.minX = minX; prop.maxX = maxX; prop.speed = 1.6f + Random.value * 1.6f;
             MakeTrigger(go);
         }
 
         private static void Coin(Transform parent, float x, float y) =>
-            Spawn(parent, Kit + "coin-gold", new Vector3(x, y, 0f), 0.8f, PlatformerProp.Kind.Coin,
+            Pickup(parent, Kit + "coin-gold", new Vector3(x, y, 0f), 0.8f, PlatformerProp.Kind.Coin,
                 new Color(0.95f, 0.80f, 0.20f));
 
-        // Spawn a kit model (auto-fit to `fit` metres) with a PlatformerProp; triggers for
-        // pickups/enemies/goal, solid for blocks (collider handled by caller).
-        private static GameObject Spawn(Transform parent, string path, Vector3 pos, float fit,
+        // A solid kit model (no trigger) with no prop.
+        private static GameObject Solid(Transform parent, string path, Vector3 pos, float fit, Color fallback)
+            => ModelLibrary.Spawn(path, parent, pos, 0f, 1f,
+                placeholderColor: fallback, placeholderLabel: false, fitHeight: fit);
+
+        // A trigger pickup/goal with a PlatformerProp of the given kind.
+        private static GameObject Pickup(Transform parent, string path, Vector3 pos, float fit,
             PlatformerProp.Kind kind, Color fallback)
         {
             var go = ModelLibrary.Spawn(path, parent, pos, 0f, 1f,
                 placeholderColor: fallback, placeholderLabel: false, fitHeight: fit);
-            var prop = go.GetComponent<PlatformerProp>();
-            if (prop == null) prop = go.AddComponent<PlatformerProp>();
+            var prop = go.GetComponent<PlatformerProp>() ?? go.AddComponent<PlatformerProp>();
             prop.kind = kind;
-            if (kind == PlatformerProp.Kind.Coin || kind == PlatformerProp.Kind.Goal ||
-                kind == PlatformerProp.Kind.Heart || kind == PlatformerProp.Kind.Spring)
-                MakeTrigger(go);
+            MakeTrigger(go);
             return go;
         }
 
-        // Models may import with no/odd collider; guarantee a solid box collider sized to the cell.
         private static void EnsureSolidBox(GameObject go, Vector3 size, float baseY)
         {
             foreach (var c in go.GetComponentsInChildren<Collider>()) Object.Destroy(c);
             var box = go.AddComponent<BoxCollider>();
-            // Position the collider to fill the cell from the floor up, regardless of model pivot.
             box.center = go.transform.InverseTransformPoint(new Vector3(go.transform.position.x, baseY + size.y * 0.5f, 0f));
             box.size = size;
         }

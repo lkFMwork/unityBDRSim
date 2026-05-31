@@ -80,15 +80,27 @@ namespace Fitzmark.BDRSim.World
 
             _ctrl = _player.AddComponent<PlatformerController>();
 
-            var body = new GameObject("Body");
-            body.transform.SetParent(_player.transform, false);
-            var avatar = body.AddComponent<AvatarBuilder>();
-            avatar.AnimateIdle = false;
-            avatar.SetConfig(GameManager.Instance.Profile != null
-                ? GameManager.Instance.Profile.avatar
-                : new AvatarConfig());
+            // Real Mixamo body (walk/idle), else the procedural avatar as a fallback.
+            Transform bodyT;
+            var worker = OfficeWorker.Attach(_player.transform);
+            if (worker != null)
+            {
+                bodyT = worker.transform;
+                _ctrl.Worker = worker;
+            }
+            else
+            {
+                var body = new GameObject("Body");
+                body.transform.SetParent(_player.transform, false);
+                var avatar = body.AddComponent<AvatarBuilder>();
+                avatar.AnimateIdle = false;
+                avatar.SetConfig(GameManager.Instance.Profile != null
+                    ? GameManager.Instance.Profile.avatar
+                    : new AvatarConfig());
+                bodyT = body.transform;
+            }
 
-            _ctrl.Init(start, body.transform);
+            _ctrl.Init(start, bodyT);
             _ctrl.Won += OnWon;
             _ctrl.Failed += OnFailed;
             _ctrl.LivesChanged += _ => RefreshStatus();
