@@ -39,6 +39,13 @@ namespace Fitzmark.BDRSim.Editor
                 ti.textureCompression = TextureImporterCompression.Uncompressed;
                 ti.mipmapEnabled = false;
                 ti.alphaIsTransparency = true;
+                ti.wrapMode = TextureWrapMode.Clamp;
+
+                // Full-rect mesh so SpriteDrawMode.Tiled repeats (not stretches) on merged spans.
+                var settings = new TextureImporterSettings();
+                ti.ReadTextureSettings(settings);
+                settings.spriteMeshType = SpriteMeshType.FullRect;
+                ti.SetTextureSettings(settings);
                 ti.SaveAndReimport();
                 done++;
             }

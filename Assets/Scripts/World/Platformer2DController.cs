@@ -97,40 +97,41 @@ namespace Fitzmark.BDRSim.World
         private void MoveCollide(float dt)
         {
             Vector3 p = transform.position;
+            const float skin = 0.04f;
+            // The collision box is centered on the player's MIDDLE (feet are at p), slightly
+            // inset by the skin so a resting cast doesn't start overlapping and snap to 0.
+            Vector2 boxH = new Vector2(halfWidth * 2f - skin, halfHeight * 2f - skin);
+            Vector2 Center(Vector3 at) => new Vector2(at.x, at.y + halfHeight);
 
             // Horizontal
             float dx = _vel.x * dt;
-            if (Mathf.Abs(dx) > 0f)
+            if (Mathf.Abs(dx) != 0f)
             {
                 int dir = dx > 0 ? 1 : -1;
-                var hit = Physics2D.BoxCast(p, new Vector2(halfWidth * 2f, halfHeight * 1.8f), 0f,
-                    Vector2.right * dir, Mathf.Abs(dx) + 0.02f, _solidMask);
-                if (hit.collider != null) dx = (hit.distance - 0.02f) * dir;
+                var hit = Physics2D.BoxCast(Center(p), boxH, 0f, Vector2.right * dir,
+                    Mathf.Abs(dx) + skin, _solidMask);
+                if (hit.collider != null) { dx = Mathf.Max(0f, hit.distance - skin) * dir; _vel.x = 0f; }
                 p.x += dx;
             }
 
             // Vertical
             float dy = _vel.y * dt;
-            _grounded = false;
-            if (Mathf.Abs(dy) > 0f)
+            int vdir = dy >= 0f ? 1 : -1;
+            var vhit = Physics2D.BoxCast(Center(p), boxH, 0f, Vector2.up * vdir,
+                Mathf.Abs(dy) + skin, _solidMask);
+            if (vhit.collider != null && Mathf.Abs(dy) > 0f)
             {
-                int dir = dy > 0 ? 1 : -1;
-                var hit = Physics2D.BoxCast(p, new Vector2(halfWidth * 1.8f, halfHeight * 2f), 0f,
-                    Vector2.up * dir, Mathf.Abs(dy) + 0.02f, _solidMask);
-                if (hit.collider != null)
-                {
-                    dy = (hit.distance - 0.02f) * dir;
-                    if (dir < 0) { _grounded = true; if (_vel.y < -6f) _anim?.Squash(); }
-                    _vel.y = 0f;
-                }
-                p.y += dy;
+                dy = Mathf.Max(0f, vhit.distance - skin) * vdir;
+                if (vdir < 0) { _grounded = true; if (_vel.y < -8f) _anim?.Squash(); }
+                _vel.y = 0f;
             }
-            else
+            p.y += dy;
+
+            // Grounded probe (covers standing still and just-landed cases).
+            if (!_grounded)
             {
-                // Probe just below for grounded state when standing still.
-                var hit = Physics2D.BoxCast(p, new Vector2(halfWidth * 1.8f, halfHeight * 2f), 0f,
-                    Vector2.down, 0.06f, _solidMask);
-                _grounded = hit.collider != null;
+                var g = Physics2D.BoxCast(Center(p), boxH, 0f, Vector2.down, skin * 2f, _solidMask);
+                _grounded = g.collider != null && _vel.y <= 0.01f;
             }
 
             p.z = 0f;

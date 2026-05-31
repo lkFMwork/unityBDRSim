@@ -25,6 +25,13 @@ namespace Fitzmark.BDRSim.World
         private static int _gx, _row, _layer;
         private static Transform _p;
 
+        // Surface-row per column (-999 = a pit/empty). Filled during authoring, then emitted as
+        // MERGED spans (one tiled sprite + one collider per contiguous same-height run) so the
+        // level is ~15 GameObjects instead of ~340 — fixing the draw-call lag and the per-tile
+        // collider seams that made walking feel clunky.
+        private static readonly System.Collections.Generic.Dictionary<int, int> _surface = new();
+        private const int Pit = -999;
+
         /// <summary>
         /// A hand-authored level following Kishōtenketsu (introduce → develop → twist → conclude),
         /// the structure Nintendo uses (sources: MCV/Develop "Nintendo's level design secrets in
@@ -38,6 +45,7 @@ namespace Fitzmark.BDRSim.World
         {
             difficulty = Mathf.Clamp(difficulty, 1, 10);
             _p = parent; _layer = solidLayer; _gx = 0; _row = 0;
+            _surface.Clear();
 
             // ---- KI: Introduce. Flat run, one coin trail (teaches: move right toward reward). ----
             Flat(6);
@@ -83,19 +91,79 @@ namespace Fitzmark.BDRSim.World
             Prop(_p, PixelPlatformerArt.Flag, new Vector3(goalX, (_row + 2f) * Cell, 0f), 2f,
                 PlatformerProp.Kind.Goal, FlagC);
             Flat(3); // landing strip past the flag
+
+            EmitTerrain();
             return goalX;
+        }
+
+        // Merge the recorded surface columns into contiguous same-height spans: one tiled
+        // SpriteRenderer (drawMode=Tiled) + one BoxCollider2D per run. A continuous floor =
+        // no per-tile seams to catch on, and a tiny object/draw-call count = no lag.
+        private static void EmitTerrain()
+        {
+            int minX = int.MaxValue, maxX = int.MinValue;
+            foreach (var k in _surface.Keys) { if (k < minX) minX = k; if (k > maxX) maxX = k; }
+            if (minX > maxX) return;
+
+            int spanStart = Pit, spanRow = Pit;
+            for (int x = minX; x <= maxX + 1; x++)
+            {
+                int row = _surface.TryGetValue(x, out var r) ? r : Pit;
+                if (row != spanRow)
+                {
+                    if (spanRow != Pit) EmitSpan(spanStart, x - 1, spanRow); // close previous run
+                    spanStart = row != Pit ? x : Pit;
+                    spanRow = row;
+                }
+            }
+        }
+
+        // One merged ground span [x0..x1] with its surface at `row`: a tiled grass strip (visual,
+        // depth a couple of tiles) plus a single box collider capping the surface.
+        private static void EmitSpan(int x0, int x1, int row)
+        {
+            int width = x1 - x0 + 1;
+            float cx = (x0 + x1) / 2f * Cell;
+            float depth = 2.5f;
+
+            var go = new GameObject($"Ground_{x0}_{x1}", typeof(SpriteRenderer));
+            go.transform.SetParent(_p, false);
+            go.transform.position = new Vector3(cx, (row - (depth - 1) / 2f) * Cell, 0f);
+            go.layer = _layer;
+            var sr = go.GetComponent<SpriteRenderer>();
+            sr.sprite = SpriteLibrary.Get(PixelPlatformerArt.Dirt, Dirt);
+            sr.color = SpriteLibrary.Has(PixelPlatformerArt.Dirt) ? Color.white : Dirt;
+            sr.drawMode = SpriteDrawMode.Tiled;
+            sr.size = new Vector2(width * Cell, depth * Cell);
+            sr.sortingOrder = -1;
+
+            // Grass surface strip on top (one tile tall).
+            var grass = new GameObject("GrassTop", typeof(SpriteRenderer));
+            grass.transform.SetParent(go.transform, false);
+            grass.transform.position = new Vector3(cx, row * Cell, 0f);
+            var gsr = grass.GetComponent<SpriteRenderer>();
+            gsr.sprite = SpriteLibrary.Get(PixelPlatformerArt.GrassTop, GrassTop);
+            gsr.color = SpriteLibrary.Has(PixelPlatformerArt.GrassTop) ? Color.white : GrassTop;
+            gsr.drawMode = SpriteDrawMode.Tiled;
+            gsr.size = new Vector2(width * Cell, Cell);
+            gsr.sortingOrder = 0;
+
+            // go is already centered on the span; collider fills it (surface top at row*Cell).
+            var col = go.AddComponent<BoxCollider2D>();
+            col.size = new Vector2(width * Cell, depth * Cell);
         }
 
         // ---- authored building blocks (advance _gx; mutate _row) -------------
 
+        // Record a ground column at the current surface row (emitted as merged spans later).
         private static void Flat(int cells)
         {
-            for (int i = 0; i < cells; i++) Column(_p, _gx++, _row, _row + 2, _layer);
+            for (int i = 0; i < cells; i++) _surface[_gx++] = _row;
         }
 
-        private static void StepTo(int newRow) { _row = newRow; Column(_p, _gx++, _row, _row + 2, _layer); }
-        private static void Climb(int steps) { for (int i = 0; i < steps; i++) { _row += 1; Column(_p, _gx++, _row, _row + 2, _layer); } }
-        private static void Drop(int steps) { for (int i = 0; i < steps; i++) { _row = Mathf.Max(0, _row - 1); Column(_p, _gx++, _row, _row + 2, _layer); } }
+        private static void StepTo(int newRow) { _row = newRow; _surface[_gx++] = _row; }
+        private static void Climb(int steps) { for (int i = 0; i < steps; i++) { _row += 1; _surface[_gx++] = _row; } }
+        private static void Drop(int steps) { for (int i = 0; i < steps; i++) { _row = Mathf.Max(0, _row - 1); _surface[_gx++] = _row; } }
 
         // A pit of `cells` empty columns; optional coin arc over it tracing the jump parabola.
         private static void Gap(int cells, bool arcCoins)
@@ -109,14 +177,26 @@ namespace Fitzmark.BDRSim.World
             _gx += cells;
         }
 
+        // A floating platform: one tiled grass strip + one collider (not per-cell).
         private static void FloatPlatform(int gx, int row, int width)
         {
-            for (int w = 0; w < width; w++) SolidTile(_p, (gx + w) * Cell, row * Cell, PixelPlatformerArt.GrassTop, GrassTop, _layer);
+            float cx = (gx + (width - 1) / 2f) * Cell;
+            var go = new GameObject("Platform", typeof(SpriteRenderer));
+            go.transform.SetParent(_p, false);
+            go.transform.position = new Vector3(cx, row * Cell, 0f);
+            go.layer = _layer;
+            var sr = go.GetComponent<SpriteRenderer>();
+            sr.sprite = SpriteLibrary.Get(PixelPlatformerArt.GrassTop, GrassTop);
+            sr.color = SpriteLibrary.Has(PixelPlatformerArt.GrassTop) ? Color.white : GrassTop;
+            sr.drawMode = SpriteDrawMode.Tiled;
+            sr.size = new Vector2(width * Cell, Cell);
+            sr.sortingOrder = 0;
+            go.AddComponent<BoxCollider2D>().size = new Vector2(width * Cell, Cell);
         }
 
         private static void Spring(int gx)
         {
-            Column(_p, gx, _row, _row + 2, _layer);
+            _surface[gx] = _row;
             // Sits ON the surface (row+0.6, half a tile up) — no longer floating in the air.
             Prop(_p, PixelPlatformerArt.Spring, new Vector3(gx * Cell, (_row + 0.6f) * Cell, 0f), 0.9f,
                 PlatformerProp.Kind.Spring, SpringC);
@@ -149,20 +229,6 @@ namespace Fitzmark.BDRSim.World
 
         // ---- tiles & props --------------------------------------------------
 
-        // A solid vertical column: grass top at `topRow`, dirt down to row 0 (depth rows).
-        private static void Column(Transform parent, int gx, int topRow, int depthRows, int layer)
-        {
-            float x = gx * Cell;
-            SolidTile(parent, x, topRow * Cell, PixelPlatformerArt.GrassTop, GrassTop, layer);
-            for (int r = 1; r < Mathf.Max(1, depthRows); r++)
-                SolidTile(parent, x, (topRow - r) * Cell, PixelPlatformerArt.Dirt, Dirt, layer, collider: false);
-        }
-
-        private static void Platform(Transform parent, int gx, int row, int width, int layer)
-        {
-            for (int w = 0; w < width; w++)
-                SolidTile(parent, (gx + w) * Cell, row * Cell, PixelPlatformerArt.GrassTop, GrassTop, layer);
-        }
 
         private static GameObject SolidTile(Transform parent, float x, float y, string spriteKey,
             Color fallback, int layer, bool collider = true)
