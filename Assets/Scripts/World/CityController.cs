@@ -58,11 +58,39 @@ namespace Fitzmark.BDRSim.World
             RefreshCalls();
         }
 
+        private CityTerrain _terrain;
+
+        // The city's normalized position within its state (0..1), matching StateGeography axes —
+        // so the in-city terrain reflects where the city actually sits (Memphis west, etc.).
+        private static void CityNormalizedPos(Fitzmark.BDRSim.Data.LocalClient client, out float nx, out float ny)
+        {
+            nx = 0.5f; ny = 0.5f;
+            if (client == null) return;
+            var world = Fitzmark.BDRSim.Data.WorldRegistry.Get(client.StateId);
+            if (world == null || world.Cities.Count == 0) return;
+            float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
+            foreach (var c in world.Cities)
+            {
+                minX = Mathf.Min(minX, c.MapX); maxX = Mathf.Max(maxX, c.MapX);
+                minZ = Mathf.Min(minZ, c.MapZ); maxZ = Mathf.Max(maxZ, c.MapZ);
+            }
+            nx = maxX - minX < 0.001f ? 0.5f : Mathf.InverseLerp(minX, maxX, client.MapX);
+            ny = maxZ - minZ < 0.001f ? 0.5f : Mathf.InverseLerp(minZ, maxZ, client.MapZ);
+        }
+
         private void BuildCity(string cityId)
         {
             int seed = StableHash(string.IsNullOrEmpty(cityId) ? "texas" : cityId);
-            var builder = new CityBuilder(_root, _theme, seed);
+
+            // Give the builder the city's place in its state so the terrain rises toward the
+            // state's mountains and dips toward its water (the overworld "9 points").
+            var client = TerritoryRegistry.Get(cityId);
+            string stateId = client != null ? client.StateId : "";
+            CityNormalizedPos(client, out float nx, out float ny);
+
+            var builder = new CityBuilder(_root, _theme, seed, stateId, nx, ny);
             builder.Build();
+            _terrain = builder.Terrain;
             _playerSpawn = builder.PlayerSpawn;
 
             // Each business is an enterable client site (press E → gatekeeper fight → meeting),
@@ -186,8 +214,10 @@ namespace Fitzmark.BDRSim.World
         {
             // A real Kenney sedan, auto-scaled (by height so it keeps its proportions),
             // parked beside the spawn on the road (doubled to ~3m tall for the bigger city).
+            Vector3 carPos = _playerSpawn + new Vector3(5f, 0f, 0f);
+            if (_terrain != null) carPos.y = _terrain.SampleHeight(carPos.x, carPos.z) + 0.2f;
             _car = ModelLibrary.Spawn(CityThemes.CarModel, _root,
-                _playerSpawn + new Vector3(5f, 0f, 0f), 0f, 1f,
+                carPos, 0f, 1f,
                 placeholderColor: new Color(0.72f, 0.22f, 0.22f), placeholderLabel: false,
                 fitHeight: 3f);
             _car.name = "Car";

@@ -20,12 +20,20 @@ namespace Fitzmark.BDRSim.World
         private readonly Transform _root;
         private readonly CityTheme _theme;
         private readonly System.Random _rng;
+        private readonly string _stateId;
+        private readonly float _cityNx, _cityNy;
 
-        public CityBuilder(Transform root, CityTheme theme, int seed)
+        public CityTerrain Terrain { get; private set; }
+
+        public CityBuilder(Transform root, CityTheme theme, int seed,
+            string stateId = "", float cityNx = 0.5f, float cityNy = 0.5f)
         {
             _root = root;
             _theme = theme;
             _rng = new System.Random(seed);
+            _stateId = stateId;
+            _cityNx = cityNx;
+            _cityNy = cityNy;
         }
 
         public void Build()
@@ -38,23 +46,25 @@ namespace Fitzmark.BDRSim.World
             int r = _theme.Blocks;                 // grid radius in road cells
             float span = (2 * r + 1) * TileSize;
 
-            Ground(span * 1.25f);
+            Ground(span * 1.6f); // terrain extends past the grid so surrounding relief shows
             LayStreets(r);
             FillBlocks(r);
 
-            // Spawn on the south end of the central avenue, facing north up the street.
-            PlayerSpawn = new Vector3(0f, 0.2f, -(r + 0.5f) * TileSize);
+            // Spawn on the south end of the central avenue, draped onto the terrain.
+            float sx = 0f, sz = -(r + 0.5f) * TileSize;
+            PlayerSpawn = new Vector3(sx, GroundY(sx, sz) + 0.2f, sz);
         }
 
+        // Real Unity terrain shaped by the city's place in its state (mountains/water around it),
+        // replacing the old flat plane. Everything drapes onto it via GroundY().
         private void Ground(float size)
         {
-            var g = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            g.name = "CityGround";
-            g.transform.SetParent(_root, false);
-            g.transform.localScale = new Vector3(size / 10f, 1f, size / 10f);
-            g.transform.position = new Vector3(0f, -0.02f, 0f);
-            Paint(g, _theme.Ground);
+            Terrain = new CityTerrain();
+            Terrain.Build(_root, _stateId, _cityNx, _cityNy, size, _theme.Ground);
         }
+
+        /// <summary>Terrain surface height at (x,z); 0 if terrain is somehow absent.</summary>
+        public float GroundY(float x, float z) => Terrain != null ? Terrain.SampleHeight(x, z) : 0f;
 
         // A '+'-grid of streets: every cell on an even row/column is road; intersections crossroad.
         private void LayStreets(int r)
@@ -141,6 +151,7 @@ namespace Fitzmark.BDRSim.World
             {
                 var (dir, yaw) = sides[i];
                 Vector3 pos = center + dir * setback;
+                pos.y = GroundY(pos.x, pos.z); // re-drape: sit on the terrain under this building
                 string model = _theme.Buildings[_rng.Next(_theme.Buildings.Length)];
                 ModelLibrary.Spawn(model, parent, pos, yaw, 1f,
                     placeholderColor: new Color(0.5f, 0.5f, 0.55f), placeholderLabel: false,
@@ -158,6 +169,7 @@ namespace Fitzmark.BDRSim.World
                     Vector3 spot = center + new Vector3(
                         ((float)_rng.NextDouble() * 2f - 1f) * lotHalf * 0.8f, 0f,
                         ((float)_rng.NextDouble() * 2f - 1f) * lotHalf * 0.8f);
+                    spot.y = GroundY(spot.x, spot.z); // drape onto terrain
                     bool clear = true;
                     foreach (var (fpos, frad) in footprints)
                         if ((spot - fpos).sqrMagnitude < (frad + 1.5f) * (frad + 1.5f)) { clear = false; break; }
@@ -177,7 +189,12 @@ namespace Fitzmark.BDRSim.World
                 fitFootprint: TileSize);
         }
 
-        private Vector3 Cell(int gx, int gz) => new Vector3(gx * TileSize, 0f, gz * TileSize);
+        // Cell centre draped onto the terrain surface so road tiles follow the ground.
+        private Vector3 Cell(int gx, int gz)
+        {
+            float x = gx * TileSize, z = gz * TileSize;
+            return new Vector3(x, GroundY(x, z), z);
+        }
 
         private void Shuffle<T>(IList<T> list)
         {
