@@ -38,8 +38,8 @@ namespace Fitzmark.BDRSim.World
         // Live state for the on-screen debug readout (diagnosing the jump/ground issue).
         public int DbgNudges, DbgVCol;
         public string DebugLine =>
-            $"grnd:{(_grounded ? 1 : 0)}  vY:{_vel.y:F1}  lock:{_jumpLock:F2}  y:{transform.position.y:F2}  " +
-            $"nudge:{DbgNudges}  vcol:{DbgVCol}";
+            $"grnd:{(_grounded ? 1 : 0)} vY:{_vel.y:F1} vX:{_vel.x:F1} h:{Input.GetAxisRaw("Horizontal"):F1}\n" +
+            $"lock:{_jumpLock:F2} y:{transform.position.y:F2} nudge:{DbgNudges} vcol:{DbgVCol}";
 
         public event Action Won;
         public event Action Failed;
