@@ -155,25 +155,15 @@ namespace Fitzmark.BDRSim.World
 
         // ---- pieces ---------------------------------------------------------
 
-        // A ground block whose WALKABLE TOP is exactly at y (the walking plane). The Kenney
-        // block is fit by footprint (so it never balloons) and dropped so its top meets y;
-        // the collider is a flat slab capping y, so stepping between adjacent y-levels is the
-        // height difference, never the block's full body.
-        private static void GroundBlock(Transform parent, float x, float y)
-        {
-            var go = ModelLibrary.Spawn(Kit + "block-grass", parent, new Vector3(x, y - BlockBody, 0f), 0f, 1f,
-                placeholderColor: new Color(0.34f, 0.52f, 0.30f), placeholderLabel: false,
-                fitFootprint: Tile, fitMaxHeight: BlockBody, ground: false);
-            FlatTopCollider(go, x, y);
-        }
+        // A ground block whose rendered TOP sits exactly at y (the walk surface); the collider
+        // wraps the model's real bounds, so the player stands on what's drawn — never buried.
+        private static void GroundBlock(Transform parent, float x, float y) =>
+            ModelLibrary.SpawnGround(Kit + "block-grass", parent, x, y, Tile, BlockBody,
+                new Color(0.34f, 0.52f, 0.30f));
 
-        private static void Platform(Transform parent, float x, float y)
-        {
-            var go = ModelLibrary.Spawn(Kit + "platform", parent, new Vector3(x, y - 0.5f, 0f), 0f, 1f,
-                placeholderColor: new Color(0.55f, 0.45f, 0.30f), placeholderLabel: false,
-                fitFootprint: Tile, fitMaxHeight: 0.6f, ground: false);
-            FlatTopCollider(go, x, y);
-        }
+        private static void Platform(Transform parent, float x, float y) =>
+            ModelLibrary.SpawnGround(Kit + "platform", parent, x, y, Tile, 0.6f,
+                new Color(0.55f, 0.45f, 0.30f));
 
         private static void Enemy(Transform parent, float x, float y, float minX, float maxX)
         {
@@ -199,20 +189,6 @@ namespace Fitzmark.BDRSim.World
             prop.kind = kind;
             MakeTrigger(go);
             return go;
-        }
-
-        // A solid slab whose TOP is exactly at world y=topY, centered at world x. Built as a
-        // separate child (independent of the model's scaling/pivot) so the walk surface is
-        // exact — the player always stands at topY regardless of how the Kenney model imported.
-        private static void FlatTopCollider(GameObject go, float x, float topY)
-        {
-            foreach (var c in go.GetComponentsInChildren<Collider>()) Object.Destroy(c);
-            var slab = new GameObject("Collider");
-            slab.transform.SetParent(go.transform.parent, false); // sibling, world-aligned
-            const float thick = 1.0f;
-            slab.transform.position = new Vector3(x, topY - thick * 0.5f, 0f);
-            var box = slab.AddComponent<BoxCollider>();
-            box.size = new Vector3(Tile, thick, Tile);
         }
 
         private static void MakeTrigger(GameObject go)

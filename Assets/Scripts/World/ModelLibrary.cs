@@ -39,7 +39,8 @@ namespace Fitzmark.BDRSim.World
         public static GameObject Spawn(string key, Transform parent, Vector3 localPos,
             float yaw = 0f, float scale = 1f, Vector3? placeholderSize = null,
             Color? placeholderColor = null, bool placeholderLabel = true, Vector3? fitSize = null,
-            float fitFootprint = 0f, float fitHeight = 0f, float fitMaxHeight = 0f, bool ground = true)
+            float fitFootprint = 0f, float fitHeight = 0f, float fitMaxHeight = 0f, bool ground = true,
+            bool sitBase = false)
         {
             string path = ResolvePath(key, out float kitScale);
             GameObject prefab = Resources.Load<GameObject>(path);
@@ -55,7 +56,8 @@ namespace Fitzmark.BDRSim.World
                 else if (fitSize.HasValue) FitToSize(go, fitSize.Value);
                 EnsureTextured(go, path);
                 if (ground) GroundOn(go, parent, localPos);
-                else { go.transform.localPosition = localPos; SitBaseAtLocalZero(go); }
+                else go.transform.localPosition = localPos; // raw placement; caller aligns
+                if (sitBase) SitBaseAtLocalZero(go);        // feet at parent origin (character body)
             }
             else
             {
@@ -196,6 +198,37 @@ namespace Fitzmark.BDRSim.World
                 if (!has) { b = new Bounds(w, Vector3.zero); has = true; }
                 else b.Encapsulate(w);
             }
+        }
+
+        /// <summary>
+        /// Spawn a footprint-fit model and place it so its rendered TOP is exactly at world
+        /// <paramref name="topY"/>, then wrap a solid BoxCollider around its real world bounds.
+        /// This is the robust way to build walkable ground from arbitrary kit models: the
+        /// surface the player stands on always matches what's drawn, regardless of the model's
+        /// pivot or geometry (fixing the "buried in the block" bug). Returns the spawned model.
+        /// </summary>
+        public static GameObject SpawnGround(string key, Transform parent, float x, float topY,
+            float footprint, float maxThickness, Color fallback)
+        {
+            var go = Spawn(key, parent, new Vector3(x, topY, 0f), 0f, 1f,
+                placeholderColor: fallback, placeholderLabel: false,
+                fitFootprint: footprint, fitMaxHeight: maxThickness, ground: false);
+
+            if (TryWorldBounds(go, out var b))
+            {
+                // Shift so the model's top sits on topY.
+                float dy = topY - b.max.y;
+                go.transform.position += new Vector3(0f, dy, 0f);
+                TryWorldBounds(go, out b); // recompute after the shift
+            }
+
+            // Collider matches the model's actual footprint/height (solid, not a trigger).
+            foreach (var c in go.GetComponentsInChildren<Collider>()) Object.Destroy(c);
+            var colGo = new GameObject("Collider");
+            colGo.transform.SetParent(parent, false);
+            colGo.transform.position = b.center;
+            colGo.AddComponent<BoxCollider>().size = b.size;
+            return go;
         }
 
         /// <summary>Sit the model's base at its parent's local origin (feet at y=0 locally),
