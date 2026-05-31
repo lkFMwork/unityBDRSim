@@ -71,7 +71,7 @@ namespace Fitzmark.BDRSim.World
             _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
             _rb.gravityScale = Gravity / Mathf.Abs(Physics2D.gravity.y);
             _rb.position = start;
-            _rb.velocity = Vector2.zero;
+            _rb.linearVelocity = Vector2.zero;
 
             Lives = startLives;
             Coins = 0;
@@ -105,9 +105,9 @@ namespace Fitzmark.BDRSim.World
             // is on a different layer so it isn't detected.
             Vector2 feet = _rb.position + Vector2.down * halfHeight;
             _grounded = Physics2D.OverlapBox(feet, new Vector2(halfWidth * 1.7f, 0.18f), 0f, _solidMask) != null
-                        && _rb.velocity.y <= 0.05f;
+                        && _rb.linearVelocity.y <= 0.05f;
 
-            if (_grounded && !_wasGrounded && _rb.velocity.y < -6f) _anim?.Squash(); // land squash
+            if (_grounded && !_wasGrounded && _rb.linearVelocity.y < -6f) _anim?.Squash(); // land squash
             _wasGrounded = _grounded;
 
             if (_grounded) _coyote = coyoteTime; else _coyote = Mathf.Max(0f, _coyote - dt);
@@ -120,8 +120,8 @@ namespace Fitzmark.BDRSim.World
             float top = running ? runSpeed : walkSpeed;
             float targetX = h * top;
             float rate = top / Mathf.Max(0.001f, _grounded ? accelTime : airAccelTime);
-            float vx = Mathf.MoveTowards(_rb.velocity.x, targetX, rate * dt);
-            float vy = _rb.velocity.y;
+            float vx = Mathf.MoveTowards(_rb.linearVelocity.x, targetX, rate * dt);
+            float vy = _rb.linearVelocity.y;
 
             // Jump (buffered + coyote).
             if (_buffer > 0f && _coyote > 0f)
@@ -133,7 +133,7 @@ namespace Fitzmark.BDRSim.World
             // Variable height: releasing jump while rising cuts the climb.
             if (_cutJump) { if (vy > 0f) vy *= 0.5f; _cutJump = false; }
 
-            _rb.velocity = new Vector2(vx, vy);
+            _rb.linearVelocity = new Vector2(vx, vy);
 
             if (_rb.position.y < killY) LoseLife(true);
         }
@@ -170,7 +170,7 @@ namespace Fitzmark.BDRSim.World
                     Destroy(other.gameObject);
                     break;
                 case PlatformerProp.Kind.Spring:
-                    _rb.velocity = new Vector2(_rb.velocity.x, JumpVelocity * 1.5f);
+                    _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, JumpVelocity * 1.5f);
                     _anim?.Squash();
                     break;
                 case PlatformerProp.Kind.Mushroom:
@@ -179,16 +179,16 @@ namespace Fitzmark.BDRSim.World
                     break;
                 case PlatformerProp.Kind.Enemy:
                     // Stomp if descending onto the enemy (feet above its centre) — the Mario rule.
-                    bool stomp = _rb.velocity.y <= 0.1f && _rb.position.y > other.transform.position.y - 0.1f;
+                    bool stomp = _rb.linearVelocity.y <= 0.1f && _rb.position.y > other.transform.position.y - 0.1f;
                     if (stomp)
                     {
                         Destroy(other.gameObject);
-                        _rb.velocity = new Vector2(_rb.velocity.x, JumpVelocity * 0.55f);
+                        _rb.linearVelocity = new Vector2(_rb.linearVelocity.x, JumpVelocity * 0.55f);
                     }
                     else if (_invuln <= 0f)
                     {
                         TakeDamage();
-                        _rb.velocity = new Vector2(-_facing * 5f, JumpVelocity * 0.5f);
+                        _rb.linearVelocity = new Vector2(-_facing * 5f, JumpVelocity * 0.5f);
                     }
                     break;
             }
@@ -212,14 +212,14 @@ namespace Fitzmark.BDRSim.World
             Lives--;
             LivesChanged?.Invoke(Lives);
             if (Lives <= 0) { End(false); return; }
-            if (respawn) { _rb.velocity = Vector2.zero; _rb.position = _start; _invuln = 1f; }
+            if (respawn) { _rb.linearVelocity = Vector2.zero; _rb.position = _start; _invuln = 1f; }
         }
 
         private void End(bool won)
         {
             if (_ended) return;
             _ended = true; IsActive = false;
-            if (_rb != null) _rb.velocity = Vector2.zero;
+            if (_rb != null) _rb.linearVelocity = Vector2.zero;
             if (won) Won?.Invoke(); else Failed?.Invoke();
         }
     }
