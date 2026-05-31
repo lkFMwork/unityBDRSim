@@ -69,17 +69,23 @@ namespace Fitzmark.BDRSim.World
             _player = new GameObject("Player");
             _player.transform.position = start;
 
-            // Kinematic Rigidbody2D + trigger collider so prop pickups (coins/enemies/goal)
-            // fire OnTriggerEnter2D; movement/solid collision is the controller's own raycasts.
+            // Single convention: transform.position = the player's CENTER. The body collider
+            // (solid, cast for movement) and the trigger (pickups) are both centered at origin,
+            // and the sprite child is centered too — so everything is aligned with zero offset.
             var rb = _player.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic;
             rb.gravityScale = 0f;
-            var trigger = _player.AddComponent<BoxCollider2D>();
+            rb.interpolation = RigidbodyInterpolation2D.Interpolate; // smooth visual motion
+
+            var body = _player.AddComponent<BoxCollider2D>();   // solid body, centered
+            body.size = new Vector2(0.7f, 1.0f);
+
+            var trigger = _player.AddComponent<BoxCollider2D>(); // pickups, centered, a touch larger
             trigger.isTrigger = true;
-            trigger.size = new Vector2(0.7f, 1f);
-            trigger.offset = new Vector2(0f, 0.5f);
+            trigger.size = new Vector2(0.8f, 1.1f);
 
             _ctrl = _player.AddComponent<Platformer2DController>();
+            _ctrl.halfHeight = 0.5f; // body half-height (used for the spawn-center offset)
 
             // Sprite body: a child SpriteRenderer driven by SpriteAnimator (Kenney pixel
             // character frames when imported, a colored placeholder square until then).
@@ -101,7 +107,10 @@ namespace Fitzmark.BDRSim.World
             }
             anim.baseScale = baseScale;
 
-            _ctrl.Init(start, anim, 1 << SolidLayer);
+            // start is the surface point; raise it by the body half-height so the CENTER spawns
+            // with feet on the ground (single convention: transform = center).
+            var spawn = start + new Vector3(0f, _ctrl.halfHeight, 0f);
+            _ctrl.Init(spawn, anim, 1 << SolidLayer, body);
             _ctrl.Won += OnWon;
             _ctrl.Failed += OnFailed;
             _ctrl.LivesChanged += _ => RefreshStatus();

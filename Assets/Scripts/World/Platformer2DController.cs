@@ -40,6 +40,7 @@ namespace Fitzmark.BDRSim.World
         public float JumpVelocity => (2f * maxJumpHeight) / timeToApex;
 
         private LayerMask _solidMask;
+        private Collider2D _body;     // the player's own collider, cast for movement
         private Vector2 _vel;
         private Vector3 _start;
         private SpriteAnimator _anim;
@@ -48,12 +49,13 @@ namespace Fitzmark.BDRSim.World
         private bool _grounded;
         private bool _ended;
 
-        public void Init(Vector3 start, SpriteAnimator anim, LayerMask solidMask)
+        public void Init(Vector3 start, SpriteAnimator anim, LayerMask solidMask, Collider2D body)
         {
             _start = start;
             transform.position = start;
             _anim = anim;
             _solidMask = solidMask;
+            _body = body;
             // We move in Update and immediately query the physics world via BoxCast; auto-sync
             // keeps colliders' positions current each query, so movement responds the same frame
             // (without this, casts read a FixedUpdate-stale world → laggy feel).
@@ -98,49 +100,61 @@ namespace Fitzmark.BDRSim.World
             if (transform.position.y < killY) LoseLife(true);
         }
 
-        // Axis-separated raycast collision against the solid tile layer (standard 2D approach).
+        // Axis-separated movement that casts the player's OWN collider (the single source of
+        // truth for where the player is), so there is no hand-rolled center/feet offset to get
+        // wrong — eliminating the "rests a tile too high" class of bug.
         private void MoveCollide(float dt)
         {
             Vector3 p = transform.position;
-            const float skin = 0.04f;
-            // The collision box is centered on the player's MIDDLE (feet are at p), slightly
-            // inset by the skin so a resting cast doesn't start overlapping and snap to 0.
-            Vector2 boxH = new Vector2(halfWidth * 2f - skin, halfHeight * 2f - skin);
-            Vector2 Center(Vector3 at) => new Vector2(at.x, at.y + halfHeight);
+            const float skin = 0.02f;
 
             // Horizontal
             float dx = _vel.x * dt;
             if (Mathf.Abs(dx) != 0f)
             {
                 int dir = dx > 0 ? 1 : -1;
-                var hit = Physics2D.BoxCast(Center(p), boxH, 0f, Vector2.right * dir,
-                    Mathf.Abs(dx) + skin, _solidMask);
-                if (hit.collider != null) { dx = Mathf.Max(0f, hit.distance - skin) * dir; _vel.x = 0f; }
+                float dist = CastSelf(Vector2.right * dir, Mathf.Abs(dx) + skin);
+                if (dist < Mathf.Abs(dx) + skin) { dx = Mathf.Max(0f, dist - skin) * dir; _vel.x = 0f; }
                 p.x += dx;
+                transform.position = p; // keep the collider current for the next cast
             }
 
             // Vertical
             float dy = _vel.y * dt;
-            int vdir = dy >= 0f ? 1 : -1;
-            var vhit = Physics2D.BoxCast(Center(p), boxH, 0f, Vector2.up * vdir,
-                Mathf.Abs(dy) + skin, _solidMask);
-            if (vhit.collider != null && Mathf.Abs(dy) > 0f)
+            _grounded = false;
+            if (Mathf.Abs(dy) != 0f)
             {
-                dy = Mathf.Max(0f, vhit.distance - skin) * vdir;
-                if (vdir < 0) { _grounded = true; if (_vel.y < -8f) _anim?.Squash(); }
-                _vel.y = 0f;
+                int dir = dy > 0 ? 1 : -1;
+                float dist = CastSelf(Vector2.up * dir, Mathf.Abs(dy) + skin);
+                if (dist < Mathf.Abs(dy) + skin)
+                {
+                    dy = Mathf.Max(0f, dist - skin) * dir;
+                    if (dir < 0) { _grounded = true; if (_vel.y < -8f) _anim?.Squash(); }
+                    _vel.y = 0f;
+                }
+                p.y += dy;
             }
-            p.y += dy;
 
-            // Grounded probe (covers standing still and just-landed cases).
-            if (!_grounded)
-            {
-                var g = Physics2D.BoxCast(Center(p), boxH, 0f, Vector2.down, skin * 2f, _solidMask);
-                _grounded = g.collider != null && _vel.y <= 0.01f;
-            }
+            // Grounded probe for standing still / just landed.
+            if (!_grounded && _vel.y <= 0.01f)
+                _grounded = CastSelf(Vector2.down, skin * 2f) < skin * 2f;
 
             p.z = 0f;
             transform.position = p;
+        }
+
+        // Distance the player's collider can travel along `dir` before hitting the solid layer
+        // (full `max` if clear). Uses the actual collider, so its real AABB is what's tested.
+        private static readonly RaycastHit2D[] _castHits = new RaycastHit2D[4];
+        private float CastSelf(Vector2 dir, float max)
+        {
+            if (_body == null) return max;
+            var filter = new ContactFilter2D { useLayerMask = true, layerMask = _solidMask, useTriggers = false };
+            int n = _body.Cast(dir, filter, _castHits, max);
+            float best = max;
+            for (int i = 0; i < n; i++)
+                if (_castHits[i].collider != null && _castHits[i].distance < best) best = _castHits[i].distance;
+            return best;
         }
 
         private void Animate(float h)
