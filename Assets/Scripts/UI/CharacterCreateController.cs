@@ -19,6 +19,10 @@ namespace Fitzmark.BDRSim.UI
     {
         private BDRCharacter _draft;
         private int _styleIndex;
+        private int _branchIndex;
+
+        private static readonly IReadOnlyList<LocalClient> Branches = WorldRegistry.Branches;
+        private LocalClient CurrentBranch => Branches[_branchIndex];
 
         private AvatarBuilder _avatar;
         private InputField _firstName;
@@ -85,6 +89,7 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.Size(content.parent.parent.gameObject, flexH: 1f);
 
             BuildNameSection(content);
+            BuildBranchSection(content);
             BuildStyleSection(content);
             BuildAttributeSection(content);
             BuildAppearanceSection(content);
@@ -104,6 +109,24 @@ namespace Fitzmark.BDRSim.UI
             UiFactory.Size(_firstName.gameObject, flexW: 1f, prefH: 36f);
             _lastName = UiFactory.InputField(row.transform, "Last name", _draft.lastName);
             UiFactory.Size(_lastName.gameObject, flexW: 1f, prefH: 36f);
+        }
+
+        private void BuildBranchSection(Transform parent)
+        {
+            SectionHeader(parent, "HOME BRANCH");
+            Stepper(parent,
+                () => $"{CurrentBranch.City}",
+                () => CycleBranch(-1),
+                () => CycleBranch(1));
+
+            var desc = UiFactory.Label(parent, "", 13, UiTheme.TextMuted, TextAnchor.UpperLeft,
+                FontStyle.Italic);
+            _refreshers.Add(() =>
+            {
+                var w = WorldRegistry.Get(CurrentBranch.StateId);
+                desc.text = $"{CurrentBranch.Company} — your home office. {w.Name} is World 1; " +
+                            $"clear its {w.Cities.Count} cities to open the next state.";
+            });
         }
 
         private void BuildStyleSection(Transform parent)
@@ -198,6 +221,8 @@ namespace Fitzmark.BDRSim.UI
             _draft.styleId = CurrentStyle.Id;
         }
 
+        private void CycleBranch(int delta) => _branchIndex = Wrap(_branchIndex + delta, Branches.Count);
+
         private void RaiseStat(AttributeType type)
         {
             if (PointBuy.CanRaise(_draft.attributes, type))
@@ -222,6 +247,7 @@ namespace Fitzmark.BDRSim.UI
         {
             _styleIndex = UnityEngine.Random.Range(0, SalesStyleLibrary.All.Count);
             _draft.styleId = CurrentStyle.Id;
+            _branchIndex = UnityEngine.Random.Range(0, Branches.Count);
 
             _draft.attributes = PointBuy.NewBaseline();
             int guard = 200;
@@ -246,6 +272,8 @@ namespace Fitzmark.BDRSim.UI
         {
             _draft.firstName = Sanitize(_firstName != null ? _firstName.text : null, "New");
             _draft.lastName = Sanitize(_lastName != null ? _lastName.text : null, "Rep");
+            _draft.homeBranchId = CurrentBranch.Id;
+            _draft.homeStateId = CurrentBranch.StateId;
             _draft.styleId = CurrentStyle.Id;
             _draft.attributes = FinalAttributes();
             _draft.level = 1;
