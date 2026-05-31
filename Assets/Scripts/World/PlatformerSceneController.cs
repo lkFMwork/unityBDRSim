@@ -98,10 +98,14 @@ namespace Fitzmark.BDRSim.World
         private void LateUpdate()
         {
             if (_cam == null || _player == null) return;
-            float camX = Mathf.Lerp(_cam.transform.position.x, _player.transform.position.x + 1.5f,
-                10f * Time.deltaTime);
-            _cam.transform.position = new Vector3(camX, 3.2f, -12f);
-            _cam.transform.LookAt(new Vector3(camX, 2.6f, 0f));
+            float t = 10f * Time.deltaTime;
+            float camX = Mathf.Lerp(_cam.transform.position.x, _player.transform.position.x + 1.5f, t);
+            // Follow height too (levels now climb via stairs/springs), but never below the
+            // baseline so flat sections still frame the ground nicely.
+            float targetY = Mathf.Max(3.2f, _player.transform.position.y + 2.2f);
+            float camY = Mathf.Lerp(_cam.transform.position.y, targetY, t);
+            _cam.transform.position = new Vector3(camX, camY, -12f);
+            _cam.transform.LookAt(new Vector3(camX, camY - 0.6f, 0f));
         }
 
         // ---- HUD ------------------------------------------------------------

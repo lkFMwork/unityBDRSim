@@ -33,9 +33,19 @@ namespace Fitzmark.BDRSim.World
             float dist = Mathf.Abs(dx);
             float dir = dx >= 0f ? 1f : -1f;
 
-            if (dist > _reach)
+            if (dist > _reach * 2.2f)
             {
-                intent.move = dir; // approach
+                // Far: approach, but sometimes lob a projectile to pressure.
+                if (_cooldown <= 0f && _rng.NextDouble() < 0.25)
+                {
+                    intent.attack = AttackType.Projectile;
+                    _cooldown = _attackInterval * 1.4f;
+                }
+                else intent.move = dir;
+            }
+            else if (dist > _reach)
+            {
+                intent.move = dir; // approach into range
             }
             else if (opponent.IsAttacking && _rng.NextDouble() < _blockChance)
             {
@@ -43,7 +53,11 @@ namespace Fitzmark.BDRSim.World
             }
             else if (_cooldown <= 0f)
             {
-                intent.attack = _rng.NextDouble() < 0.62 ? AttackType.Light : AttackType.Heavy;
+                double r = _rng.NextDouble();
+                intent.attack = r < 0.45 ? AttackType.Light
+                              : r < 0.75 ? AttackType.Heavy
+                              : r < 0.90 ? AttackType.Launcher
+                              : AttackType.Special;
                 _cooldown = _attackInterval;
             }
             else if (_rng.NextDouble() < 0.2)

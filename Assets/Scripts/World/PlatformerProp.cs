@@ -9,7 +9,7 @@ namespace Fitzmark.BDRSim.World
     /// </summary>
     public class PlatformerProp : MonoBehaviour
     {
-        public enum Kind { Enemy, Coin, Goal }
+        public enum Kind { None, Enemy, Coin, Goal, Spring, Heart }
 
         public Kind kind = Kind.Enemy;
         public float minX;
@@ -28,7 +28,7 @@ namespace Fitzmark.BDRSim.World
                 else if (p.x <= minX) { p.x = minX; _dir = 1; }
                 transform.position = p;
             }
-            else if (kind == Kind.Coin)
+            else if (kind == Kind.Coin || kind == Kind.Heart)
             {
                 transform.Rotate(0f, 200f * Time.deltaTime, 0f);
             }

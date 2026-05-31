@@ -14,7 +14,9 @@ namespace Fitzmark.BDRSim.World
     /// left fighter, an AI controls the gatekeeper. Win the match → into the meeting;
     /// lose → you didn't get past. Attach to a GameObject in the GatekeeperDuel scene.
     ///
-    /// Controls: A/D move · W/Space jump · J light · K heavy · L special · LeftShift block.
+    /// Controls: A/D move · W/Space jump · J light · K heavy · U launcher · L special ·
+    /// I (or hold away + L) projectile · LeftShift block. Launchers pop the foe up for a
+    /// juggle; combos (hits during hitstun) scale damage down so they're strong but fair.
     /// </summary>
     public class FightController : MonoBehaviour
     {
@@ -136,12 +138,21 @@ namespace Fitzmark.BDRSim.World
 
         private FighterIntent ReadPlayerIntent()
         {
-            AttackType atk = Input.GetKeyDown(KeyCode.J) ? AttackType.Light
+            float move = Input.GetAxisRaw("Horizontal");
+            // Holding "away" from the opponent + Special throws the projectile (the move you
+            // can see fly); Special alone is the close-range power strike.
+            bool away = _player != null && ((move < -0.1f && _player.FacingRight) ||
+                                            (move > 0.1f && !_player.FacingRight));
+            AttackType atk =
+                  Input.GetKeyDown(KeyCode.J) ? AttackType.Light
                 : Input.GetKeyDown(KeyCode.K) ? AttackType.Heavy
-                : Input.GetKeyDown(KeyCode.L) ? AttackType.Special : AttackType.None;
+                : Input.GetKeyDown(KeyCode.U) ? AttackType.Launcher
+                : Input.GetKeyDown(KeyCode.L) ? (away ? AttackType.Projectile : AttackType.Special)
+                : Input.GetKeyDown(KeyCode.I) ? AttackType.Projectile
+                : AttackType.None;
             return new FighterIntent
             {
-                move = Input.GetAxisRaw("Horizontal"),
+                move = move,
                 jump = Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.W),
                 attack = atk,
                 block = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.S)
@@ -255,7 +266,8 @@ namespace Fitzmark.BDRSim.World
             _combo.color = UiTheme.AccentStrong;
 
             var hint = AnchoredLabel(new Vector2(0f, 0f), new Vector2(1f, 0.06f),
-                "A/D move · W/Space jump · J light · K heavy · L special · Shift block", TextAnchor.MiddleCenter);
+                "A/D move · W jump · J light · K heavy · U launcher · L special · I/away+L projectile · Shift block",
+                TextAnchor.MiddleCenter);
             hint.fontSize = 14;
             hint.color = UiTheme.TextMuted;
         }

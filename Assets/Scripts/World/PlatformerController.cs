@@ -111,6 +111,14 @@ namespace Fitzmark.BDRSim.World
                     CoinsChanged?.Invoke(Coins);
                     Destroy(other.gameObject);
                     break;
+                case PlatformerProp.Kind.Spring:
+                    _velocity.y = jumpSpeed * 1.6f; // big launch
+                    break;
+                case PlatformerProp.Kind.Heart:
+                    Lives++;
+                    LivesChanged?.Invoke(Lives);
+                    Destroy(other.gameObject);
+                    break;
                 case PlatformerProp.Kind.Enemy:
                     bool stomp = _velocity.y < 0f && transform.position.y > other.transform.position.y + 0.25f;
                     if (stomp)

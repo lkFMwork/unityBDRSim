@@ -4,7 +4,7 @@ using Fitzmark.BDRSim.UI;
 
 namespace Fitzmark.BDRSim.World
 {
-    public enum AttackType { None, Light, Heavy, Special }
+    public enum AttackType { None, Light, Heavy, Launcher, Special, Projectile }
 
     /// <summary>Per-frame intent for a fighter, supplied by the player input or the AI.</summary>
     public struct FighterIntent
@@ -53,6 +53,8 @@ namespace Fitzmark.BDRSim.World
         private AttackType _attack;
         private float _attackTime;
         private bool _attackHit;
+        private bool _projectileFired;
+        private int _comboHits;
         private float _hitStun;
 
         private void Awake()
@@ -131,13 +133,26 @@ namespace Fitzmark.BDRSim.World
             _attackTime = 0f;
             _attackHit = false;
             _vel.x = 0f;
-            _rig?.Attack();
+            _rig?.Attack(RigMove(type));
+            if (type == AttackType.Projectile) _projectileFired = false;
         }
 
         private void RunAttack(float dt)
         {
             _attackTime += dt;
             var p = Params(_attack);
+
+            // Projectile: spawn a travelling hitbox once, at the end of startup.
+            if (_attack == AttackType.Projectile)
+            {
+                if (!_projectileFired && _attackTime >= p.startup)
+                {
+                    _projectileFired = true;
+                    FightProjectile.Spawn(this, FacingRight ? 1 : -1, p.dmg * DamageMultiplier, p.stun);
+                }
+                if (_attackTime >= p.startup + p.recovery) _state = St.Idle;
+                return;
+            }
 
             if (!_attackHit && _attackTime >= p.startup && _attackTime <= p.startup + p.active
                 && Opponent != null && !Opponent.IsKO)
@@ -150,7 +165,11 @@ namespace Fitzmark.BDRSim.World
                 {
                     _attackHit = true;
                     bool combo = Opponent.IsHitStunned;
-                    Opponent.ReceiveHit(p.dmg * DamageMultiplier, FacingRight ? 1 : -1, p.stun);
+                    // Combo scaling: each consecutive hit during the foe's hitstun deals less,
+                    // so juggles are rewarding but can't trivially stun-lock to death.
+                    _comboHits = combo ? _comboHits + 1 : 0;
+                    float scale = Mathf.Max(0.4f, 1f - _comboHits * 0.15f);
+                    Opponent.ReceiveHit(p.dmg * DamageMultiplier * scale, FacingRight ? 1 : -1, p.stun, p.launch);
                     HitConnected?.Invoke(combo);
                 }
             }
@@ -158,7 +177,17 @@ namespace Fitzmark.BDRSim.World
             if (_attackTime >= p.startup + p.active + p.recovery) _state = St.Idle;
         }
 
-        public void ReceiveHit(float damage, int dir, float stun)
+        /// <summary>Apply a hit from a projectile (called by <see cref="FightProjectile"/>).</summary>
+        public void ReceiveProjectile(float damage, int dir, float stun)
+        {
+            bool combo = IsHitStunned;
+            ReceiveHit(damage, dir, stun, false);
+            // attacker's combo meter is updated by its own HitConnected path; projectiles
+            // simply deal damage/stun here.
+            _ = combo;
+        }
+
+        public void ReceiveHit(float damage, int dir, float stun, bool launch = false)
         {
             if (_state == St.KO) return;
             if (_blocking)
@@ -174,7 +203,8 @@ namespace Fitzmark.BDRSim.World
             if (Health <= 0f) { Die(); return; }
             _state = St.HitStun;
             _hitStun = stun;
-            _vel = new Vector3(dir * 4f, 5f, 0f);
+            // Launchers pop straight up (juggle); normal hits knock back-and-up.
+            _vel = launch ? new Vector3(dir * 1.5f, 11f, 0f) : new Vector3(dir * 4f, 5f, 0f);
             _rig?.TakeHit();
         }
 
@@ -210,15 +240,27 @@ namespace Fitzmark.BDRSim.World
                 _rig.transform.localRotation = Quaternion.Euler(0f, FacingRight ? 90f : -90f, 0f);
         }
 
+        private static FighterRig.Move RigMove(AttackType t) => t switch
+        {
+            AttackType.Heavy => FighterRig.Move.Heavy,
+            AttackType.Launcher => FighterRig.Move.Launcher,
+            AttackType.Special => FighterRig.Move.Special,
+            AttackType.Projectile => FighterRig.Move.Projectile,
+            _ => FighterRig.Move.Light,
+        };
+
         private struct AtkParams
         {
             public float startup, active, recovery, dmg, reach, stun;
+            public bool launch; // pops the opponent upward (combo opener)
         }
 
         private static AtkParams Params(AttackType type) => type switch
         {
             AttackType.Light => new AtkParams { startup = 0.07f, active = 0.08f, recovery = 0.17f, dmg = 6f, reach = 1.5f, stun = 0.30f },
             AttackType.Heavy => new AtkParams { startup = 0.18f, active = 0.10f, recovery = 0.34f, dmg = 12f, reach = 1.8f, stun = 0.42f },
+            // Launcher: slow, pops the opponent up (high knockback) → juggle/combo opener.
+            AttackType.Launcher => new AtkParams { startup = 0.16f, active = 0.10f, recovery = 0.40f, dmg = 10f, reach = 1.6f, stun = 0.55f, launch = true },
             AttackType.Special => new AtkParams { startup = 0.30f, active = 0.12f, recovery = 0.50f, dmg = 22f, reach = 2.1f, stun = 0.60f },
             _ => new AtkParams { startup = 0.1f, active = 0.1f, recovery = 0.2f, dmg = 4f, reach = 1.4f, stun = 0.3f }
         };

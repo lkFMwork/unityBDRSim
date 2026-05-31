@@ -15,8 +15,10 @@ namespace Fitzmark.BDRSim.UI
         public float bobAmplitude = 0.05f;
         public float bobSpeed = 4.5f;
 
+        public enum Move { Light, Heavy, Launcher, Special, Projectile }
         private enum St { Idle, Attack, Hit, Victory, Defeat }
         private St _state = St.Idle;
+        private Move _move = Move.Light;
         private float _t;
         private Vector3 _home;
         private float _flash;
@@ -45,7 +47,7 @@ namespace Fitzmark.BDRSim.UI
             _ready = true;
         }
 
-        public void Attack() { _state = St.Attack; _t = 0f; }
+        public void Attack(Move move = Move.Light) { _state = St.Attack; _move = move; _t = 0f; }
         public void TakeHit() { _state = St.Hit; _t = 0f; _flash = 1f; }
         public void Victory() { _state = St.Victory; _t = 0f; }
         public void Defeat() { _state = St.Defeat; _t = 0f; }
@@ -68,9 +70,36 @@ namespace Fitzmark.BDRSim.UI
                     break;
                 case St.Attack:
                 {
-                    const float dur = 0.22f;
+                    // Distinct read per move so the player can see what they threw.
+                    float dur = _move switch
+                    {
+                        Move.Heavy => 0.30f,
+                        Move.Launcher => 0.28f,
+                        Move.Special => 0.42f,
+                        Move.Projectile => 0.40f,
+                        _ => 0.20f,
+                    };
                     float p = Mathf.Sin(Mathf.Clamp01(_t / dur) * Mathf.PI);
-                    pos.x += dir * 0.6f * p;
+                    switch (_move)
+                    {
+                        case Move.Launcher:                 // crouch then rise
+                            pos.y += (p - 0.2f) * 0.7f;
+                            pos.x += dir * 0.2f * p;
+                            break;
+                        case Move.Special:                  // big forward lunge + lift
+                            pos.x += dir * 0.9f * p;
+                            pos.y += 0.15f * p;
+                            break;
+                        case Move.Projectile:               // wind back, thrust forward
+                            pos.x += dir * (p > 0.5f ? 0.7f : -0.3f) * p;
+                            break;
+                        case Move.Heavy:
+                            pos.x += dir * 0.75f * p;
+                            break;
+                        default:                            // light jab
+                            pos.x += dir * 0.5f * p;
+                            break;
+                    }
                     if (_t >= dur) _state = St.Idle;
                     break;
                 }
