@@ -49,7 +49,7 @@ namespace Fitzmark.BDRSim.World
 
             // ---- KI: Introduce. Flat run, one coin trail (teaches: move right toward reward). ----
             Flat(6);
-            start = new Vector3(2f * Cell, (_row + 1.5f) * Cell, 0f);
+            start = new Vector3(2f * Cell, (_row + 0.5f) * Cell, 0f); // feet just above the surface
             CoinRow(3, _row + 2, 3);
 
             // Teach JUMP with a single low step you must hop (safe: ground continues after).
@@ -118,39 +118,51 @@ namespace Fitzmark.BDRSim.World
             }
         }
 
-        // One merged ground span [x0..x1] with its surface at `row`: a tiled grass strip (visual,
-        // depth a couple of tiles) plus a single box collider capping the surface.
+        // One merged ground span [x0..x1]. Convention: the WALKABLE SURFACE of `row` is at world
+        // y = row*Cell. Grass tile sits with its top exactly there; dirt fills below; a dedicated
+        // collider child (no SpriteRenderer, so no auto-fit offset surprises) has its TOP exactly
+        // at the surface. This precise, single-convention build fixes the "rest one tile too high"
+        // bug that came from a sprite-pivot auto-offset on the collider.
+        private const float Depth = 3f;
+
         private static void EmitSpan(int x0, int x1, int row)
         {
             int width = x1 - x0 + 1;
             float cx = (x0 + x1) / 2f * Cell;
-            float depth = 2.5f;
+            float surfaceY = row * Cell;
 
-            var go = new GameObject($"Ground_{x0}_{x1}", typeof(SpriteRenderer));
+            var go = new GameObject($"Ground_{x0}_{x1}");
             go.transform.SetParent(_p, false);
-            go.transform.position = new Vector3(cx, (row - (depth - 1) / 2f) * Cell, 0f);
-            go.layer = _layer;
+            go.transform.position = new Vector3(cx, 0f, 0f);
+
+            // Grass strip: top at the surface → center half a tile below it.
+            TiledStrip(go.transform, cx, surfaceY - Cell * 0.5f, width * Cell, Cell,
+                PixelPlatformerArt.GrassTop, GrassTop, sorting: 0);
+            // Dirt body below the grass.
+            TiledStrip(go.transform, cx, surfaceY - Cell - (Depth - 1) * Cell * 0.5f, width * Cell, (Depth - 1) * Cell,
+                PixelPlatformerArt.Dirt, Dirt, sorting: -1);
+
+            // Collider: top exactly at the surface, extending down through the body.
+            var colGo = new GameObject("Collider");
+            colGo.transform.SetParent(go.transform, false);
+            colGo.layer = _layer;
+            colGo.transform.position = new Vector3(cx, surfaceY - Depth * Cell * 0.5f, 0f);
+            colGo.AddComponent<BoxCollider2D>().size = new Vector2(width * Cell, Depth * Cell);
+        }
+
+        // A tiled sprite strip centered at (cx, cy) of the given world size.
+        private static void TiledStrip(Transform parent, float cx, float cy, float w, float h,
+            string spriteKey, Color fallback, int sorting)
+        {
+            var go = new GameObject("Strip", typeof(SpriteRenderer));
+            go.transform.SetParent(parent, false);
+            go.transform.position = new Vector3(cx, cy, 0f);
             var sr = go.GetComponent<SpriteRenderer>();
-            sr.sprite = SpriteLibrary.Get(PixelPlatformerArt.Dirt, Dirt);
-            sr.color = SpriteLibrary.Has(PixelPlatformerArt.Dirt) ? Color.white : Dirt;
+            sr.sprite = SpriteLibrary.Get(spriteKey, fallback);
+            sr.color = SpriteLibrary.Has(spriteKey) ? Color.white : fallback;
             sr.drawMode = SpriteDrawMode.Tiled;
-            sr.size = new Vector2(width * Cell, depth * Cell);
-            sr.sortingOrder = -1;
-
-            // Grass surface strip on top (one tile tall).
-            var grass = new GameObject("GrassTop", typeof(SpriteRenderer));
-            grass.transform.SetParent(go.transform, false);
-            grass.transform.position = new Vector3(cx, row * Cell, 0f);
-            var gsr = grass.GetComponent<SpriteRenderer>();
-            gsr.sprite = SpriteLibrary.Get(PixelPlatformerArt.GrassTop, GrassTop);
-            gsr.color = SpriteLibrary.Has(PixelPlatformerArt.GrassTop) ? Color.white : GrassTop;
-            gsr.drawMode = SpriteDrawMode.Tiled;
-            gsr.size = new Vector2(width * Cell, Cell);
-            gsr.sortingOrder = 0;
-
-            // go is already centered on the span; collider fills it (surface top at row*Cell).
-            var col = go.AddComponent<BoxCollider2D>();
-            col.size = new Vector2(width * Cell, depth * Cell);
+            sr.size = new Vector2(w, h);
+            sr.sortingOrder = sorting;
         }
 
         // ---- authored building blocks (advance _gx; mutate _row) -------------
@@ -177,21 +189,20 @@ namespace Fitzmark.BDRSim.World
             _gx += cells;
         }
 
-        // A floating platform: one tiled grass strip + one collider (not per-cell).
+        // A floating platform: tiled grass strip (top at surface) + a dedicated collider child.
         private static void FloatPlatform(int gx, int row, int width)
         {
             float cx = (gx + (width - 1) / 2f) * Cell;
-            var go = new GameObject("Platform", typeof(SpriteRenderer));
+            float surfaceY = row * Cell;
+            var go = new GameObject("Platform");
             go.transform.SetParent(_p, false);
-            go.transform.position = new Vector3(cx, row * Cell, 0f);
-            go.layer = _layer;
-            var sr = go.GetComponent<SpriteRenderer>();
-            sr.sprite = SpriteLibrary.Get(PixelPlatformerArt.GrassTop, GrassTop);
-            sr.color = SpriteLibrary.Has(PixelPlatformerArt.GrassTop) ? Color.white : GrassTop;
-            sr.drawMode = SpriteDrawMode.Tiled;
-            sr.size = new Vector2(width * Cell, Cell);
-            sr.sortingOrder = 0;
-            go.AddComponent<BoxCollider2D>().size = new Vector2(width * Cell, Cell);
+            TiledStrip(go.transform, cx, surfaceY - Cell * 0.5f, width * Cell, Cell,
+                PixelPlatformerArt.GrassTop, GrassTop, sorting: 0);
+            var colGo = new GameObject("Collider");
+            colGo.transform.SetParent(go.transform, false);
+            colGo.layer = _layer;
+            colGo.transform.position = new Vector3(cx, surfaceY - Cell * 0.5f, 0f);
+            colGo.AddComponent<BoxCollider2D>().size = new Vector2(width * Cell, Cell);
         }
 
         private static void Spring(int gx)
@@ -222,7 +233,8 @@ namespace Fitzmark.BDRSim.World
                 Coin(gxA + c, _row + 1 + Mathf.RoundToInt(Mathf.Sin(t * Mathf.PI) * (peakRow - _row)));
             }
         }
-        private static void Patroller(int minGx, int maxGx) => Enemy(_p, (minGx + maxGx) / 2, _row + 1, minGx, maxGx);
+        // Enemy sits ON the surface: sprite ~0.9 tall, so its center is ~0.45 above row*Cell.
+        private static void Patroller(int minGx, int maxGx) => Enemy(_p, (minGx + maxGx) / 2, minGx, maxGx, _row);
         private static void Coin(int gx, int row) => Coin(_p, gx, row);
         private static void Heart(int gx, int row) => Prop(_p, PixelPlatformerArt.Heart,
             new Vector3(gx * Cell, row * Cell, 0f), 0.8f, PlatformerProp.Kind.Heart, HeartC);
@@ -246,10 +258,10 @@ namespace Fitzmark.BDRSim.World
             return go;
         }
 
-        private static void Enemy(Transform parent, int gx, int row, int minGx, int maxGx)
+        private static void Enemy(Transform parent, int gx, int minGx, int maxGx, int surfaceRow)
         {
-            var go = PropObject(parent, PixelPlatformerArt.Enemy, new Vector3(gx * Cell, row * Cell, 0f),
-                0.9f, EnemyC);
+            float cy = surfaceRow * Cell + 0.45f * Cell; // sit on the surface
+            var go = PropObject(parent, PixelPlatformerArt.Enemy, new Vector3(gx * Cell, cy, 0f), 0.9f, EnemyC);
             var prop = go.GetComponent<Platformer2DProp>();
             prop.kind = PlatformerProp.Kind.Enemy;
             prop.minX = minGx * Cell; prop.maxX = maxGx * Cell; prop.speed = 1.6f + (float)Random.value * 1.4f;

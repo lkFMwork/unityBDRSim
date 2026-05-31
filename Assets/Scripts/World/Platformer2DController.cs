@@ -54,6 +54,11 @@ namespace Fitzmark.BDRSim.World
             transform.position = start;
             _anim = anim;
             _solidMask = solidMask;
+            // We move in Update and immediately query the physics world via BoxCast; auto-sync
+            // keeps colliders' positions current each query, so movement responds the same frame
+            // (without this, casts read a FixedUpdate-stale world → laggy feel).
+            Physics2D.autoSyncTransforms = true;
+            Physics2D.SyncTransforms();
             Lives = startLives;
             Coins = 0;
             LivesChanged?.Invoke(Lives);
