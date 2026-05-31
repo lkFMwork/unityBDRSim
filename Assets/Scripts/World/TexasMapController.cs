@@ -149,48 +149,94 @@ namespace Fitzmark.BDRSim.World
             var theme = WorldMapTheme.For(_world.Id);
             var rng = new System.Random(StableHash(_world.Id));
 
-            // Build the set of path directions per cell by walking the trail between consecutive cells.
             var dirs = new Dictionary<Vector2Int, PathDir>();
             for (int i = 0; i < _cells.Count - 1; i++) CarvePath(dirs, _cells[i], _cells[i + 1]);
 
+            // Region kind per cell: an east–west biome band gives each state internal geography
+            // (forested/lush west → plains centre → mountains in the east, water along the top/edges).
             for (int gy = 0; gy < GridRows; gy++)
                 for (int gx = 0; gx < GridCols; gx++)
                 {
                     var cell = new Vector2Int(gx, gy);
-                    // Regional terrain: a west→east band gives each state internal geography
-                    // (e.g. TN: greener west, plains centre, stony/snowy "mountains" east).
                     float ew = gx / (float)(GridCols - 1);
-                    string baseKey = RegionBase(theme, ew, gy, rng);
-                    TileImage(baseKey, cell, sorting: 0);
+                    var region = RegionAt(theme, cell, ew, dirs);
 
+                    // 1) terrain base (animated water gets the WaterAnimator).
+                    if (region == Region.Water) WaterTile(cell);
+                    else TerrainTile(theme, region, cell);
+
+                    // 2) yellow trail overlay where the path runs (Kenney path reads cleanly as SMW trail).
                     if (dirs.TryGetValue(cell, out var d))
                     {
                         var key = PathTileFor(d);
                         if (key != null) TileImage(key, cell, sorting: 1);
                     }
-                    else if (!NearTrail(dirs, cell) && rng.NextDouble() < 0.16)
-                        Decoration(theme, cell, ew, rng);
+                    // 3) terrain objects off the trail: mountains east, forest/hills elsewhere.
+                    else if (!NearTrail(dirs, cell)) LpcDecoration(theme, region, cell, ew, rng);
                 }
         }
 
-        // Base terrain for a cell given its east–west position, themed per biome so states have
-        // internal geography rather than one flat colour.
-        private static string RegionBase(WorldMapTheme theme, float ew, int gy, System.Random rng)
+        private enum Region { Grass, Sand, Snow, MountainBand, Water }
+
+        // Which terrain a cell is, from biome + east–west position. Top edge rows tend to water.
+        private Region RegionAt(WorldMapTheme theme, Vector2Int cell, float ew, Dictionary<Vector2Int, PathDir> dirs)
         {
+            bool onTrail = dirs.ContainsKey(cell);
+            // Water along the very top row (and far corners), but never under the trail.
+            if (!onTrail && cell.y >= GridRows - 1 && theme.Biome != MapBiome.Desert) return Region.Water;
+
             switch (theme.Biome)
             {
-                case MapBiome.Desert: // sand everywhere, a little stone in the far east
-                    return ew > 0.8f && rng.NextDouble() < 0.5 ? MapPackArt.Stone : MapPackArt.Sand;
-                case MapBiome.Forest: // green, snowy stone in the east (mountains)
-                    return ew > 0.78f ? MapPackArt.Snow : MapPackArt.Grass;
-                case MapBiome.Bluegrass: // TN/AL/GA: lush west, plains centre, stony mountains east
-                    if (ew > 0.82f) return MapPackArt.Snow;        // snow-capped peaks
-                    if (ew > 0.66f) return MapPackArt.Stone;       // mountain stone
-                    if (ew < 0.25f) return MapPackArt.Grass;       // forested west
-                    return MapPackArt.Grass;
-                default: // Heartland/Plains: mostly grass, occasional dirt patch
-                    return rng.NextDouble() < 0.12 ? MapPackArt.Dirt : MapPackArt.Grass;
+                case MapBiome.Desert:
+                    return ew > 0.82f ? Region.MountainBand : Region.Sand;
+                case MapBiome.Forest:
+                    return ew > 0.76f ? Region.MountainBand : Region.Grass;
+                case MapBiome.Bluegrass: // TN/AL/GA: mountains in the east
+                    return ew > 0.72f ? Region.MountainBand : Region.Grass;
+                default: // Heartland/Plains
+                    return ew > 0.86f ? Region.MountainBand : Region.Grass;
             }
+        }
+
+        private void TerrainTile(WorldMapTheme theme, Region region, Vector2Int cell)
+        {
+            Sprite s = region switch
+            {
+                Region.Sand => LpcOverworldArt.Sand,
+                Region.Snow => LpcOverworldArt.Snow,
+                // mountain band sits on grass (desert: sand) — the mountain object is added as decor
+                Region.MountainBand => theme.Biome == MapBiome.Desert ? LpcOverworldArt.Sand : LpcOverworldArt.Grass,
+                _ => theme.Biome == MapBiome.Desert ? LpcOverworldArt.Sand : LpcOverworldArt.Grass
+            };
+            SpriteTile(s, cell, sorting: 0);
+        }
+
+        private void WaterTile(Vector2Int cell)
+        {
+            var frames = LpcOverworldArt.WaterFrames();
+            var img = SpriteTile(frames.Length > 0 ? frames[0] : LpcOverworldArt.Grass, cell, sorting: 0);
+            var anim = img.gameObject.AddComponent<WaterAnimator>();
+            anim.frames = frames;
+            anim.phase = (cell.x * 0.37f + cell.y * 0.19f); // de-sync neighbouring tiles
+        }
+
+        // Mountains in the mountain band; forests/hills as scattered objects elsewhere.
+        private void LpcDecoration(WorldMapTheme theme, Region region, Vector2Int cell, float ew, System.Random rng)
+        {
+            if (region == Region.MountainBand)
+            {
+                if (rng.NextDouble() < 0.55)
+                    SpriteTile(LpcOverworldArt.Mountain(rng.Next(5)), cell, sorting: 2, scaleW: 1.8f, scaleH: 1.8f);
+                return;
+            }
+            if (rng.NextDouble() >= 0.20) return;
+            Sprite s = theme.Biome switch
+            {
+                MapBiome.Desert => LpcOverworldArt.HillDesert(rng.Next(5)),
+                MapBiome.Forest => LpcOverworldArt.Tree(true),
+                _ => rng.Next(2) == 0 ? LpcOverworldArt.Tree(false) : LpcOverworldArt.Hill(rng.Next(5))
+            };
+            SpriteTile(s, cell, sorting: 2, scaleW: 1.4f, scaleH: 1.4f);
         }
 
         [System.Flags]
@@ -275,37 +321,42 @@ namespace Fitzmark.BDRSim.World
             return layer;
         }
 
-        // An Image showing a map tile in grid cell (gx,gy). sorting 0=base,1=path,2=decor selects
-        // the layer; scale<1 insets a centered object (decorations) so they don't fill the cell.
-        private Image TileImage(string spriteKey, Vector2Int cell, int sorting, float scale = 1f)
+        // A Kenney path-overlay tile by key (the yellow trail), one cell. sorting selects the layer.
+        private Image TileImage(string spriteKey, Vector2Int cell, int sorting, float scale = 1f) =>
+            PlaceTile(SpriteLibrary.GetUnit(spriteKey, new Color(0.4f, 0.6f, 0.35f)), cell, sorting, scale, scale);
+
+        // An LPC sprite in a grid cell. scaleW/scaleH > 1 lets wide objects (mountains/hills) spill
+        // past one cell, anchored to the cell's bottom-centre so they sit on the ground believably.
+        private Image SpriteTile(Sprite sprite, Vector2Int cell, int sorting, float scaleW = 1f, float scaleH = 1f) =>
+            PlaceTile(sprite, cell, sorting, scaleW, scaleH);
+
+        private Image PlaceTile(Sprite sprite, Vector2Int cell, int sorting, float scaleW, float scaleH)
         {
             RectTransform parent = sorting == 0 ? Layer(ref _baseLayer, "Base")
                 : sorting == 1 ? Layer(ref _pathLayer, "Path") : Layer(ref _decorLayer, "Decor");
             var go = new GameObject("Tile", typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
             var rt = go.GetComponent<RectTransform>();
-            float pad = (1f - scale) * 0.5f;
-            rt.anchorMin = new Vector2((cell.x + pad) / GridCols, (cell.y + pad) / GridRows);
-            rt.anchorMax = new Vector2((cell.x + 1f - pad) / GridCols, (cell.y + 1f - pad) / GridRows);
+
+            if (sorting == 2)
+            {
+                // Decoration object: width grows symmetrically, height grows UPWARD from the cell's
+                // bottom edge so mountains/trees/hills sit on the ground rather than float.
+                float padX = (1f - scaleW) * 0.5f;
+                rt.anchorMin = new Vector2((cell.x + padX) / GridCols, cell.y / (float)GridRows);
+                rt.anchorMax = new Vector2((cell.x + 1f - padX) / GridCols, (cell.y + scaleH) / GridRows);
+            }
+            else // base/path fill the cell exactly
+            {
+                rt.anchorMin = new Vector2(cell.x / (float)GridCols, cell.y / (float)GridRows);
+                rt.anchorMax = new Vector2((cell.x + 1f) / GridCols, (cell.y + 1f) / GridRows);
+            }
             rt.offsetMin = rt.offsetMax = Vector2.zero;
             var img = go.GetComponent<Image>();
-            img.sprite = SpriteLibrary.GetUnit(spriteKey, new Color(0.4f, 0.6f, 0.35f));
-            img.preserveAspect = true;
+            img.sprite = sprite;
+            img.preserveAspect = sorting == 2;
             img.raycastTarget = false;
             return img;
-        }
-
-        private void Decoration(WorldMapTheme theme, Vector2Int cell, float ew, System.Random rng)
-        {
-            string key = theme.Biome switch
-            {
-                MapBiome.Forest => ew > 0.78f ? MapPackArt.Rock : (rng.Next(2) == 0 ? MapPackArt.Pine : MapPackArt.Tree),
-                MapBiome.Desert => rng.Next(2) == 0 ? MapPackArt.Cactus : MapPackArt.Rock,
-                MapBiome.Bluegrass => ew > 0.66f ? MapPackArt.Rock                       // mountains → rocks
-                    : (rng.Next(3) switch { 0 => MapPackArt.Tree, 1 => MapPackArt.Pine, _ => MapPackArt.Bush }),
-                _ => rng.Next(3) switch { 0 => MapPackArt.Tree, 1 => MapPackArt.Bush, _ => MapPackArt.Rock }
-            };
-            TileImage(key, cell, sorting: 2, scale: 0.7f); // centered object, not a full-cell fill
         }
 
         // Assign each city — and the next-world gate — a grid cell along a serpentine route that

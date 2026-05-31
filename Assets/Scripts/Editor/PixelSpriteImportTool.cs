@@ -14,6 +14,7 @@ namespace Fitzmark.BDRSim.Editor
     {
         private const string PlatformerFolder = "Assets/Resources/Models/kenney_pixel-platformer";
         private const string MapFolder = "Assets/Resources/Models/kenney_map-pack/PNG";
+        private const string LpcFolder = "Assets/Resources/Models/LPC Overworld";
 
         [MenuItem("Tools/Fitzmark BDR/Import Pixel Platformer Sprites")]
         private static void ImportPlatformer() => ImportFolder(PlatformerFolder, 18f, "platformer");
@@ -21,16 +22,21 @@ namespace Fitzmark.BDRSim.Editor
         [MenuItem("Tools/Fitzmark BDR/Import Overworld Map Tiles")]
         private static void ImportMap() => ImportFolder(MapFolder, 64f, "overworld map");
 
+        [MenuItem("Tools/Fitzmark BDR/Import LPC Overworld Tiles")]
+        private static void ImportLpc() => ImportFolder(LpcFolder, 16f, "LPC overworld", readable: true);
+
         [MenuItem("Tools/Fitzmark BDR/Import ALL Kenney Sprites")]
         private static void ImportAll()
         {
             ImportFolder(PlatformerFolder, 18f, "platformer", silent: true);
             ImportFolder(MapFolder, 64f, "overworld map", silent: true);
+            ImportFolder(LpcFolder, 16f, "LPC overworld", silent: true, readable: true);
             EditorUtility.DisplayDialog("Fitzmark Sprites",
-                "Imported the platformer and overworld map packs as crisp Sprites.\n\nPress Play.", "Great");
+                "Imported the platformer, Kenney map, and LPC overworld packs as crisp Sprites.\n\nPress Play.", "Great");
         }
 
-        private static void ImportFolder(string folder, float ppu, string label, bool silent = false)
+        private static void ImportFolder(string folder, float ppu, string label, bool silent = false,
+            bool readable = false)
         {
             if (!AssetDatabase.IsValidFolder(folder))
             {
@@ -54,6 +60,7 @@ namespace Fitzmark.BDRSim.Editor
                 ti.mipmapEnabled = false;
                 ti.alphaIsTransparency = true;
                 ti.wrapMode = TextureWrapMode.Clamp;
+                ti.isReadable = readable; // LPC sheets are sliced into sub-tiles at runtime
 
                 var settings = new TextureImporterSettings();
                 ti.ReadTextureSettings(settings);
