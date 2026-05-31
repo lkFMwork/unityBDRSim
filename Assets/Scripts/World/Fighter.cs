@@ -44,18 +44,18 @@ namespace Fitzmark.BDRSim.World
         public event Action Defeated;
         public event Action<bool> HitConnected; // true = opponent was already in hitstun (combo)
 
-        private enum St { Idle, Attacking, HitStun, KO }
+        private enum St { Idle, Attacking, HitStun, BlockStun, KO }
         private St _state = St.Idle;
         private CharacterController _cc;
         private FighterRig _rig;
         private Vector3 _vel;
         private bool _blocking;
         private AttackType _attack;
-        private float _attackTime;
+        private int _attackFrame;
         private bool _attackHit;
         private bool _projectileFired;
         private int _comboHits;
-        private float _hitStun;
+        private float _stun;
 
         private void Awake()
         {
@@ -95,10 +95,11 @@ namespace Fitzmark.BDRSim.World
                     Fall(dt, grounded);
                     break;
                 case St.HitStun:
-                    _hitStun -= dt;
+                case St.BlockStun:
+                    _stun -= dt;
                     _vel.x = Mathf.MoveTowards(_vel.x, 0f, 18f * dt);
                     Fall(dt, grounded);
-                    if (_hitStun <= 0f) _state = St.Idle;
+                    if (_stun <= 0f && grounded) _state = St.Idle; // stay stunned until you land
                     break;
                 case St.Attacking:
                     RunAttack(dt);
@@ -130,7 +131,7 @@ namespace Fitzmark.BDRSim.World
         {
             _state = St.Attacking;
             _attack = type;
-            _attackTime = 0f;
+            _attackFrame = 0;
             _attackHit = false;
             _vel.x = 0f;
             _rig?.Attack(RigMove(type));
@@ -139,61 +140,73 @@ namespace Fitzmark.BDRSim.World
 
         private void RunAttack(float dt)
         {
-            _attackTime += dt;
-            var p = Params(_attack);
+            _attackFrame++;
+            var d = Data(_attack);
 
             // Projectile: spawn a travelling hitbox once, at the end of startup.
             if (_attack == AttackType.Projectile)
             {
-                if (!_projectileFired && _attackTime >= p.startup)
+                if (!_projectileFired && _attackFrame >= d.startup)
                 {
                     _projectileFired = true;
-                    FightProjectile.Spawn(this, FacingRight ? 1 : -1, p.dmg * DamageMultiplier, p.stun);
+                    FightProjectile.Spawn(this, FacingRight ? 1 : -1, d.dmg * DamageMultiplier, d.hitstun * FrameSec);
                 }
-                if (_attackTime >= p.startup + p.recovery) _state = St.Idle;
+                if (_attackFrame >= d.startup + d.recovery) _state = St.Idle;
                 return;
             }
 
-            if (!_attackHit && _attackTime >= p.startup && _attackTime <= p.startup + p.active
-                && Opponent != null && !Opponent.IsKO)
+            // Active frames: test this move's hitbox against the opponent's hurtbox.
+            bool active = _attackFrame > d.startup && _attackFrame <= d.startup + d.active;
+            if (active && !_attackHit && Opponent != null && !Opponent.IsKO && HitboxOverlaps(d))
             {
-                float dx = Opponent.transform.position.x - transform.position.x;
-                bool inFront = (dx >= 0f) == FacingRight || Mathf.Abs(dx) < 0.3f;
-                bool reachOk = Mathf.Abs(dx) <= p.reach
-                               && Mathf.Abs(Opponent.transform.position.y - transform.position.y) < 1.6f;
-                if (inFront && reachOk)
-                {
-                    _attackHit = true;
-                    bool combo = Opponent.IsHitStunned;
-                    // Combo scaling: each consecutive hit during the foe's hitstun deals less,
-                    // so juggles are rewarding but can't trivially stun-lock to death.
-                    _comboHits = combo ? _comboHits + 1 : 0;
-                    float scale = Mathf.Max(0.4f, 1f - _comboHits * 0.15f);
-                    Opponent.ReceiveHit(p.dmg * DamageMultiplier * scale, FacingRight ? 1 : -1, p.stun, p.launch);
-                    HitConnected?.Invoke(combo);
-                }
+                _attackHit = true;
+                bool combo = Opponent.IsHitStunned;
+                _comboHits = combo ? _comboHits + 1 : 0;
+                float scale = Mathf.Max(0.4f, 1f - _comboHits * 0.15f); // combo damage scaling
+                Opponent.ReceiveAttack(d, FacingRight ? 1 : -1, DamageMultiplier * scale);
+                HitConnected?.Invoke(combo);
             }
 
-            if (_attackTime >= p.startup + p.active + p.recovery) _state = St.Idle;
+            if (_attackFrame >= d.startup + d.active + d.recovery) _state = St.Idle;
+        }
+
+        // The move's hitbox (a reach×height box in front of the attacker) vs the opponent's
+        // body hurtbox. This is the spatial half of fighting-game collision (frame data is the
+        // temporal half, handled by the active-frame window above).
+        private bool HitboxOverlaps(FrameData d)
+        {
+            Vector3 me = transform.position, foe = Opponent.transform.position;
+            float dx = foe.x - me.x;
+            bool inFront = (dx >= 0f) == FacingRight || Mathf.Abs(dx) < 0.3f;
+            bool xOk = Mathf.Abs(dx) <= d.reach + 0.5f;            // + foe half-width
+            bool yOk = Mathf.Abs(foe.y - me.y) <= d.height;
+            return inFront && xOk && yOk;
+        }
+
+        /// <summary>Apply a melee hit defined by frame data (called by the attacker).</summary>
+        public void ReceiveAttack(FrameData d, int dir, float dmgScale)
+        {
+            ApplyHit(d.dmg * dmgScale, dir, d.hitstun * FrameSec, d.blockstun * FrameSec,
+                d.knockX, d.knockY, d.launch);
         }
 
         /// <summary>Apply a hit from a projectile (called by <see cref="FightProjectile"/>).</summary>
         public void ReceiveProjectile(float damage, int dir, float stun)
         {
-            bool combo = IsHitStunned;
-            ReceiveHit(damage, dir, stun, false);
-            // attacker's combo meter is updated by its own HitConnected path; projectiles
-            // simply deal damage/stun here.
-            _ = combo;
+            ApplyHit(damage, dir, stun, stun * 0.7f, 4f, 3f, false);
         }
 
-        public void ReceiveHit(float damage, int dir, float stun, bool launch = false)
+        private void ApplyHit(float damage, int dir, float hitStun, float blockStun,
+            float knockX, float knockY, bool launch)
         {
             if (_state == St.KO) return;
             if (_blocking)
             {
-                Health -= damage * 0.15f; // chip
+                Health -= damage * 0.12f;           // chip damage
                 HealthChanged?.Invoke();
+                _state = St.BlockStun;
+                _stun = blockStun;                   // blockstun < hitstun → you recover sooner
+                _vel.x = dir * 1.5f;                 // pushback only
                 _rig?.TakeHit();
                 if (Health <= 0f) Die();
                 return;
@@ -202,9 +215,8 @@ namespace Fitzmark.BDRSim.World
             HealthChanged?.Invoke();
             if (Health <= 0f) { Die(); return; }
             _state = St.HitStun;
-            _hitStun = stun;
-            // Launchers pop straight up (juggle); normal hits knock back-and-up.
-            _vel = launch ? new Vector3(dir * 1.5f, 11f, 0f) : new Vector3(dir * 4f, 5f, 0f);
+            _stun = hitStun;
+            _vel = new Vector3(dir * knockX, knockY, 0f);
             _rig?.TakeHit();
         }
 
@@ -249,20 +261,33 @@ namespace Fitzmark.BDRSim.World
             _ => FighterRig.Move.Light,
         };
 
-        private struct AtkParams
+        /// <summary>
+        /// Move definition in real fighting-game terms (60fps frame data + boxes). Startup =
+        /// frames before the hitbox appears, active = frames it can hit, recovery = frames
+        /// you're locked after. hitstun/blockstun are the frames the foe is frozen on hit/block;
+        /// hitstun &gt; recovery means you're "plus on hit" → a faster follow-up combos (the
+        /// core of fighting-game offense). reach/height define the hitbox, blockstun the chip.
+        /// (Sources: Capcom SF frame data, Dream Cancel hitstun/blockstun, fighter fundamentals.)
+        /// </summary>
+        public struct FrameData
         {
-            public float startup, active, recovery, dmg, reach, stun;
-            public bool launch; // pops the opponent upward (combo opener)
+            public int startup, active, recovery, hitstun, blockstun;
+            public float dmg, reach, height, knockX, knockY;
+            public bool launch;
         }
 
-        private static AtkParams Params(AttackType type) => type switch
+        private const float FrameSec = 1f / 60f;
+
+        // Light: fast poke, plus on hit (links into another light → combo). Heavy: slow, big,
+        // unsafe if whiffed. Launcher: pops up for juggles. Special/Projectile: high commit.
+        public static FrameData Data(AttackType type) => type switch
         {
-            AttackType.Light => new AtkParams { startup = 0.07f, active = 0.08f, recovery = 0.17f, dmg = 6f, reach = 1.5f, stun = 0.30f },
-            AttackType.Heavy => new AtkParams { startup = 0.18f, active = 0.10f, recovery = 0.34f, dmg = 12f, reach = 1.8f, stun = 0.42f },
-            // Launcher: slow, pops the opponent up (high knockback) → juggle/combo opener.
-            AttackType.Launcher => new AtkParams { startup = 0.16f, active = 0.10f, recovery = 0.40f, dmg = 10f, reach = 1.6f, stun = 0.55f, launch = true },
-            AttackType.Special => new AtkParams { startup = 0.30f, active = 0.12f, recovery = 0.50f, dmg = 22f, reach = 2.1f, stun = 0.60f },
-            _ => new AtkParams { startup = 0.1f, active = 0.1f, recovery = 0.2f, dmg = 4f, reach = 1.4f, stun = 0.3f }
+            AttackType.Light => new FrameData { startup = 4, active = 3, recovery = 8, hitstun = 16, blockstun = 11, dmg = 5f, reach = 1.5f, height = 1.6f, knockX = 3f, knockY = 3f },
+            AttackType.Heavy => new FrameData { startup = 11, active = 4, recovery = 20, hitstun = 24, blockstun = 14, dmg = 11f, reach = 1.9f, height = 1.7f, knockX = 5f, knockY = 4f },
+            AttackType.Launcher => new FrameData { startup = 9, active = 4, recovery = 26, hitstun = 34, blockstun = 12, dmg = 9f, reach = 1.6f, height = 1.8f, knockX = 1.5f, knockY = 11f, launch = true },
+            AttackType.Special => new FrameData { startup = 16, active = 6, recovery = 28, hitstun = 28, blockstun = 16, dmg = 18f, reach = 2.2f, height = 1.8f, knockX = 7f, knockY = 5f },
+            AttackType.Projectile => new FrameData { startup = 14, active = 0, recovery = 26, hitstun = 20, blockstun = 12, dmg = 9f, reach = 0f, height = 0f, knockX = 4f, knockY = 3f },
+            _ => new FrameData { startup = 6, active = 3, recovery = 10, hitstun = 14, blockstun = 8, dmg = 4f, reach = 1.4f, height = 1.6f, knockX = 3f, knockY = 3f },
         };
     }
 }

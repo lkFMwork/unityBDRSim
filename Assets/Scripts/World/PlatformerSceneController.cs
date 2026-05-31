@@ -5,7 +5,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using AvatarBuilder = Fitzmark.BDRSim.UI.AvatarBuilder; // disambiguate from UnityEngine.AvatarBuilder
 
 namespace Fitzmark.BDRSim.World
 {
@@ -80,27 +79,14 @@ namespace Fitzmark.BDRSim.World
 
             _ctrl = _player.AddComponent<PlatformerController>();
 
-            // Real Mixamo body (walk/idle), else the procedural avatar as a fallback.
-            Transform bodyT;
-            var worker = OfficeWorker.Attach(_player.transform);
-            if (worker != null)
-            {
-                bodyT = worker.transform;
-                _ctrl.Worker = worker;
-            }
-            else
-            {
-                var body = new GameObject("Body");
-                body.transform.SetParent(_player.transform, false);
-                var avatar = body.AddComponent<AvatarBuilder>();
-                avatar.AnimateIdle = false;
-                avatar.SetConfig(GameManager.Instance.Profile != null
-                    ? GameManager.Instance.Profile.avatar
-                    : new AvatarConfig());
-                bodyT = body.transform;
-            }
+            // Kenney platformer character (a clean static model that suits the arcade
+            // minigame); a hop bob is driven procedurally by the controller's visual.
+            var body = ModelLibrary.Spawn(
+                "Models/kenney_platformer-kit/Models/FBX format/character-oopi",
+                _player.transform, Vector3.zero, 0f, 1f,
+                placeholderColor: new Color(0.30f, 0.55f, 0.85f), placeholderLabel: false, fitHeight: 1.4f);
 
-            _ctrl.Init(start, bodyT);
+            _ctrl.Init(start, body.transform);
             _ctrl.Won += OnWon;
             _ctrl.Failed += OnFailed;
             _ctrl.LivesChanged += _ => RefreshStatus();

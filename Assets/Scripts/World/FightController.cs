@@ -4,7 +4,6 @@ using Fitzmark.BDRSim.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using AvatarBuilder = Fitzmark.BDRSim.UI.AvatarBuilder; // disambiguate from UnityEngine.AvatarBuilder
 
 namespace Fitzmark.BDRSim.World
 {
@@ -196,19 +195,18 @@ namespace Fitzmark.BDRSim.World
             cc.radius = 0.4f;
             cc.center = new Vector3(0f, 0.9f, 0f);
 
-            // Body carries the FighterRig (lunge/recoil/flash via localPosition); the real
-            // Mixamo character is parented inside it so animations compose with the lunges.
-            // Fall back to the procedural avatar only if the model isn't imported.
+            // Body carries the FighterRig (procedural lunge/recoil/flash via localPosition);
+            // a static Kenney platformer character is parented inside it — static + procedural
+            // compose cleanly (no idle animation fighting the lunges), which suits the arcade
+            // fighter better than a Mixamo rig. Player and gatekeeper use different characters.
             var body = new GameObject("Body");
             body.transform.SetParent(go.transform, false);
-
-            var worker = OfficeWorker.Attach(body.transform);
-            if (worker == null)
-            {
-                var avatar = body.AddComponent<AvatarBuilder>();
-                avatar.AnimateIdle = false;
-                avatar.SetConfig(cfg);
-            }
+            string charModel = faceRight
+                ? "Models/kenney_platformer-kit/Models/FBX format/character-oopi"
+                : "Models/kenney_platformer-kit/Models/FBX format/character-oozi";
+            ModelLibrary.Spawn(charModel, body.transform, Vector3.zero, faceRight ? 90f : -90f, 1f,
+                placeholderColor: faceRight ? new Color(0.3f, 0.55f, 0.85f) : new Color(0.8f, 0.3f, 0.3f),
+                placeholderLabel: false, fitHeight: 1.7f);
             body.AddComponent<FighterRig>();
 
             var fighter = go.AddComponent<Fighter>(); // Awake grabs the CC + the child rig
