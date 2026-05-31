@@ -119,20 +119,17 @@ namespace Fitzmark.BDRSim.World
 
             _canvas = UiFactory.CreateScreenCanvas("Overworld");
 
-            // Assign each city (and the gate) a grid cell along a serpentine route, then render a
-            // themed SMW tile map with a trail connecting them.
+            // Assign each city (and the gate) a grid cell along a serpentine route, then compose a
+            // themed SMW map from real Kenney map tiles (grass base + path overlays + decorations).
             LayoutCells();
-            var theme = WorldMapTheme.For(_world.Id);
-            var tex = OverworldArt.WorldMap(theme, GridCols, GridRows, _cells, StableHash(_world.Id));
 
-            var terrain = new GameObject("Terrain", typeof(RectTransform), typeof(RawImage));
-            terrain.transform.SetParent(_canvas.transform, false);
-            var ri = terrain.GetComponent<RawImage>();
-            ri.texture = tex;
-            ri.raycastTarget = false;
-            _root = ri.rectTransform;
-            FitMapRect(_root, tex.width, tex.height);
+            // The map rect is a fixed-aspect grid filling the canvas; tiles live inside it.
+            var mapGo = new GameObject("Map", typeof(RectTransform));
+            mapGo.transform.SetParent(_canvas.transform, false);
+            _root = mapGo.GetComponent<RectTransform>();
+            FitMapRect(_root, GridCols * 64, GridRows * 64);
 
+            BuildTileMap();
             BuildNodes();
             BuildTruck();
             BuildHud();
@@ -143,6 +140,141 @@ namespace Fitzmark.BDRSim.World
             _truck.anchorMin = _truck.anchorMax = startNode.Anchor;
             _current = startNode;
             UpdateEnter();
+        }
+
+        // Compose the world from real map tiles: a grass/terrain base in every cell, then yellow
+        // path overlays forming the trail through the level cells, then scattered decorations.
+        private void BuildTileMap()
+        {
+            var theme = WorldMapTheme.For(_world.Id);
+            string baseKey = theme.Biome switch
+            {
+                MapBiome.Desert => MapPackArt.Sand,
+                MapBiome.Forest => MapPackArt.Grass,
+                _ => MapPackArt.Grass
+            };
+            var rng = new System.Random(StableHash(_world.Id));
+
+            // Build the set of path directions per cell by walking the trail between consecutive cells.
+            var dirs = new Dictionary<Vector2Int, PathDir>();
+            for (int i = 0; i < _cells.Count - 1; i++) CarvePath(dirs, _cells[i], _cells[i + 1]);
+
+            for (int gy = 0; gy < GridRows; gy++)
+                for (int gx = 0; gx < GridCols; gx++)
+                {
+                    var cell = new Vector2Int(gx, gy);
+                    // Base terrain (tint subtly per theme so states differ).
+                    var baseImg = TileImage(baseKey, cell, sorting: 0);
+                    baseImg.color = Color.Lerp(Color.white, theme.GrassDark, 0.0f); // base art carries its colour
+
+                    // Path overlay where the trail runs.
+                    if (dirs.TryGetValue(cell, out var d))
+                    {
+                        var key = PathTileFor(d);
+                        if (key != null) TileImage(key, cell, sorting: 1);
+                    }
+                    // Decoration on a few empty grass cells away from the trail.
+                    else if (theme.Biome != MapBiome.Desert && rng.NextDouble() < 0.14 && !NearTrail(dirs, cell))
+                        Decoration(theme, cell, rng);
+                    else if (theme.Biome == MapBiome.Desert && rng.NextDouble() < 0.12 && !NearTrail(dirs, cell))
+                        TileImage(MapPackArt.Cactus, cell, sorting: 2);
+                }
+        }
+
+        [System.Flags]
+        private enum PathDir { None = 0, Up = 1, Down = 2, Left = 4, Right = 8 }
+
+        // Walk an L-shaped route between two cells, recording which directions the path enters/
+        // leaves each cell so the right connector tile can be chosen.
+        private void CarvePath(Dictionary<Vector2Int, PathDir> dirs, Vector2Int a, Vector2Int b)
+        {
+            var cur = a;
+            void Step(Vector2Int next, PathDir outDir, PathDir inDir)
+            {
+                Add(dirs, cur, outDir);
+                Add(dirs, next, inDir);
+                cur = next;
+            }
+            // Horizontal first, then vertical (matches the serpentine layout's right-angles).
+            while (cur.x != b.x)
+            {
+                int nx = cur.x + (cur.x < b.x ? 1 : 0) - (cur.x > b.x ? 1 : 0);
+                bool right = b.x > cur.x;
+                Step(new Vector2Int(cur.x + (right ? 1 : -1), cur.y),
+                    right ? PathDir.Right : PathDir.Left, right ? PathDir.Left : PathDir.Right);
+            }
+            while (cur.y != b.y)
+            {
+                bool up = b.y > cur.y;
+                Step(new Vector2Int(cur.x, cur.y + (up ? 1 : -1)),
+                    up ? PathDir.Up : PathDir.Down, up ? PathDir.Down : PathDir.Up);
+            }
+        }
+
+        private static void Add(Dictionary<Vector2Int, PathDir> d, Vector2Int c, PathDir dir)
+        {
+            d.TryGetValue(c, out var cur);
+            d[c] = cur | dir;
+        }
+
+        private bool NearTrail(Dictionary<Vector2Int, PathDir> dirs, Vector2Int c)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                    if (dirs.ContainsKey(new Vector2Int(c.x + dx, c.y + dy))) return true;
+            return false;
+        }
+
+        // Pick the path connector sprite matching the set of directions this cell joins.
+        private static string PathTileFor(PathDir d)
+        {
+            bool u = (d & PathDir.Up) != 0, dn = (d & PathDir.Down) != 0;
+            bool l = (d & PathDir.Left) != 0, r = (d & PathDir.Right) != 0;
+            int count = (u ? 1 : 0) + (dn ? 1 : 0) + (l ? 1 : 0) + (r ? 1 : 0);
+            if (count >= 4) return MapPackArt.PathCross;
+            if (count == 3)
+            {
+                if (!u) return MapPackArt.PathTeeDown;   // L+R+D
+                if (!dn) return MapPackArt.PathTeeUp;    // L+R+U
+                return l ? MapPackArt.PathTeeDown : MapPackArt.PathTeeUp; // fallbacks
+            }
+            if (l && r) return MapPackArt.PathH;
+            if (u && dn) return MapPackArt.PathV;
+            if (dn && r) return MapPackArt.PathCornerDR;
+            if (dn && l) return MapPackArt.PathCornerDL;
+            if (u && r) return MapPackArt.PathCornerUR;
+            if (u && l) return MapPackArt.PathCornerUL;
+            // a single-direction stub → use a straight in that axis
+            if (l || r) return MapPackArt.PathH;
+            if (u || dn) return MapPackArt.PathV;
+            return null;
+        }
+
+        // An Image showing a map tile in grid cell (gx,gy), sized to one cell of the map rect.
+        private Image TileImage(string spriteKey, Vector2Int cell, int sorting)
+        {
+            var go = new GameObject("Tile", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(_root, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(cell.x / (float)GridCols, cell.y / (float)GridRows);
+            rt.anchorMax = new Vector2((cell.x + 1f) / GridCols, (cell.y + 1f) / GridRows);
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+            var img = go.GetComponent<Image>();
+            img.sprite = SpriteLibrary.GetUnit(spriteKey, new Color(0.4f, 0.6f, 0.35f));
+            img.raycastTarget = false;
+            go.transform.SetSiblingIndex(sorting); // base under paths under decor
+            return img;
+        }
+
+        private void Decoration(WorldMapTheme theme, Vector2Int cell, System.Random rng)
+        {
+            string key = theme.Biome switch
+            {
+                MapBiome.Forest => rng.Next(2) == 0 ? MapPackArt.Pine : MapPackArt.Tree,
+                MapBiome.Desert => MapPackArt.Cactus,
+                _ => rng.Next(3) switch { 0 => MapPackArt.Tree, 1 => MapPackArt.Bush, _ => MapPackArt.Rock }
+            };
+            TileImage(key, cell, sorting: 2);
         }
 
         // Assign each city — and the next-world gate — a grid cell along a serpentine route that

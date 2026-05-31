@@ -4,44 +4,57 @@ using UnityEngine;
 namespace Fitzmark.BDRSim.Editor
 {
     /// <summary>
-    /// Reimports the Kenney Pixel Platformer PNGs as crisp 2D Sprites. Standalone PNGs default
-    /// to textureType Default (Texture2D) with bilinear filtering, so Resources.Load&lt;Sprite&gt;
-    /// returns null (the game falls back to placeholder squares) and the pixels look blurry.
-    /// This sets every tile in the pack to Sprite (Single), Point filter, no compression, and
-    /// the correct pixels-per-unit — so the 2D platformer shows the real pixel art.
-    /// Run: Tools → Fitzmark BDR → Import Pixel Platformer Sprites.
+    /// Reimports Kenney sprite packs as crisp 2D Sprites. Standalone PNGs default to textureType
+    /// Default (Texture2D), so Resources.Load&lt;Sprite&gt; returns null (the game falls back to
+    /// placeholder squares) and pixels look blurry. This sets each tile to Sprite (Single), point
+    /// filter, no compression, FullRect mesh. Covers the platformer pack and the overworld map pack.
+    /// Run from Tools → Fitzmark BDR.
     /// </summary>
     public static class PixelSpriteImportTool
     {
-        private const string PackFolder = "Assets/Resources/Models/kenney_pixel-platformer";
+        private const string PlatformerFolder = "Assets/Resources/Models/kenney_pixel-platformer";
+        private const string MapFolder = "Assets/Resources/Models/kenney_map-pack/PNG";
 
         [MenuItem("Tools/Fitzmark BDR/Import Pixel Platformer Sprites")]
-        private static void Import()
+        private static void ImportPlatformer() => ImportFolder(PlatformerFolder, 18f, "platformer");
+
+        [MenuItem("Tools/Fitzmark BDR/Import Overworld Map Tiles")]
+        private static void ImportMap() => ImportFolder(MapFolder, 64f, "overworld map");
+
+        [MenuItem("Tools/Fitzmark BDR/Import ALL Kenney Sprites")]
+        private static void ImportAll()
         {
-            if (!AssetDatabase.IsValidFolder(PackFolder))
+            ImportFolder(PlatformerFolder, 18f, "platformer", silent: true);
+            ImportFolder(MapFolder, 64f, "overworld map", silent: true);
+            EditorUtility.DisplayDialog("Fitzmark Sprites",
+                "Imported the platformer and overworld map packs as crisp Sprites.\n\nPress Play.", "Great");
+        }
+
+        private static void ImportFolder(string folder, float ppu, string label, bool silent = false)
+        {
+            if (!AssetDatabase.IsValidFolder(folder))
             {
-                EditorUtility.DisplayDialog("Fitzmark Pixel Sprites",
-                    $"Couldn't find the pack at:\n{PackFolder}\n\nImport the Kenney Pixel Platformer pack there first.",
-                    "OK");
+                if (!silent)
+                    EditorUtility.DisplayDialog("Fitzmark Sprites",
+                        $"Couldn't find the pack at:\n{folder}\n\nImport it there first.", "OK");
                 return;
             }
 
             int done = 0;
-            foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { PackFolder }))
+            foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { folder }))
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (!(AssetImporter.GetAtPath(path) is TextureImporter ti)) continue;
 
                 ti.textureType = TextureImporterType.Sprite;
                 ti.spriteImportMode = SpriteImportMode.Single;
-                ti.spritePixelsPerUnit = 18f;          // Kenney tiles are 18px (24px chars scale to fit in code)
-                ti.filterMode = FilterMode.Point;       // crisp pixels
+                ti.spritePixelsPerUnit = ppu;
+                ti.filterMode = FilterMode.Point;
                 ti.textureCompression = TextureImporterCompression.Uncompressed;
                 ti.mipmapEnabled = false;
                 ti.alphaIsTransparency = true;
                 ti.wrapMode = TextureWrapMode.Clamp;
 
-                // Full-rect mesh so SpriteDrawMode.Tiled repeats (not stretches) on merged spans.
                 var settings = new TextureImporterSettings();
                 ti.ReadTextureSettings(settings);
                 settings.spriteMeshType = SpriteMeshType.FullRect;
@@ -51,11 +64,10 @@ namespace Fitzmark.BDRSim.Editor
             }
 
             AssetDatabase.Refresh();
-            Debug.Log($"[Fitzmark BDR] Imported {done} pixel-platformer textures as crisp Sprites.");
-            EditorUtility.DisplayDialog("Fitzmark Pixel Sprites",
-                $"Done — {done} tiles set to Sprite (Point filter).\n\n" +
-                "Press Play and travel to a city: the platformer now shows the real Kenney pixel art.",
-                "Great");
+            Debug.Log($"[Fitzmark BDR] Imported {done} {label} textures as crisp Sprites.");
+            if (!silent)
+                EditorUtility.DisplayDialog("Fitzmark Sprites",
+                    $"Done — {done} {label} tiles set to Sprite (Point filter).\n\nPress Play.", "Great");
         }
     }
 }
