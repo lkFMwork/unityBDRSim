@@ -88,22 +88,22 @@ namespace Fitzmark.BDRSim.World
         {
             var lightGo = new GameObject("Spotlight");
             lightGo.transform.SetParent(parent, false);
-            lightGo.transform.localPosition = new Vector3(0f, 9f, 0f);
+            lightGo.transform.localPosition = new Vector3(0f, 16f, 0f);
             lightGo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); // point straight down
             var light = lightGo.AddComponent<Light>();
             light.type = LightType.Spot;
             light.color = new Color(1f, 0.93f, 0.55f);
-            light.intensity = 14f;
-            light.range = 16f;
-            light.spotAngle = 48f;
+            light.intensity = 22f;
+            light.range = 28f;
+            light.spotAngle = 50f;
             light.shadows = LightShadows.None;
 
             // A thin glowing beacon column so it reads even in daylight.
             var beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             beacon.name = "Beacon";
             beacon.transform.SetParent(parent, false);
-            beacon.transform.localPosition = new Vector3(0f, 4f, 0f);
-            beacon.transform.localScale = new Vector3(0.25f, 4f, 0.25f);
+            beacon.transform.localPosition = new Vector3(0f, 7f, 0f);
+            beacon.transform.localScale = new Vector3(0.4f, 7f, 0.4f);
             var col = beacon.GetComponent<Collider>(); if (col != null) Destroy(col);
             var mat = MaterialLibrary.Get(new Color(1f, 0.88f, 0.4f));
             mat.EnableKeyword("_EMISSION");
@@ -185,11 +185,11 @@ namespace Fitzmark.BDRSim.World
         private void SpawnCar()
         {
             // A real Kenney sedan, auto-scaled (by height so it keeps its proportions),
-            // parked one lane to the right of the spawn.
+            // parked beside the spawn on the road (doubled to ~3m tall for the bigger city).
             _car = ModelLibrary.Spawn(CityThemes.CarModel, _root,
-                _playerSpawn + new Vector3(3f, 0f, 0f), 0f, 1f,
+                _playerSpawn + new Vector3(5f, 0f, 0f), 0f, 1f,
                 placeholderColor: new Color(0.72f, 0.22f, 0.22f), placeholderLabel: false,
-                fitHeight: 1.5f);
+                fitHeight: 3f);
             _car.name = "Car";
             _carCtrl = _car.AddComponent<CarController>();
         }

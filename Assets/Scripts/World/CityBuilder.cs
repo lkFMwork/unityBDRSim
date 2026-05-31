@@ -32,8 +32,9 @@ namespace Fitzmark.BDRSim.World
         {
             // Fixed real-world block size (metres) — the grid is deterministic and
             // human-scaled regardless of the road FBX's native size; each road tile is
-            // fit to exactly TileSize, so streets always tile seamlessly.
-            TileSize = 12f;
+            // fit to exactly TileSize, so streets always tile seamlessly. Doubled to 24m so
+            // streets are wide enough to drive and buildings read at a believable city scale.
+            TileSize = 24f;
             int r = _theme.Blocks;                 // grid radius in road cells
             float span = (2 * r + 1) * TileSize;
 
@@ -103,44 +104,68 @@ namespace Fitzmark.BDRSim.World
                 Businesses.Add((candidates[i].c, candidates[i].yaw, i));
         }
 
+        // A block is a grass lot ringed by roads. Buildings sit along the FOUR EDGES, each
+        // facing OUTWARD toward its adjacent street; trees fill the leftover grass in the lot
+        // interior and corners, never overlapping a building footprint.
         private void BuildBlock(Transform parent, Vector3 center)
         {
-            // Grass lot under the block.
+            float lotHalf = TileSize * 0.46f;          // grass nearly fills the cell
             var lot = GameObject.CreatePrimitive(PrimitiveType.Cube);
             lot.name = "Lot";
             lot.transform.SetParent(parent, false);
-            lot.transform.localScale = new Vector3(TileSize * 0.92f, 0.04f, TileSize * 0.92f);
-            lot.transform.position = center + new Vector3(0f, 0.0f, 0f);
+            lot.transform.localScale = new Vector3(lotHalf * 2f, 0.04f, lotHalf * 2f);
+            lot.transform.position = center;
             var col = lot.GetComponent<Collider>(); if (col != null) Object.Destroy(col);
             Paint(lot, _theme.Grass);
 
-            // 1–4 buildings on a small inner grid; fit by FOOTPRINT so tall buildings stay
-            // tall (a box-fit squashed them into tiny cubes). Height follows naturally.
-            float half = TileSize * 0.24f;
-            var offsets = new[]
+            float footprint = TileSize * (0.38f + 0.10f * (float)_rng.NextDouble());
+            float setback = lotHalf - footprint * 0.5f - 0.5f; // building edge sits just inside the lot
+            float maxH = _theme.Style == CityStyle.Downtown ? 44f : 18f;
+
+            // Each side: outward direction + the yaw that turns the model's "front" to face it.
+            // (dir = which edge; yaw rotates the building so its facade looks down that street.)
+            var sides = new (Vector3 dir, float yaw)[]
             {
-                new Vector3(-half, 0f, -half), new Vector3(half, 0f, -half),
-                new Vector3(-half, 0f, half),  new Vector3(half, 0f, half),
+                (new Vector3(0f, 0f, -1f), 0f),     // south edge faces -Z (toward the player spawn)
+                (new Vector3(0f, 0f,  1f), 180f),   // north
+                (new Vector3(-1f, 0f, 0f), 90f),    // west
+                (new Vector3( 1f, 0f, 0f), 270f),   // east
             };
-            int count = 1 + _rng.Next(0, 4);
-            for (int i = 0; i < count; i++)
+
+            int count = 1 + _rng.Next(0, _theme.Style == CityStyle.Suburban ? 2 : 4);
+            // Shuffle which edges get buildings so blocks vary.
+            for (int i = sides.Length - 1; i > 0; i--) { int j = _rng.Next(0, i + 1); (sides[i], sides[j]) = (sides[j], sides[i]); }
+
+            var footprints = new List<(Vector3 pos, float radius)>();
+            for (int i = 0; i < count && i < sides.Length; i++)
             {
+                var (dir, yaw) = sides[i];
+                Vector3 pos = center + dir * setback;
                 string model = _theme.Buildings[_rng.Next(_theme.Buildings.Length)];
-                float yaw = 90f * _rng.Next(0, 4);
-                float footprint = TileSize * (0.34f + 0.10f * (float)_rng.NextDouble());
-                // Downtown towers may be tall; suburban/commercial capped lower so nothing looms.
-                float maxH = _theme.Style == CityStyle.Downtown ? 22f : 10f;
-                ModelLibrary.Spawn(model, parent, center + offsets[i], yaw, 1f,
+                ModelLibrary.Spawn(model, parent, pos, yaw, 1f,
                     placeholderColor: new Color(0.5f, 0.5f, 0.55f), placeholderLabel: false,
                     fitFootprint: footprint, fitMaxHeight: maxH);
+                footprints.Add((pos, footprint * 0.7f));
             }
 
-            if (_theme.Trees && _rng.Next(0, 2) == 0)
+            // Trees: scatter in the grass, but reject any spot that overlaps a building.
+            if (_theme.Trees)
             {
                 string tree = "Models/kenney_city-kit-suburban_20/Models/FBX format/tree-large";
-                ModelLibrary.Spawn(tree, parent, center + new Vector3(half * 1.4f, 0f, -half * 1.4f), 0f, 1f,
-                    placeholderColor: new Color(0.26f, 0.5f, 0.28f), placeholderLabel: false,
-                    fitHeight: 3.2f);
+                int trees = 1 + _rng.Next(0, 3);
+                for (int t = 0; t < trees; t++)
+                {
+                    Vector3 spot = center + new Vector3(
+                        ((float)_rng.NextDouble() * 2f - 1f) * lotHalf * 0.8f, 0f,
+                        ((float)_rng.NextDouble() * 2f - 1f) * lotHalf * 0.8f);
+                    bool clear = true;
+                    foreach (var (fpos, frad) in footprints)
+                        if ((spot - fpos).sqrMagnitude < (frad + 1.5f) * (frad + 1.5f)) { clear = false; break; }
+                    if (clear)
+                        ModelLibrary.Spawn(tree, parent, spot, _rng.Next(0, 4) * 90f, 1f,
+                            placeholderColor: new Color(0.26f, 0.5f, 0.28f), placeholderLabel: false,
+                            fitHeight: 6.4f);
+                }
             }
         }
 
