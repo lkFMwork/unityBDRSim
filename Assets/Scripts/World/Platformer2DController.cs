@@ -215,14 +215,12 @@ namespace Fitzmark.BDRSim.World
             return false;
         }
 
-        // Distance the player box can travel from `origin` along `dir` before hitting a surface
-        // that actually OPPOSES that direction (full `max` if clear). Two essentials:
-        //  • Box is cast from an EXPLICIT origin (the live working position), NOT the collider's
-        //    physics-synced state — so results can't lag sync timing. That lag was making the
-        //    downward cast falsely "land" each frame, resetting fall velocity (the slow fall).
-        //  • Normal check: the floor you're standing on reports a distance-0 hit with its normal
-        //    pointing up; that must NOT block an upward jump. Only surfaces whose normal faces
-        //    back against travel (dot < 0) are real obstacles.
+        // Distance the player box can travel from `origin` along `dir` before hitting a real
+        // obstacle IN THAT DIRECTION (full `max` if clear). The guard is a POSITION check, not a
+        // normal check: only count a hit whose contact point is genuinely ahead of us along `dir`.
+        // The surface we're resting on/against (e.g. the ground right below us as we jump UP) is
+        // never "ahead" on an upward cast, so it can't fire a phantom collision — which a normal
+        // check missed because a collider corner/edge can report a misleading normal.
         private static readonly RaycastHit2D[] _castHits = new RaycastHit2D[8];
         private float CastSelf(Vector2 origin, Vector2 dir, float max)
         {
@@ -233,7 +231,8 @@ namespace Fitzmark.BDRSim.World
             {
                 var h = _castHits[i];
                 if (h.collider == null) continue;
-                if (Vector2.Dot(h.normal, dir) >= -0.01f) continue; // not opposing → ignore (floor when jumping)
+                if (h.distance <= 0.0001f) continue;                       // skip touching/overlap artifacts
+                if (Vector2.Dot((Vector2)h.point - origin, dir) <= 0.02f) continue; // must be ahead along dir
                 if (h.distance < best) best = h.distance;
             }
             return best;
