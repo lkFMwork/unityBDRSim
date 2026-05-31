@@ -43,11 +43,6 @@ namespace Fitzmark.BDRSim.World
         public float Gravity => (2f * maxJumpHeight) / (timeToApex * timeToApex);
         public float JumpVelocity => (2f * maxJumpHeight) / timeToApex;
 
-        // Debug readout (temporary).
-        public string DebugLine =>
-            $"grnd:{(_grounded ? 1 : 0)}  vY:{_rb?.velocity.y:F1}  vX:{_rb?.velocity.x:F1}  " +
-            $"coyote:{_coyote:F2}  y:{transform.position.y:F2}";
-
         private Rigidbody2D _rb;
         private LayerMask _solidMask;
         private SpriteAnimator _anim;
@@ -69,7 +64,10 @@ namespace Fitzmark.BDRSim.World
             // designed jump height/apex so it matches JumpArc.
             _rb.bodyType = RigidbodyType2D.Dynamic;
             _rb.freezeRotation = true;
-            _rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            // Discrete is fine (and much cheaper than Continuous): at jump speed the body moves a
+            // small fraction of a tile per step, so there's no tunnelling — Continuous's per-step
+            // sweep tests were the framerate hitch during fast jump/fall.
+            _rb.collisionDetectionMode = CollisionDetectionMode2D.Discrete;
             _rb.interpolation = RigidbodyInterpolation2D.Interpolate;
             _rb.gravityScale = Gravity / Mathf.Abs(Physics2D.gravity.y);
             _rb.position = start;
