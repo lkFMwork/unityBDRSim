@@ -38,8 +38,12 @@ namespace Fitzmark.BDRSim.World
         private Canvas _canvas;
         private RectTransform _root;
         private RectTransform _truck;
-        private RectTransform _pathLayer;
         private readonly List<Node> _nodes = new();
+
+        // Fixed tile grid for the SMW-style map.
+        private const int GridCols = 10;
+        private const int GridRows = 7;
+        private readonly List<Vector2Int> _cells = new(); // level cells, in grid coords (col,row)
         private Node _current;
         private bool _busy;
 
@@ -115,23 +119,21 @@ namespace Fitzmark.BDRSim.World
 
             _canvas = UiFactory.CreateScreenCanvas("Overworld");
 
+            // Assign each city (and the gate) a grid cell along a serpentine route, then render a
+            // themed SMW tile map with a trail connecting them.
+            LayoutCells();
+            var theme = WorldMapTheme.For(_world.Id);
+            var tex = OverworldArt.WorldMap(theme, GridCols, GridRows, _cells, StableHash(_world.Id));
+
             var terrain = new GameObject("Terrain", typeof(RectTransform), typeof(RawImage));
             terrain.transform.SetParent(_canvas.transform, false);
             var ri = terrain.GetComponent<RawImage>();
-            ri.texture = OverworldArt.StateTerrain(StableHash(_world.Id));
+            ri.texture = tex;
             ri.raycastTarget = false;
             _root = ri.rectTransform;
-            UiFactory.Stretch(_root);
-
-            // Path lines drawn under the nodes.
-            var pl = new GameObject("Paths", typeof(RectTransform));
-            pl.transform.SetParent(_root, false);
-            _pathLayer = pl.GetComponent<RectTransform>();
-            UiFactory.Stretch(_pathLayer);
-            _pathLayer.SetAsFirstSibling();
+            FitMapRect(_root, tex.width, tex.height);
 
             BuildNodes();
-            BuildPaths();
             BuildTruck();
             BuildHud();
 
@@ -143,21 +145,39 @@ namespace Fitzmark.BDRSim.World
             UpdateEnter();
         }
 
-        // Lay the world's cities along a gentle serpentine path; HQ near the branch city; the
-        // next-world gate after the last city.
+        // Assign each city — and the next-world gate — a grid cell along a serpentine route that
+        // fills the map. _cells[i] is city i; the last entry (if any) is the gate. The tile-map
+        // renderer carves the connecting trail through these same cells.
+        private void LayoutCells()
+        {
+            _cells.Clear();
+            int n = _world.Cities.Count + (WorldSystem.NextWorld(_c, _world) != null ? 1 : 0);
+            int usableCols = GridCols - 2;          // 1-tile margin each side
+            int perRow = Mathf.Min(usableCols, Mathf.Max(3, Mathf.CeilToInt(n / 2f)));
+            int rowsUsed = Mathf.Max(1, Mathf.CeilToInt(n / (float)perRow));
+            for (int i = 0; i < n; i++)
+            {
+                int row = i / perRow;
+                int col = i % perRow;
+                if (row % 2 == 1) col = perRow - 1 - col;         // snake back
+                int gx = 1 + (perRow <= 1 ? 0 : Mathf.RoundToInt(col * (usableCols - 1) / (float)(perRow - 1)));
+                // rows fill from upper-middle downward, leaving the top row for sky/water
+                int gy = GridRows - 2 - (rowsUsed <= 1 ? 0 : Mathf.RoundToInt(row * (GridRows - 3) / (float)(rowsUsed - 1)));
+                _cells.Add(new Vector2Int(Mathf.Clamp(gx, 0, GridCols - 1), Mathf.Clamp(gy, 0, GridRows - 1)));
+            }
+        }
+
         private void BuildNodes()
         {
             var cities = _world.Cities;
-            int n = cities.Count;
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < cities.Count; i++)
             {
                 var city = cities[i];
-                var anchor = PathAnchor(i, n);
                 var node = new Node
                 {
                     Kind = Kind.City,
                     Title = CityName(city.City),
-                    Anchor = anchor,
+                    Anchor = CellAnchor(_cells[i]),
                     Client = city,
                     CityIndex = i,
                     Unlocked = _c != null && WorldSystem.IsCityUnlocked(_c, _world, i),
@@ -166,14 +186,14 @@ namespace Fitzmark.BDRSim.World
                 MakeMarker(node, CityColor(node), false);
                 _nodes.Add(node);
 
-                // HQ home-base node sits beside the branch office in the home world only.
+                // HQ home-base node sits just above the branch office in the home world only.
                 if (city.IsBranch && _c != null && city.StateId == _c.homeStateId)
                 {
                     var hq = new Node
                     {
                         Kind = Kind.Hq,
                         Title = "FITZMARK HQ",
-                        Anchor = anchor + new Vector2(0f, 0.11f),
+                        Anchor = CellAnchor(_cells[i]) + new Vector2(0f, 0.13f),
                         Unlocked = true
                     };
                     MakeMarker(hq, new Color(0.95f, 0.82f, 0.36f), true);
@@ -181,16 +201,16 @@ namespace Fitzmark.BDRSim.World
                 }
             }
 
-            // Gate to the next world, shown past the final city.
+            // Gate to the next world, on the final cell past the last city.
             var next = WorldSystem.NextWorld(_c, _world);
-            if (next != null)
+            if (next != null && _cells.Count > cities.Count)
             {
                 bool open = WorldSystem.IsWorldCleared(_c, _world);
                 var gate = new Node
                 {
                     Kind = Kind.NextWorld,
                     Title = open ? $"▶ {next.Name}" : $"🔒 {next.Name}",
-                    Anchor = PathAnchor(n, n) + new Vector2(0.04f, 0f),
+                    Anchor = CellAnchor(_cells[cities.Count]),
                     Unlocked = open
                 };
                 MakeMarker(gate, open ? new Color(0.36f, 0.78f, 0.62f) : new Color(0.5f, 0.5f, 0.55f), true);
@@ -198,51 +218,21 @@ namespace Fitzmark.BDRSim.World
             }
         }
 
-        // A serpentine left→right path that wraps down to the next row, SMW-style. `count` is the
-        // number of cities; index `count` (the next-world gate) extends one past the last row.
-        private Vector2 PathAnchor(int i, int count)
-        {
-            int perRow = Mathf.Max(4, Mathf.CeilToInt(count / 2f));
-            int rows = Mathf.Max(1, Mathf.CeilToInt((count + 1) / (float)perRow));
-            int row = i / perRow;
-            int col = i % perRow;
-            if (row % 2 == 1) col = perRow - 1 - col; // snake back the other way
-            float x = perRow <= 1 ? 0.5f : Mathf.Lerp(0.12f, 0.88f, col / (perRow - 1f));
-            float y = rows <= 1 ? 0.5f : Mathf.Lerp(0.66f, 0.26f, row / (float)(rows - 1));
-            y += (col % 2 == 0 ? 0.03f : -0.03f); // gentle wiggle so it reads as a winding trail
-            return new Vector2(x, y);
-        }
+        // Center of grid cell (col,row) as a normalized anchor on the map rect (y up).
+        private Vector2 CellAnchor(Vector2Int cell) =>
+            new Vector2((cell.x + 0.5f) / GridCols, (cell.y + 0.5f) / GridRows);
 
-        private void BuildPaths()
+        // Fill the 1280x720 canvas with the map, preserving the tile texture's aspect (letterbox
+        // the shorter axis) so square tiles stay square and cell anchors line up with the art.
+        private static void FitMapRect(RectTransform rt, int texW, int texH)
         {
-            // Connect consecutive city nodes with dotted line segments.
-            var cityNodes = _nodes.FindAll(n => n.Kind == Kind.City);
-            cityNodes.Sort((a, b) => a.CityIndex.CompareTo(b.CityIndex));
-            for (int i = 0; i < cityNodes.Count - 1; i++)
-                DrawPath(cityNodes[i], cityNodes[i + 1]);
-            // Path to the next-world gate from the last city.
-            var gate = _nodes.Find(n => n.Kind == Kind.NextWorld);
-            if (gate != null && cityNodes.Count > 0)
-                DrawPath(cityNodes[cityNodes.Count - 1], gate);
-        }
-
-        private void DrawPath(Node a, Node b)
-        {
-            const int dots = 9;
-            bool traversable = a.Cleared; // lit once you've cleared the earlier node
-            for (int d = 1; d < dots; d++)
-            {
-                float t = d / (float)dots;
-                var pos = Vector2.Lerp(a.Anchor, b.Anchor, t);
-                var dot = UiFactory.Panel(_pathLayer,
-                    traversable ? new Color(0.95f, 0.86f, 0.45f, 0.9f) : new Color(1f, 1f, 1f, 0.18f), "Dot");
-                var rt = dot.rectTransform;
-                rt.anchorMin = rt.anchorMax = pos;
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.sizeDelta = new Vector2(7f, 7f);
-                rt.anchoredPosition = Vector2.zero;
-                dot.raycastTarget = false;
-            }
+            const float canvasW = 1280f, canvasH = 720f;
+            float scale = Mathf.Min(canvasW / texW, canvasH / texH);
+            float w = texW * scale, h = texH * scale;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(w, h);
+            rt.anchoredPosition = Vector2.zero;
         }
 
         private void MakeMarker(Node node, Color tint, bool building)
