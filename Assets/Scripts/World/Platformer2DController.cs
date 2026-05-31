@@ -21,8 +21,11 @@ namespace Fitzmark.BDRSim.World
         public float timeToApex = 0.40f;
         public float coyoteTime = 0.1f;
         public float jumpBuffer = 0.12f;
-        public float accelTime = 0.08f;   // time to reach top speed (ground)
-        public float airAccelTime = 0.18f;
+        public float accelTime = 0.08f;       // ground: time to reach top speed
+        public float groundStopTime = 0.05f;  // ground: snappy stop on release
+        public float airAccelTime = 0.16f;    // air: steering responsiveness
+        public float airStopTime = 0.12f;     // air: brake to a stop on release (lower = stops easier)
+        public float airRunDecay = 8f;         // air: m/s² that run momentum bleeds back to walk speed
         public float killY = -8f;
         public int startLives = 3;
         public float halfWidth = 0.35f;
@@ -113,14 +116,34 @@ namespace Fitzmark.BDRSim.World
             if (_grounded) _coyote = coyoteTime; else _coyote = Mathf.Max(0f, _coyote - dt);
             _buffer = Mathf.Max(0f, _buffer - dt);
 
-            // Horizontal: ramp toward walk/run target (smooth, not switch-like).
-            bool running = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)
-                           || Input.GetKey(KeyCode.JoystickButton1);
+            // Horizontal control:
+            //  • On the GROUND you set your speed — walk, or run while holding Shift.
+            //  • In the AIR you can only steer up to WALK speed (you can't start a run mid-jump),
+            //    so if you jumped while running, that extra momentum bleeds back down to walk.
+            //  • Releasing the stick in the air brakes you to a stop quickly (no endless drift).
             float h = Input.GetAxisRaw("Horizontal");
-            float top = running ? runSpeed : walkSpeed;
-            float targetX = h * top;
-            float rate = top / Mathf.Max(0.001f, _grounded ? accelTime : airAccelTime);
-            float vx = Mathf.MoveTowards(_rb.linearVelocity.x, targetX, rate * dt);
+            float cur = _rb.linearVelocity.x;
+            float vx;
+            if (_grounded)
+            {
+                bool running = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)
+                               || Input.GetKey(KeyCode.JoystickButton1);
+                float top = running ? runSpeed : walkSpeed;
+                float rate = (Mathf.Abs(h) > 0.01f ? top / accelTime : top / groundStopTime);
+                vx = Mathf.MoveTowards(cur, h * top, rate * dt);
+            }
+            else if (Mathf.Abs(h) < 0.01f)
+            {
+                vx = Mathf.MoveTowards(cur, 0f, (walkSpeed / airStopTime) * dt); // brake to a stop
+            }
+            else if (Mathf.Abs(cur) > walkSpeed && Mathf.Sign(cur) == Mathf.Sign(h))
+            {
+                vx = Mathf.MoveTowards(cur, h * walkSpeed, airRunDecay * dt);     // run momentum → walk
+            }
+            else
+            {
+                vx = Mathf.MoveTowards(cur, h * walkSpeed, (walkSpeed / airAccelTime) * dt); // steer (walk cap)
+            }
             float vy = _rb.linearVelocity.y;
 
             // Jump (buffered + coyote).
