@@ -161,16 +161,13 @@ namespace Fitzmark.BDRSim.World
             go.transform.SetParent(parent, false);
             go.transform.position = new Vector3(cx, cy, 0f);
             var sr = go.GetComponent<SpriteRenderer>();
-            sr.sprite = SpriteLibrary.Get(spriteKey, fallback);
+            // Use a 1-unit version of the sprite so the transform scale stays 1 — a Tiled
+            // SpriteRenderer with a non-1 scale regenerates its mesh every frame (the framerate hit).
+            sr.sprite = SpriteLibrary.GetUnit(spriteKey, fallback);
             sr.color = SpriteLibrary.Has(spriteKey) ? Color.white : fallback;
             sr.drawMode = SpriteDrawMode.Tiled;
             sr.sortingOrder = sorting;
-
-            // Scale so one sprite tile covers one Cell, then express the area in that scaled space.
-            float tileWorld = sr.sprite != null ? sr.sprite.bounds.size.x : 1f;
-            float scale = tileWorld > 0.0001f ? Cell / tileWorld : 1f;
-            go.transform.localScale = new Vector3(scale, scale, 1f);
-            sr.size = new Vector2(w, h) / scale; // local size; world size = (w,h), tiles = (w,h)/Cell
+            sr.size = new Vector2(w, h); // sprite is 1 unit, so this is exactly (w,h)/Cell tiles, scale 1
         }
 
         // ---- authored building blocks (advance _gx; mutate _row) -------------

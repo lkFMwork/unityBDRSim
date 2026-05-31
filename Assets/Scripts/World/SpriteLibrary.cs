@@ -16,6 +16,7 @@ namespace Fitzmark.BDRSim.World
         public const string Root = "Sprites/";
 
         private static readonly Dictionary<string, Sprite> _cache = new();
+        private static readonly Dictionary<string, Sprite> _unitCache = new();
         private static readonly Dictionary<Color, Sprite> _solids = new();
 
         // A key may be a bare name (gets Sprites/ prefixed) or an already-full Resources path
@@ -37,6 +38,32 @@ namespace Fitzmark.BDRSim.World
             if (sprite == null) sprite = Solid(fallback);
             _cache[key] = sprite;
             return sprite;
+        }
+
+        /// <summary>
+        /// A version of the sprite scaled to exactly ONE world unit (PPU = its pixel size),
+        /// regardless of how it was imported. Used for tiled ground so the renderer's transform
+        /// scale stays 1 — a Tiled SpriteRenderer with a non-1 scale regenerates its mesh every
+        /// frame (the real cost behind the low framerate when real sprites are used).
+        /// </summary>
+        public static Sprite GetUnit(string key, Color fallback)
+        {
+            if (_unitCache.TryGetValue(key, out var cached) && cached != null) return cached;
+            var loaded = Resources.Load<Sprite>(Resolve(key));
+            Sprite result;
+            if (loaded == null)
+            {
+                result = Solid(fallback); // already 1 unit
+            }
+            else
+            {
+                var r = loaded.rect; // the sprite's region within its texture
+                float ppu = Mathf.Max(r.width, r.height); // → 1 world unit
+                result = Sprite.Create(loaded.texture, r, new Vector2(0.5f, 0.5f), ppu,
+                    0, SpriteMeshType.FullRect); // FullRect so Tiled mode repeats (not stretches)
+            }
+            _unitCache[key] = result;
+            return result;
         }
 
         /// <summary>First sprite found among the given keys (for animation-frame fallbacks).</summary>
