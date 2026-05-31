@@ -29,6 +29,12 @@ namespace Fitzmark.BDRSim.World
 
         private void Start()
         {
+            // Smooth frame pacing: run physics at 60Hz (matches typical rendering, so the
+            // interpolated player has no step gap) and cap to the display via vSync. Default
+            // 50Hz physics + uncapped frames was the "skipping frames" micro-stutter.
+            Time.fixedDeltaTime = 1f / 60f;
+            QualitySettings.vSyncCount = 1;
+
             var scenario = GameManager.Instance.SelectedScenario;
             _company = scenario != null && scenario.prospect != null ? scenario.prospect.companyName : "the client";
 
@@ -119,10 +125,12 @@ namespace Fitzmark.BDRSim.World
         private void LateUpdate()
         {
             if (_cam == null || _player == null) return;
-            float t = 8f * Time.deltaTime;
+            // Frame-rate-independent exponential smoothing (1 - e^-k·dt), so the follow is the
+            // same at any framerate and doesn't add its own jitter on top of the player's motion.
+            float k = 1f - Mathf.Exp(-10f * Time.deltaTime);
             Vector3 p = _player.transform.position;
-            float camX = Mathf.Lerp(_cam.transform.position.x, p.x + 2f, t);
-            float camY = Mathf.Lerp(_cam.transform.position.y, Mathf.Max(4f, p.y + 1.5f), t);
+            float camX = Mathf.Lerp(_cam.transform.position.x, p.x + 2f, k);
+            float camY = Mathf.Lerp(_cam.transform.position.y, Mathf.Max(4f, p.y + 1.5f), k);
             _cam.transform.position = new Vector3(camX, camY, -10f);
         }
 
