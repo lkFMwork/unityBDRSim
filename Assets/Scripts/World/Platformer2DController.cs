@@ -19,6 +19,13 @@ namespace Fitzmark.BDRSim.World
         public float timeToApex = 0.38f;
         public float coyoteTime = 0.1f;
         public float jumpBuffer = 0.12f;
+        // Horizontal speed RAMPS toward the target (the technique that makes running + jumping
+        // feel good, per cjddmut's PlatformerMotor2D) rather than snapping on/off. Air is grippier
+        // (slower accel) so you keep momentum mid-jump instead of stopping dead — the fix for the
+        // "weird jump-while-running" feel.
+        public float timeToTopSpeedGround = 0.10f;
+        public float timeToTopSpeedAir = 0.22f;
+        public float timeToStopGround = 0.08f;   // skid-to-stop on release
         public float killY = -8f;
         public int startLives = 3;
         public float halfWidth = 0.35f;
@@ -74,8 +81,18 @@ namespace Fitzmark.BDRSim.World
             _invuln = Mathf.Max(0f, _invuln - dt);
 
             float h = Input.GetAxisRaw("Horizontal");
-            _vel.x = h * runSpeed;
             if (Mathf.Abs(h) > 0.01f) _facing = h > 0 ? 1 : -1;
+
+            // Ramp horizontal velocity toward the target instead of snapping it. Accelerate on
+            // input (ground vs air rate), skid to a stop on release — this is what makes moving
+            // and especially jumping-while-running feel smooth rather than switch-like.
+            float target = h * runSpeed;
+            float rate;
+            if (Mathf.Abs(h) > 0.01f)
+                rate = runSpeed / Mathf.Max(0.001f, _grounded ? timeToTopSpeedGround : timeToTopSpeedAir);
+            else
+                rate = runSpeed / Mathf.Max(0.001f, _grounded ? timeToStopGround : timeToTopSpeedAir);
+            _vel.x = Mathf.MoveTowards(_vel.x, target, rate * dt);
 
             if (_grounded) _coyote = coyoteTime; else _coyote = Mathf.Max(0f, _coyote - dt);
             if (Input.GetKeyDown(KeyCode.Space) || Input.GetButtonDown("Jump") || Input.GetKeyDown(KeyCode.W))
@@ -128,11 +145,23 @@ namespace Fitzmark.BDRSim.World
                 float dist = CastSelf(Vector2.up * dir, Mathf.Abs(dy) + skin);
                 if (dist < Mathf.Abs(dy) + skin)
                 {
-                    dy = Mathf.Max(0f, dist - skin) * dir;
-                    if (dir < 0) { _grounded = true; if (_vel.y < -8f) _anim?.Squash(); }
-                    _vel.y = 0f;
+                    // Corner correction (rising): if only a corner of your head clips a block,
+                    // nudge sideways so you slide past instead of stopping dead — the classic
+                    // platformer feel-fix that stops jumps from "catching" on ledge lips.
+                    if (dir > 0 && TryCornerNudge(ref p))
+                    {
+                        transform.position = p;
+                        p.y += dy; // continue rising this frame
+                    }
+                    else
+                    {
+                        dy = Mathf.Max(0f, dist - skin) * dir;
+                        if (dir < 0) { _grounded = true; if (_vel.y < -8f) _anim?.Squash(); }
+                        _vel.y = 0f;
+                        p.y += dy;
+                    }
                 }
-                p.y += dy;
+                else p.y += dy;
             }
 
             // Grounded probe for standing still / just landed.
@@ -142,6 +171,25 @@ namespace Fitzmark.BDRSim.World
             p.z = 0f;
             transform.position = p;
         }
+
+        // If the head is clipping only a corner of a block above, try nudging left/right by up
+        // to ~a third of a tile to slide past. Returns true (and shifts p) if a nudge clears it.
+        private bool TryCornerNudge(ref Vector3 p)
+        {
+            const float maxNudge = 0.34f, step = 0.06f;
+            for (float n = step; n <= maxNudge; n += step)
+            {
+                foreach (int s in _sides)
+                {
+                    var test = p + new Vector3(s * n, 0f, 0f);
+                    transform.position = test;
+                    if (CastSelf(Vector2.up, 0.15f) >= 0.15f) { p = test; return true; } // clear above here
+                }
+            }
+            transform.position = p; // restore
+            return false;
+        }
+        private static readonly int[] _sides = { 1, -1 };
 
         // Distance the player's collider can travel along `dir` before hitting a surface that
         // actually OPPOSES that direction (full `max` if clear). The normal check is essential:
