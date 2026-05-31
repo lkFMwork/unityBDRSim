@@ -28,7 +28,7 @@ namespace Fitzmark.BDRSim.Editor
 
         private const string ScenesFolder = "Assets/Scenes";
         private const string SettingsFolder = "Assets/Settings";
-        private const string ResourcesFolder = "Assets/Resources";
+        [MenuItem("Tools/Fitzmark BDR/Set Up Project (Scenes + Build Settings)", false, 20)]
         private const string ScenariosFolder = "Assets/Resources/Scenarios";
 
         private const string MainMenuScenePath = ScenesFolder + "/MainMenu.unity";

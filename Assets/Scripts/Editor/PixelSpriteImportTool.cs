@@ -16,26 +16,34 @@ namespace Fitzmark.BDRSim.Editor
         private const string MapFolder = "Assets/Resources/Models/kenney_map-pack/PNG";
         private const string LpcFolder = "Assets/Resources/Models/LPC Overworld";
 
-        [MenuItem("Tools/Fitzmark BDR/Import Pixel Platformer Sprites")]
+        [MenuItem("Tools/Fitzmark BDR/Import/Pixel Platformer Sprites", false, 40)]
         private static void ImportPlatformer() => ImportFolder(PlatformerFolder, 18f, "platformer");
 
-        [MenuItem("Tools/Fitzmark BDR/Import Overworld Map Tiles")]
+        [MenuItem("Tools/Fitzmark BDR/Import/Kenney Map Tiles", false, 41)]
         private static void ImportMap() => ImportFolder(MapFolder, 64f, "overworld map");
 
-        [MenuItem("Tools/Fitzmark BDR/Import LPC Overworld Tiles")]
+        [MenuItem("Tools/Fitzmark BDR/Import/LPC Overworld Tiles", false, 42)]
         private static void ImportLpc() => ImportFolder(LpcFolder, 16f, "LPC overworld", readable: true);
 
-        [MenuItem("Tools/Fitzmark BDR/Import ALL Kenney Sprites")]
-        private static void ImportAll()
+        [MenuItem("Tools/Fitzmark BDR/Import ALL Sprites", false, 22)]
+        private static void ImportAllMenu()
         {
-            ImportFolder(PlatformerFolder, 18f, "platformer", silent: true);
-            ImportFolder(MapFolder, 64f, "overworld map", silent: true);
-            ImportFolder(LpcFolder, 16f, "LPC overworld", silent: true, readable: true);
+            int n = ImportAllSprites();
             EditorUtility.DisplayDialog("Fitzmark Sprites",
-                "Imported the platformer, Kenney map, and LPC overworld packs as crisp Sprites.\n\nPress Play.", "Great");
+                $"Imported {n} sprites (platformer, Kenney map, LPC overworld) as crisp tiles.\n\nPress Play.", "Great");
         }
 
-        private static void ImportFolder(string folder, float ppu, string label, bool silent = false,
+        /// <summary>Import every sprite pack; returns the tile count. No dialog (for the orchestrator).</summary>
+        public static int ImportAllSprites()
+        {
+            int n = 0;
+            n += ImportFolder(PlatformerFolder, 18f, "platformer", silent: true);
+            n += ImportFolder(MapFolder, 64f, "overworld map", silent: true);
+            n += ImportFolder(LpcFolder, 16f, "LPC overworld", silent: true, readable: true);
+            return n;
+        }
+
+        private static int ImportFolder(string folder, float ppu, string label, bool silent = false,
             bool readable = false)
         {
             if (!AssetDatabase.IsValidFolder(folder))
@@ -43,7 +51,7 @@ namespace Fitzmark.BDRSim.Editor
                 if (!silent)
                     EditorUtility.DisplayDialog("Fitzmark Sprites",
                         $"Couldn't find the pack at:\n{folder}\n\nImport it there first.", "OK");
-                return;
+                return 0;
             }
 
             int done = 0;
@@ -75,6 +83,7 @@ namespace Fitzmark.BDRSim.Editor
             if (!silent)
                 EditorUtility.DisplayDialog("Fitzmark Sprites",
                     $"Done — {done} {label} tiles set to Sprite (Point filter).\n\nPress Play.", "Great");
+            return done;
         }
     }
 }
