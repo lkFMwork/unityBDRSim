@@ -55,7 +55,7 @@ namespace Fitzmark.BDRSim.World
         private Vector3 _start;
         private SpriteAnimator _anim;
         private int _facing = 1;
-        private float _coyote, _buffer, _invuln;
+        private float _coyote, _buffer, _invuln, _jumpLock;
         private bool _grounded;
         private bool _ended;
 
@@ -69,6 +69,10 @@ namespace Fitzmark.BDRSim.World
             // depend on collider-sync timing. Keep autoSync on so the pickup trigger stays current
             // for coins/enemies; it's cheap because only the player transform is ever dirty.
             Physics2D.autoSyncTransforms = true;
+            // Don't report a collider the cast box already touches/overlaps as a distance-0 hit —
+            // that false "you're already against ground" read is a classic cause of phantom
+            // landings (and the resulting grounded flicker / feet bob).
+            Physics2D.queriesStartInColliders = false;
             Physics2D.SyncTransforms(); // register the freshly-built ground for queries
             Lives = startLives;
             Coins = 0;
@@ -96,7 +100,13 @@ namespace Fitzmark.BDRSim.World
             if (Mathf.Abs(h) <= 0.01f) accel = runSpeed / Mathf.Max(0.001f, _grounded ? timeToStopGround : timeToTopSpeedAir);
             _vel.x = Mathf.MoveTowards(_vel.x, target, accel * dt);
 
-            if (_grounded) _coyote = coyoteTime; else _coyote = Mathf.Max(0f, _coyote - dt);
+            // Air-lock: for a short window after jumping, you are NOT considered grounded and
+            // coyote can't refresh — a hard guarantee against re-triggering the same jump (no
+            // infinite jump) even if a ground cast momentarily reads true.
+            _jumpLock = Mathf.Max(0f, _jumpLock - dt);
+            bool canGround = _grounded && _jumpLock <= 0f;
+            if (canGround) _coyote = coyoteTime; else _coyote = Mathf.Max(0f, _coyote - dt);
+
             if (Input.GetKeyDown(KeyCode.Space) || Input.GetButtonDown("Jump") || Input.GetKeyDown(KeyCode.W))
                 _buffer = jumpBuffer;
             else _buffer = Mathf.Max(0f, _buffer - dt);
@@ -105,6 +115,7 @@ namespace Fitzmark.BDRSim.World
             {
                 _vel.y = JumpVelocity;
                 _buffer = 0f; _coyote = 0f;
+                _grounded = false; _jumpLock = 0.14f; // leave the ground; lock out re-grounding briefly
                 _anim?.PlayJump();
             }
             if ((Input.GetKeyUp(KeyCode.Space) || Input.GetKeyUp(KeyCode.W)) && _vel.y > 0f)
@@ -168,9 +179,9 @@ namespace Fitzmark.BDRSim.World
                 else p.y += dy;
             }
 
-            // Grounded probe for standing still / just landed — cast from p (now y-updated).
-            if (!_grounded && _vel.y <= 0.01f)
-                _grounded = CastSelf(p, Vector2.down, skin * 2f) < skin * 2f;
+            // No separate grounded probe: the vertical block above already sets _grounded on any
+            // downward contact, and gravity makes dy negative every frame, so a grounded player is
+            // re-confirmed each frame. A second probe was an independent source that could flicker.
 
             p.z = 0f;
             transform.position = p;
