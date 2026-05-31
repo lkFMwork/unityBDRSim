@@ -24,6 +24,7 @@ namespace Fitzmark.BDRSim.World
         private GameObject _player;
         private Platformer2DController _ctrl;
         private TMP_Text _statusLabel;
+        private TMP_Text _debugLabel;
         private string _company = "the client";
         private bool _over;
 
@@ -123,6 +124,7 @@ namespace Fitzmark.BDRSim.World
 
         private void LateUpdate()
         {
+            if (_debugLabel != null && _ctrl != null) _debugLabel.text = _ctrl.DebugLine;
             if (_cam == null || _player == null) return;
             float t = 8f * Time.deltaTime;
             Vector3 p = _player.transform.position;
@@ -149,6 +151,13 @@ namespace Fitzmark.BDRSim.World
                 "← →  move    Shift  run    Space  jump (hold higher)    stomp enemies, mind the gaps",
                 14, UiTheme.TextMuted, TextAnchor.MiddleCenter, FontStyle.Normal);
             UiFactory.Stretch(hint.rectTransform);
+
+            // Temporary debug readout (top-left) to diagnose the jump/ground issue.
+            var dbg = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.6f), "Debug");
+            Anchor(dbg.rectTransform, new Vector2(0f, 0.82f), new Vector2(0.55f, 0.92f));
+            _debugLabel = UiFactory.Label(dbg.transform, "", 15, new Color(0.5f, 1f, 0.5f),
+                TextAnchor.MiddleLeft, FontStyle.Bold);
+            UiFactory.Stretch(_debugLabel.rectTransform);
 
             RefreshStatus();
         }

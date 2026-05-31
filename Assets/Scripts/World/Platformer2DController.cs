@@ -35,6 +35,12 @@ namespace Fitzmark.BDRSim.World
         public float halfWidth = 0.35f;
         public float halfHeight = 0.5f;
 
+        // Live state for the on-screen debug readout (diagnosing the jump/ground issue).
+        public int DbgNudges, DbgVCol;
+        public string DebugLine =>
+            $"grnd:{(_grounded ? 1 : 0)}  vY:{_vel.y:F1}  lock:{_jumpLock:F2}  y:{transform.position.y:F2}  " +
+            $"nudge:{DbgNudges}  vcol:{DbgVCol}";
+
         public event Action Won;
         public event Action Failed;
         public event Action<int> LivesChanged;
@@ -166,10 +172,12 @@ namespace Fitzmark.BDRSim.World
                     // nudge sideways so you slide past instead of stopping dead.
                     if (dir > 0 && TryCornerNudge(ref p))
                     {
+                        DbgNudges++;
                         p.y += dy; // continue rising this frame
                     }
                     else
                     {
+                        DbgVCol++;
                         dy = Mathf.Max(0f, dist - skin) * dir;
                         if (dir < 0) { _grounded = true; if (_vel.y < -8f) _anim?.Squash(); }
                         _vel.y = 0f;
