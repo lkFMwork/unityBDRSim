@@ -39,7 +39,7 @@ namespace Fitzmark.BDRSim.World
         public static GameObject Spawn(string key, Transform parent, Vector3 localPos,
             float yaw = 0f, float scale = 1f, Vector3? placeholderSize = null,
             Color? placeholderColor = null, bool placeholderLabel = true, Vector3? fitSize = null,
-            float fitFootprint = 0f, float fitHeight = 0f)
+            float fitFootprint = 0f, float fitHeight = 0f, float fitMaxHeight = 0f)
         {
             string path = ResolvePath(key, out float kitScale);
             GameObject prefab = Resources.Load<GameObject>(path);
@@ -51,7 +51,7 @@ namespace Fitzmark.BDRSim.World
                 go = Object.Instantiate(prefab, parent);
                 go.transform.localScale = Vector3.one * kitScale;
                 if (fitHeight > 0f) FitByAxis(go, fitHeight, axisY: true);
-                else if (fitFootprint > 0f) FitByAxis(go, fitFootprint, axisY: false);
+                else if (fitFootprint > 0f) FitByAxis(go, fitFootprint, axisY: false, maxOther: fitMaxHeight);
                 else if (fitSize.HasValue) FitToSize(go, fitSize.Value);
                 EnsureTextured(go, path);
                 GroundOn(go, parent, localPos);
@@ -72,50 +72,69 @@ namespace Fitzmark.BDRSim.World
         /// taller of the height (axisY) or the larger horizontal footprint. Uniform scaling
         /// keeps the model's natural proportions — the right fit for buildings and trees,
         /// where forcing a box (FitToSize) squashes tall shapes into tiny ones.
+        /// <paramref name="maxOther"/> caps the perpendicular extent (e.g. footprint-fit a
+        /// building but don't let it tower past a height cap).
         /// </summary>
-        private static void FitByAxis(GameObject go, float target, bool axisY)
+        private static void FitByAxis(GameObject go, float target, bool axisY, float maxOther = 0f)
         {
             if (!TryWorldBounds(go, out var b) || b.size == Vector3.zero) return;
             float current = axisY ? b.size.y : Mathf.Max(b.size.x, b.size.z);
             if (current <= 0.0001f) return;
-            go.transform.localScale *= target / current;
+            float f = target / current;
+
+            if (maxOther > 0f)
+            {
+                float other = (axisY ? Mathf.Max(b.size.x, b.size.z) : b.size.y) * f;
+                if (other > maxOther) f *= maxOther / other; // clamp the perpendicular extent
+            }
+            go.transform.localScale *= f;
         }
 
         /// <summary>
         /// Kenney kits texture everything from one shared colormap atlas next to the FBX
-        /// (FBX format/Textures/colormap.png). On import a model's material can lose that
-        /// link and render flat/white; if a renderer's material has no base texture, assign
-        /// the kit's colormap so buildings/props show their colors like the car does.
+        /// (FBX format/Textures/colormap.png). On import a model's material can come in flat
+        /// (no usable base map) and render like a solid primitive. To guarantee colors, build
+        /// one shared URP/Lit material per kit colormap and force it onto every renderer of a
+        /// spawned model — the car already looks right, this makes the buildings match.
         /// </summary>
         private static void EnsureTextured(GameObject go, string modelResourcePath)
         {
-            var tex = LoadColormap(modelResourcePath);
-            if (tex == null) return;
+            var mat = ColormapMaterial(modelResourcePath);
+            if (mat == null) return;
             foreach (var r in go.GetComponentsInChildren<Renderer>())
             {
-                foreach (var m in r.sharedMaterials)
-                {
-                    if (m == null) continue;
-                    if (m.HasProperty("_BaseMap") && m.GetTexture("_BaseMap") == null)
-                        m.SetTexture("_BaseMap", tex);
-                    if (m.HasProperty("_MainTex") && m.GetTexture("_MainTex") == null)
-                        m.SetTexture("_MainTex", tex);
-                }
+                // One material per submesh, all the shared colormap material.
+                int n = r.sharedMaterials.Length;
+                if (n <= 1) { r.sharedMaterial = mat; continue; }
+                var arr = new Material[n];
+                for (int i = 0; i < n; i++) arr[i] = mat;
+                r.sharedMaterials = arr;
             }
         }
 
-        private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _colormaps = new();
+        private static readonly System.Collections.Generic.Dictionary<string, Material> _colormapMats = new();
 
-        // The colormap sits at "<kit>/Models/FBX format/Textures/colormap" relative to the model.
-        private static Texture2D LoadColormap(string modelResourcePath)
+        // A shared URP/Lit material sampling "<kit>/Models/FBX format/Textures/colormap".
+        private static Material ColormapMaterial(string modelResourcePath)
         {
             int fbxIdx = modelResourcePath.IndexOf("/FBX format/", System.StringComparison.Ordinal);
             if (fbxIdx < 0) return null;
-            string baseDir = modelResourcePath.Substring(0, fbxIdx) + "/FBX format/Textures/colormap";
-            if (_colormaps.TryGetValue(baseDir, out var cached)) return cached;
-            var tex = Resources.Load<Texture2D>(baseDir);
-            _colormaps[baseDir] = tex;
-            return tex;
+            string texPath = modelResourcePath.Substring(0, fbxIdx) + "/FBX format/Textures/colormap";
+            if (_colormapMats.TryGetValue(texPath, out var cached)) return cached;
+
+            var tex = Resources.Load<Texture2D>(texPath);
+            Material mat = null;
+            if (tex != null)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                mat = new Material(shader) { name = "Kenney_colormap", enableInstancing = true };
+                if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
+                if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", Color.white);
+                if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.1f);
+            }
+            _colormapMats[texPath] = mat; // cache even null, so we only probe once
+            return mat;
         }
 
         /// <summary>Scale a spawned model so its bounds fit within <paramref name="size"/> metres.</summary>

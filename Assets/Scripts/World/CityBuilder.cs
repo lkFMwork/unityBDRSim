@@ -133,9 +133,11 @@ namespace Fitzmark.BDRSim.World
                 string model = _theme.Buildings[_rng.Next(_theme.Buildings.Length)];
                 float yaw = 90f * _rng.Next(0, 4);
                 float footprint = TileSize * (0.34f + 0.10f * (float)_rng.NextDouble());
+                // Downtown towers may be tall; suburban/commercial capped lower so nothing looms.
+                float maxH = _theme.Style == CityStyle.Downtown ? 22f : 10f;
                 ModelLibrary.Spawn(model, parent, center + offsets[i], yaw, 1f,
                     placeholderColor: new Color(0.5f, 0.5f, 0.55f), placeholderLabel: false,
-                    fitFootprint: footprint);
+                    fitFootprint: footprint, fitMaxHeight: maxH);
             }
 
             if (_theme.Trees && _rng.Next(0, 2) == 0)
