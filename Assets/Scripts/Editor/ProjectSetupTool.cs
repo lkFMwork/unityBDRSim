@@ -28,7 +28,7 @@ namespace Fitzmark.BDRSim.Editor
 
         private const string ScenesFolder = "Assets/Scenes";
         private const string SettingsFolder = "Assets/Settings";
-        [MenuItem("Tools/Fitzmark BDR/Set Up Project (Scenes + Build Settings)", false, 20)]
+        private const string ResourcesFolder = "Assets/Resources";
         private const string ScenariosFolder = "Assets/Resources/Scenarios";
 
         private const string MainMenuScenePath = ScenesFolder + "/MainMenu.unity";
@@ -52,6 +52,7 @@ namespace Fitzmark.BDRSim.Editor
                 int created = CreateSampleContent();
                 BuildScenes();
                 ConfigureBuildSettings();
+                int sprites = PixelSpriteImportTool.ImportAllSprites(); // crisp 2D tiles for platformer + overworld
 
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
@@ -59,8 +60,8 @@ namespace Fitzmark.BDRSim.Editor
 
                 string msg = $"Fitzmark BDR Simulator is set up.\n\n" +
                              $"• {created} sample (practice) scenarios created\n" +
-                             $"• MainMenu, CharacterCreate, and CallFloor scenes built\n" +
-                             $"• Build settings configured\n\n" +
+                             $"• all scenes built + Build Settings configured\n" +
+                             $"• {sprites} sprite tiles imported (platformer + overworld)\n\n" +
                              $"Press Play, then create your BDR — Sales Style, point-buy\n" +
                              $"stats, and abilities — and start the career.";
                 Debug.Log("[Fitzmark BDR] " + msg.Replace("\n", " "));
