@@ -3,7 +3,17 @@ guid: e7ddf4ade429a604cadd89aba8f23a92
 ModelImporter:
   serializedVersion: 24200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ch33_body
+    second: {fileID: 2100000, guid: fb362a445464f2d488cc2795401dfc71, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Ch33_hair
+    second: {fileID: 2100000, guid: 499f0634ddc079249848521b12f5a135, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
