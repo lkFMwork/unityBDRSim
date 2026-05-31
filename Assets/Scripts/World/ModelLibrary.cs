@@ -39,7 +39,7 @@ namespace Fitzmark.BDRSim.World
         public static GameObject Spawn(string key, Transform parent, Vector3 localPos,
             float yaw = 0f, float scale = 1f, Vector3? placeholderSize = null,
             Color? placeholderColor = null, bool placeholderLabel = true, Vector3? fitSize = null,
-            float fitFootprint = 0f, float fitHeight = 0f, float fitMaxHeight = 0f)
+            float fitFootprint = 0f, float fitHeight = 0f, float fitMaxHeight = 0f, bool ground = true)
         {
             string path = ResolvePath(key, out float kitScale);
             GameObject prefab = Resources.Load<GameObject>(path);
@@ -54,7 +54,8 @@ namespace Fitzmark.BDRSim.World
                 else if (fitFootprint > 0f) FitByAxis(go, fitFootprint, axisY: false, maxOther: fitMaxHeight);
                 else if (fitSize.HasValue) FitToSize(go, fitSize.Value);
                 EnsureTextured(go, path);
-                GroundOn(go, parent, localPos);
+                if (ground) GroundOn(go, parent, localPos);
+                else { go.transform.localPosition = localPos; SitBaseAtLocalZero(go); }
             }
             else
             {
@@ -195,6 +196,17 @@ namespace Fitzmark.BDRSim.World
                 if (!has) { b = new Bounds(w, Vector3.zero); has = true; }
                 else b.Encapsulate(w);
             }
+        }
+
+        /// <summary>Sit the model's base at its parent's local origin (feet at y=0 locally),
+        /// for a character body parented to a controller root — no world re-grounding.</summary>
+        private static void SitBaseAtLocalZero(GameObject go)
+        {
+            if (!TryWorldBounds(go, out var b)) return;
+            float localBottom = go.transform.parent != null
+                ? go.transform.parent.InverseTransformPoint(b.min).y
+                : b.min.y;
+            go.transform.localPosition -= new Vector3(0f, localBottom, 0f);
         }
 
         private static GameObject BuildPlaceholder(string key, Transform parent, Vector3 size, Color color, bool label)

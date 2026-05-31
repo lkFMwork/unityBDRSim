@@ -14,6 +14,7 @@ namespace Fitzmark.BDRSim.World
     {
         private const string Kit = "Models/kenney_platformer-kit/Models/FBX format/";
         private const float Tile = 2f;        // world units per ground block (footprint)
+        private const float BlockBody = 1.2f; // visible block thickness below the walk surface
 
         // The arc the player actually has (matches PlatformerController defaults). The
         // generator measures gaps/heights against this so everything is reachable.
@@ -32,9 +33,9 @@ namespace Fitzmark.BDRSim.World
             float x = 0f;
             float groundY = 0f;
 
-            // Safe starting flat.
+            // Safe starting flat. The player spawns standing on the walk surface (groundY).
             for (int i = 0; i < 4; i++) { GroundBlock(parent, x, groundY); x += Tile; }
-            start = new Vector3(2f, groundY + 2f, 0f);
+            start = new Vector3(2f, groundY + 1.2f, 0f);
 
             int sections = 14 + difficulty * 2;
             for (int s = 0; s < sections; s++)
@@ -65,11 +66,12 @@ namespace Fitzmark.BDRSim.World
         {
             int steps = 2 + rng.Next(0, 3);
             int dir = rng.NextDouble() < 0.72 ? 1 : -1;
-            float rise = Mathf.Min(Tile, maxStep);          // one tile, but never above the cap
+            // Comfortable step (well under the safe cap so jumps land cleanly, not frame-perfect).
+            float rise = Mathf.Min(1.3f, maxStep);
             for (int s = 0; s < steps; s++)
             {
                 GroundBlock(parent, x, groundY);
-                if (rng.NextDouble() < 0.4) Coin(parent, x, groundY + 2.0f);
+                if (rng.NextDouble() < 0.4) Coin(parent, x, groundY + 1.4f);
                 groundY = Mathf.Max(0f, groundY + dir * rise);
                 x += Tile;
             }
@@ -105,15 +107,15 @@ namespace Fitzmark.BDRSim.World
             GroundBlock(parent, x, groundY); x += Tile;
 
             int plats = 2 + rng.Next(0, 1 + Mathf.RoundToInt(diff01 * 2f));
-            float py = groundY + Mathf.Min(Tile, maxStep);
+            float py = groundY + Mathf.Min(1.3f, maxStep);  // first hop reachable from the ground
             float hop = Mathf.Min(Mathf.Lerp(Tile * 1.2f, maxGap * 0.8f, diff01), maxGap * 0.85f);
             for (int p = 0; p < plats; p++)
             {
                 Platform(parent, x, py);
                 if (rng.NextDouble() < 0.6) Coin(parent, x, py + 1.4f);
                 // Next platform: vary height within a safe step, advance within a safe hop.
-                float dy = (rng.NextDouble() < 0.5 ? 1f : -1f) * Mathf.Min(Tile, maxStep) * 0.6f;
-                py = Mathf.Clamp(py + dy, groundY + 1f, groundY + maxStep * 1.4f);
+                float dy = (rng.NextDouble() < 0.5 ? 1f : -1f) * 1.0f; // small, always clearable
+                py = Mathf.Clamp(py + dy, groundY + 0.8f, groundY + maxStep);
                 x += hop;
             }
             GroundBlock(parent, x, groundY); x += Tile;
@@ -153,18 +155,24 @@ namespace Fitzmark.BDRSim.World
 
         // ---- pieces ---------------------------------------------------------
 
+        // A ground block whose WALKABLE TOP is exactly at y (the walking plane). The Kenney
+        // block is fit by footprint (so it never balloons) and dropped so its top meets y;
+        // the collider is a flat slab capping y, so stepping between adjacent y-levels is the
+        // height difference, never the block's full body.
         private static void GroundBlock(Transform parent, float x, float y)
         {
-            var go = Solid(parent, Kit + "block-grass", new Vector3(x, y, 0f), Tile,
-                new Color(0.34f, 0.52f, 0.30f));
-            EnsureSolidBox(go, new Vector3(Tile, Tile, Tile), y);
+            var go = ModelLibrary.Spawn(Kit + "block-grass", parent, new Vector3(x, y - BlockBody, 0f), 0f, 1f,
+                placeholderColor: new Color(0.34f, 0.52f, 0.30f), placeholderLabel: false,
+                fitFootprint: Tile, fitMaxHeight: BlockBody, ground: false);
+            FlatTopCollider(go, x, y);
         }
 
         private static void Platform(Transform parent, float x, float y)
         {
-            var go = Solid(parent, Kit + "platform", new Vector3(x, y, 0f), Tile,
-                new Color(0.55f, 0.45f, 0.30f));
-            EnsureSolidBox(go, new Vector3(Tile, 0.6f, Tile), y);
+            var go = ModelLibrary.Spawn(Kit + "platform", parent, new Vector3(x, y - 0.5f, 0f), 0f, 1f,
+                placeholderColor: new Color(0.55f, 0.45f, 0.30f), placeholderLabel: false,
+                fitFootprint: Tile, fitMaxHeight: 0.6f, ground: false);
+            FlatTopCollider(go, x, y);
         }
 
         private static void Enemy(Transform parent, float x, float y, float minX, float maxX)
@@ -181,11 +189,6 @@ namespace Fitzmark.BDRSim.World
             Pickup(parent, Kit + "coin-gold", new Vector3(x, y, 0f), 0.8f, PlatformerProp.Kind.Coin,
                 new Color(0.95f, 0.80f, 0.20f));
 
-        // A solid kit model (no trigger) with no prop.
-        private static GameObject Solid(Transform parent, string path, Vector3 pos, float fit, Color fallback)
-            => ModelLibrary.Spawn(path, parent, pos, 0f, 1f,
-                placeholderColor: fallback, placeholderLabel: false, fitHeight: fit);
-
         // A trigger pickup/goal with a PlatformerProp of the given kind.
         private static GameObject Pickup(Transform parent, string path, Vector3 pos, float fit,
             PlatformerProp.Kind kind, Color fallback)
@@ -198,12 +201,18 @@ namespace Fitzmark.BDRSim.World
             return go;
         }
 
-        private static void EnsureSolidBox(GameObject go, Vector3 size, float baseY)
+        // A solid slab whose TOP is exactly at world y=topY, centered at world x. Built as a
+        // separate child (independent of the model's scaling/pivot) so the walk surface is
+        // exact — the player always stands at topY regardless of how the Kenney model imported.
+        private static void FlatTopCollider(GameObject go, float x, float topY)
         {
             foreach (var c in go.GetComponentsInChildren<Collider>()) Object.Destroy(c);
-            var box = go.AddComponent<BoxCollider>();
-            box.center = go.transform.InverseTransformPoint(new Vector3(go.transform.position.x, baseY + size.y * 0.5f, 0f));
-            box.size = size;
+            var slab = new GameObject("Collider");
+            slab.transform.SetParent(go.transform.parent, false); // sibling, world-aligned
+            const float thick = 1.0f;
+            slab.transform.position = new Vector3(x, topY - thick * 0.5f, 0f);
+            var box = slab.AddComponent<BoxCollider>();
+            box.size = new Vector3(Tile, thick, Tile);
         }
 
         private static void MakeTrigger(GameObject go)

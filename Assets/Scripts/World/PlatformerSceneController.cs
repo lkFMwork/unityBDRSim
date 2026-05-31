@@ -84,7 +84,8 @@ namespace Fitzmark.BDRSim.World
             var body = ModelLibrary.Spawn(
                 "Models/kenney_platformer-kit/Models/FBX format/character-oopi",
                 _player.transform, Vector3.zero, 0f, 1f,
-                placeholderColor: new Color(0.30f, 0.55f, 0.85f), placeholderLabel: false, fitHeight: 1.4f);
+                placeholderColor: new Color(0.30f, 0.55f, 0.85f), placeholderLabel: false,
+                fitHeight: 1.6f, ground: false); // feet at the controller's base, not re-grounded
 
             _ctrl.Init(start, body.transform);
             _ctrl.Won += OnWon;
