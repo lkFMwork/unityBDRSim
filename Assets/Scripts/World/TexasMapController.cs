@@ -11,44 +11,46 @@ using UnityEngine.UI;
 namespace Fitzmark.BDRSim.World
 {
     /// <summary>
-    /// The Texas overworld — the whole game hub, SNES-style. A pixel-art map of Texas
-    /// with a drivable freight truck that node-hops between places: the territory's
-    /// account cities (travel to clients) and the FITZMARK HQ compound, whose buildings
-    /// stand in for every former menu action (calls, outreach, freight desk, CRM, skills,
-    /// upgrades, quests, records, market, end day). Click a place to drive there, or use
-    /// the arrow keys; press Enter to go in. Attach to a GameObject in the Texas scene.
+    /// The Super Mario World–style overworld. Each US STATE is a world; its cities are
+    /// level-nodes laid along a path, cleared in sequence (beat a city's commute + meeting to
+    /// open the next). Clearing every city in a state opens a gate to the next state (fixed
+    /// company difficulty order, your home branch's state first). A freight truck token hops the
+    /// path; press Enter to play the node you're on. The career menu (Office, Calls, CRM, etc.)
+    /// lives behind the ☰ Menu button and the home world's HQ node. Attach to the Texas scene.
+    /// (Scene/method names keep the "Texas" label for compatibility; it is now the generic map.)
     /// </summary>
     public class TexasMapController : MonoBehaviour
     {
-        private enum Kind
-        {
-            Account, Office, Call, Outreach, Freight, Crm,
-            Skills, Upgrades, Quests, Achievements, Leaderboard, Market, EndDay
-        }
+        private enum Kind { City, Hq, NextWorld }
 
         private class Node
         {
             public Kind Kind;
             public string Title;
-            public Vector2 Anchor;      // normalized screen position
-            public LocalClient Client;  // accounts only
+            public Vector2 Anchor;       // normalized screen position
+            public LocalClient Client;   // cities only
+            public int CityIndex;
+            public bool Unlocked;        // reachable on the path
+            public bool Cleared;
             public RectTransform Rt;
-            public bool Available = true;
         }
 
         private Canvas _canvas;
-        private RectTransform _root;    // full-screen terrain rect; nodes/truck live here
+        private RectTransform _root;
         private RectTransform _truck;
+        private RectTransform _pathLayer;
         private readonly List<Node> _nodes = new();
         private Node _current;
         private bool _busy;
 
         private TMP_Text _stats;
+        private TMP_Text _worldLabel;
         private TMP_Text _enterLabel;
         private RectTransform _enterBtn;
 
         private BDRCharacter _c;
         private int _day;
+        private StateWorld _world;
 
         private void Start()
         {
@@ -57,6 +59,7 @@ namespace Fitzmark.BDRSim.World
             _c = gm.Profile;
             if (_c != null) BootstrapCareer(gm);
             _day = _c != null ? _c.career.day : 1;
+            _world = WorldSystem.CurrentWorld(_c) ?? WorldRegistry.All[0];
             Build();
             if (_c != null)
             {
@@ -69,7 +72,6 @@ namespace Fitzmark.BDRSim.World
             }
         }
 
-        /// <summary>Run the per-hub career upkeep the old menu used to do on every visit.</summary>
         private void BootstrapCareer(GameManager gm)
         {
             CareerSystem.EnsureStarted(_c);
@@ -116,88 +118,130 @@ namespace Fitzmark.BDRSim.World
             var terrain = new GameObject("Terrain", typeof(RectTransform), typeof(RawImage));
             terrain.transform.SetParent(_canvas.transform, false);
             var ri = terrain.GetComponent<RawImage>();
-            ri.texture = OverworldArt.TexasTerrain();
+            ri.texture = OverworldArt.StateTerrain(StableHash(_world.Id));
             ri.raycastTarget = false;
             _root = ri.rectTransform;
             UiFactory.Stretch(_root);
 
-            BuildHqGrounds();
+            // Path lines drawn under the nodes.
+            var pl = new GameObject("Paths", typeof(RectTransform));
+            pl.transform.SetParent(_root, false);
+            _pathLayer = pl.GetComponent<RectTransform>();
+            UiFactory.Stretch(_pathLayer);
+            _pathLayer.SetAsFirstSibling();
+
             BuildNodes();
+            BuildPaths();
             BuildTruck();
             BuildHud();
 
-            var office = _nodes.Find(n => n.Kind == Kind.Office) ?? _nodes[0];
-            _truck.anchorMin = _truck.anchorMax = office.Anchor;
-            _current = office;
+            // Start the truck on the player's current frontier city (first uncleared unlocked).
+            var startNode = _nodes.Find(n => n.Kind == Kind.City && n.Unlocked && !n.Cleared)
+                            ?? _nodes.Find(n => n.Kind == Kind.City) ?? _nodes[0];
+            _truck.anchorMin = _truck.anchorMax = startNode.Anchor;
+            _current = startNode;
             UpdateEnter();
         }
 
-        private void BuildHqGrounds()
-        {
-            var hq = UiFactory.Panel(_root, new Color(0.10f, 0.12f, 0.17f, 0.93f), "HQ");
-            var rt = hq.rectTransform;
-            rt.anchorMin = new Vector2(0.030f, 0.040f);
-            rt.anchorMax = new Vector2(0.360f, 0.440f);
-            rt.offsetMin = rt.offsetMax = Vector2.zero;
-
-            var title = UiFactory.Label(hq.transform, "FITZMARK  HQ", 14, UiTheme.AccentStrong,
-                TextAnchor.UpperCenter, FontStyle.Bold);
-            var lrt = title.rectTransform;
-            lrt.anchorMin = new Vector2(0f, 0.88f);
-            lrt.anchorMax = new Vector2(1f, 1f);
-            lrt.offsetMin = lrt.offsetMax = Vector2.zero;
-        }
-
+        // Lay the world's cities along a gentle serpentine path; HQ near the branch city; the
+        // next-world gate after the last city.
         private void BuildNodes()
         {
-            // Account cities, placed by geography on the painted terrain.
-            foreach (var client in TerritoryRegistry.All)
+            var cities = _world.Cities;
+            int n = cities.Count;
+            for (int i = 0; i < n; i++)
             {
-                var uv = OverworldArt.ToUv(client.MapX, client.MapZ);
-                var anchor = new Vector2(Mathf.Lerp(0.05f, 0.95f, uv.x), Mathf.Lerp(0.07f, 0.92f, uv.y));
-                bool available = _c != null && TerritorySystem.IsAvailable(_c, client, _day);
-                // Label by CITY (the place you fast-travel to), not the company.
-                var n = new Node
+                var city = cities[i];
+                var anchor = PathAnchor(i, n);
+                var node = new Node
                 {
-                    Kind = Kind.Account,
-                    Title = CityName(client.City),
+                    Kind = Kind.City,
+                    Title = CityName(city.City),
                     Anchor = anchor,
-                    Client = client,
-                    Available = available
+                    Client = city,
+                    CityIndex = i,
+                    Unlocked = _c != null && WorldSystem.IsCityUnlocked(_c, _world, i),
+                    Cleared = _c != null && WorldSystem.IsCityCleared(_c, city.Id)
                 };
-                MakeMarker(n, AccountColor(client), false);
-                _nodes.Add(n);
+                MakeMarker(node, CityColor(node), false);
+                _nodes.Add(node);
+
+                // HQ home-base node sits beside the branch office in the home world only.
+                if (city.IsBranch && _c != null && city.StateId == _c.homeStateId)
+                {
+                    var hq = new Node
+                    {
+                        Kind = Kind.Hq,
+                        Title = "FITZMARK HQ",
+                        Anchor = anchor + new Vector2(0f, 0.11f),
+                        Unlocked = true
+                    };
+                    MakeMarker(hq, new Color(0.95f, 0.82f, 0.36f), true);
+                    _nodes.Add(hq);
+                }
             }
 
-            // HQ buildings — a 4x3 grid in the compound, standing in for the old menu.
-            float[] xs = { 0.072f, 0.152f, 0.232f, 0.312f };
-            float[] ys = { 0.345f, 0.225f, 0.108f };
-            var grid = new (Kind kind, string title, Color tint)[]
+            // Gate to the next world, shown past the final city.
+            var next = WorldSystem.NextWorld(_c, _world);
+            if (next != null)
             {
-                (Kind.Office, "Office", new Color(0.78f, 0.62f, 0.40f)),
-                (Kind.Call, "Take a Call", new Color(0.32f, 0.74f, 0.46f)),
-                (Kind.Outreach, "Outreach", new Color(0.30f, 0.62f, 1f)),
-                (Kind.Freight, "Freight Desk", new Color(0.36f, 0.78f, 0.62f)),
-                (Kind.Crm, "CRM", new Color(0.45f, 0.60f, 0.95f)),
-                (Kind.Skills, "Training", new Color(0.66f, 0.50f, 0.90f)),
-                (Kind.Upgrades, "Supply", new Color(0.93f, 0.70f, 0.28f)),
-                (Kind.Market, "Market", new Color(0.92f, 0.52f, 0.34f)),
-                (Kind.Quests, "Quests", new Color(0.40f, 0.78f, 0.80f)),
-                (Kind.Achievements, "Trophies", new Color(0.95f, 0.82f, 0.36f)),
-                (Kind.Leaderboard, "Rankings", new Color(0.74f, 0.78f, 0.84f)),
-                (Kind.EndDay, "Turn In", new Color(0.52f, 0.55f, 0.90f)),
-            };
-            for (int i = 0; i < grid.Length; i++)
-            {
-                var (kind, title, tint) = grid[i];
-                var n = new Node
+                bool open = WorldSystem.IsWorldCleared(_c, _world);
+                var gate = new Node
                 {
-                    Kind = kind,
-                    Title = title,
-                    Anchor = new Vector2(xs[i % 4], ys[i / 4])
+                    Kind = Kind.NextWorld,
+                    Title = open ? $"▶ {next.Name}" : $"🔒 {next.Name}",
+                    Anchor = PathAnchor(n, n) + new Vector2(0.04f, 0f),
+                    Unlocked = open
                 };
-                MakeMarker(n, tint, true);
-                _nodes.Add(n);
+                MakeMarker(gate, open ? new Color(0.36f, 0.78f, 0.62f) : new Color(0.5f, 0.5f, 0.55f), true);
+                _nodes.Add(gate);
+            }
+        }
+
+        // A serpentine left→right path that wraps down to the next row, SMW-style. `count` is the
+        // number of cities; index `count` (the next-world gate) extends one past the last row.
+        private Vector2 PathAnchor(int i, int count)
+        {
+            int perRow = Mathf.Max(4, Mathf.CeilToInt(count / 2f));
+            int rows = Mathf.Max(1, Mathf.CeilToInt((count + 1) / (float)perRow));
+            int row = i / perRow;
+            int col = i % perRow;
+            if (row % 2 == 1) col = perRow - 1 - col; // snake back the other way
+            float x = perRow <= 1 ? 0.5f : Mathf.Lerp(0.12f, 0.88f, col / (perRow - 1f));
+            float y = rows <= 1 ? 0.5f : Mathf.Lerp(0.66f, 0.26f, row / (float)(rows - 1));
+            y += (col % 2 == 0 ? 0.03f : -0.03f); // gentle wiggle so it reads as a winding trail
+            return new Vector2(x, y);
+        }
+
+        private void BuildPaths()
+        {
+            // Connect consecutive city nodes with dotted line segments.
+            var cityNodes = _nodes.FindAll(n => n.Kind == Kind.City);
+            cityNodes.Sort((a, b) => a.CityIndex.CompareTo(b.CityIndex));
+            for (int i = 0; i < cityNodes.Count - 1; i++)
+                DrawPath(cityNodes[i], cityNodes[i + 1]);
+            // Path to the next-world gate from the last city.
+            var gate = _nodes.Find(n => n.Kind == Kind.NextWorld);
+            if (gate != null && cityNodes.Count > 0)
+                DrawPath(cityNodes[cityNodes.Count - 1], gate);
+        }
+
+        private void DrawPath(Node a, Node b)
+        {
+            const int dots = 9;
+            bool traversable = a.Cleared; // lit once you've cleared the earlier node
+            for (int d = 1; d < dots; d++)
+            {
+                float t = d / (float)dots;
+                var pos = Vector2.Lerp(a.Anchor, b.Anchor, t);
+                var dot = UiFactory.Panel(_pathLayer,
+                    traversable ? new Color(0.95f, 0.86f, 0.45f, 0.9f) : new Color(1f, 1f, 1f, 0.18f), "Dot");
+                var rt = dot.rectTransform;
+                rt.anchorMin = rt.anchorMax = pos;
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(7f, 7f);
+                rt.anchoredPosition = Vector2.zero;
+                dot.raycastTarget = false;
             }
         }
 
@@ -208,7 +252,7 @@ namespace Fitzmark.BDRSim.World
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = rt.anchorMax = node.Anchor;
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = building ? new Vector2(30f, 30f) : new Vector2(26f, 26f);
+            rt.sizeDelta = building ? new Vector2(32f, 32f) : new Vector2(28f, 28f);
             rt.anchoredPosition = Vector2.zero;
 
             var img = go.GetComponent<Image>();
@@ -220,7 +264,15 @@ namespace Fitzmark.BDRSim.World
             var captured = node;
             btn.onClick.AddListener(() => OnNodeClicked(captured));
 
-            // Readable label chip below the marker.
+            // A check mark over cleared cities.
+            if (node.Kind == Kind.City && node.Cleared)
+            {
+                var tick = UiFactory.Label(go.transform, "✓", 18, new Color(0.25f, 1f, 0.4f),
+                    TextAnchor.MiddleCenter, FontStyle.Bold);
+                UiFactory.Stretch(tick.rectTransform);
+                tick.raycastTarget = false;
+            }
+
             var chip = UiFactory.Panel(go.transform, new Color(0f, 0f, 0f, 0.55f), "Chip");
             var crt = chip.rectTransform;
             crt.anchorMin = new Vector2(0.5f, 0f);
@@ -270,9 +322,17 @@ namespace Fitzmark.BDRSim.World
 
             RefreshHud();
 
-            // Bottom: drive hint + the Enter button.
+            // World banner (top-left under the bar): "WORLD 1 — TEXAS · 2/10 cities".
+            _worldLabel = UiFactory.Label(_canvas.transform, "", 16, UiTheme.AccentStrong,
+                TextAnchor.UpperLeft, FontStyle.Bold);
+            var wrt = _worldLabel.rectTransform;
+            wrt.anchorMin = new Vector2(0.02f, 0.86f);
+            wrt.anchorMax = new Vector2(0.6f, 0.92f);
+            wrt.offsetMin = wrt.offsetMax = Vector2.zero;
+            RefreshWorldLabel();
+
             var hint = UiFactory.Label(_canvas.transform,
-                "Click a place to drive there  ·  Arrow keys to hop  ·  Enter to go in",
+                "Click a level to drive there  ·  Arrow keys to hop  ·  Enter to play  ·  ☰ Menu for office",
                 13, UiTheme.TextMuted, TextAnchor.MiddleCenter, FontStyle.Italic);
             var hrt = hint.rectTransform;
             hrt.anchorMin = new Vector2(0.30f, 0.012f);
@@ -286,6 +346,17 @@ namespace Fitzmark.BDRSim.World
             _enterBtn.anchorMax = new Vector2(0.97f, 0.105f);
             _enterBtn.offsetMin = _enterBtn.offsetMax = Vector2.zero;
             _enterLabel = enter.GetComponentInChildren<TMP_Text>();
+        }
+
+        private void RefreshWorldLabel()
+        {
+            if (_worldLabel == null || _c == null) return;
+            var seq = WorldSystem.Sequence(_c);
+            int idx = 0;
+            for (int i = 0; i < seq.Count; i++) if (seq[i].Id == _world.Id) { idx = i; break; }
+            int cleared = 0;
+            foreach (var city in _world.Cities) if (WorldSystem.IsCityCleared(_c, city.Id)) cleared++;
+            _worldLabel.text = $"WORLD {idx + 1} — {_world.Name.ToUpper()}   <size=12>{cleared}/{_world.Cities.Count} cities</size>";
         }
 
         private void RefreshHud()
@@ -355,7 +426,7 @@ namespace Fitzmark.BDRSim.World
             {
                 if (n == _current) continue;
                 Vector2 d = n.Anchor - _current.Anchor;
-                if (Vector2.Dot(d.normalized, dir) < 0.45f) continue; // roughly in the pressed direction
+                if (Vector2.Dot(d.normalized, dir) < 0.45f) continue;
                 float score = d.magnitude - Vector2.Dot(d, dir) * 0.25f;
                 if (score < bestScore) { bestScore = score; best = n; }
             }
@@ -365,27 +436,30 @@ namespace Fitzmark.BDRSim.World
         private void UpdateEnter()
         {
             if (_enterLabel == null || _current == null) return;
-            // Pulse the active node.
             foreach (var n in _nodes)
                 if (n.Rt != null) n.Rt.localScale = Vector3.one * (n == _current ? 1.18f : 1f);
 
-            string accountVerb = "🔒  Locked —";
-            if (_current.Kind == Kind.Account && _current.Available)
-                accountVerb = (_c != null && TerritorySystem.IsCityUnlocked(_c, _current.Client.Id))
-                    ? "🚚  Drive into"          // already reached → fast-travel
-                    : "🗺  Travel to";          // first visit → play the commute level
-            string verb = _current.Kind switch
+            string verb;
+            bool actionable = true;
+            switch (_current.Kind)
             {
-                Kind.Account => accountVerb,
-                Kind.Call => "▶  Work the phones at",
-                Kind.EndDay => "▶  Turn in the day at",
-                _ => "▶  Enter"
-            };
+                case Kind.Hq:
+                    verb = "🏢  Enter"; break;
+                case Kind.NextWorld:
+                    verb = _current.Unlocked ? "✈  Fly to" : "🔒  Locked —";
+                    actionable = _current.Unlocked;
+                    break;
+                default: // City
+                    if (!_current.Unlocked) { verb = "🔒  Locked —"; actionable = false; }
+                    else if (_current.Cleared)
+                        verb = (_c != null && TerritorySystem.IsCityUnlocked(_c, _current.Client.Id))
+                            ? "🚚  Drive into" : "🗺  Travel to";
+                    else verb = "🗺  Travel to";
+                    break;
+            }
             _enterLabel.text = $"{verb} {_current.Title}";
             var img = _enterBtn.GetComponent<Image>();
-            if (img != null)
-                img.color = (_current.Kind == Kind.Account && !_current.Available)
-                    ? UiTheme.PanelDark : UiTheme.Positive;
+            if (img != null) img.color = actionable ? UiTheme.Positive : UiTheme.PanelDark;
         }
 
         // ---- interaction ----------------------------------------------------
@@ -393,106 +467,52 @@ namespace Fitzmark.BDRSim.World
         private void Interact(Node node)
         {
             if (node == null) return;
-            var gm = GameManager.Instance;
             switch (node.Kind)
             {
-                case Kind.Account: TravelTo(node.Client); break;
-                case Kind.Office: gm.GoToOffice(); break;
-                case Kind.Freight: gm.GoToFreightDesk(); break;
-                case Kind.Call:
-                    if (_c != null && CareerSystem.HasCallsLeft(_c)) gm.TakeColdCall();
-                    else Toasts.Show("No calls left today — turn in the day.");
+                case Kind.Hq:
+                    GameManager.Instance.GoToOffice();
                     break;
-                case Kind.Outreach: new OutreachView(_canvas.transform, _c, RefreshHud).Open(); break;
-                case Kind.Crm: new CrmView(_canvas.transform, _c, RefreshHud).Open(); break;
-                case Kind.Skills: new SkillTreeView(_canvas.transform, _c, RefreshHud).Open(); break;
-                case Kind.Upgrades: new UpgradesView(_canvas.transform, _c, RefreshHud).Open(); break;
-                case Kind.Quests: new QuestLogView(_canvas.transform, _c, RefreshHud).Open(); break;
-                case Kind.Achievements: new AchievementsView(_canvas.transform, _c, RefreshHud).Open(); break;
-                case Kind.Leaderboard: new LeaderboardView(_canvas.transform, _c, RefreshHud).Open(); break;
-                case Kind.Market: new MarketView(_canvas.transform, _c, RefreshHud).Open(); break;
-                case Kind.EndDay: ConfirmEndDay(); break;
+                case Kind.NextWorld:
+                    if (node.Unlocked) AdvanceToNextWorld();
+                    else Toasts.Show($"Clear every city in {_world.Name} to open {node.Title}.");
+                    break;
+                case Kind.City:
+                    if (!node.Unlocked)
+                        Toasts.Show(node.CityIndex > 0
+                            ? $"Clear {CityName(_world.Cities[node.CityIndex - 1].City)} first."
+                            : "Locked.");
+                    else TravelTo(node.Client);
+                    break;
             }
         }
 
-        private void ConfirmEndDay()
+        private void AdvanceToNextWorld()
         {
-            var overlay = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.78f), "EndDayConfirm");
-            UiFactory.Stretch(overlay.rectTransform);
-            UiFactory.VLayout(overlay.gameObject, pad: 40, spacing: 16, expandH: true,
-                align: TextAnchor.MiddleCenter);
-
-            UiFactory.Label(overlay.transform, "Turn in the day?", 28, UiTheme.AccentStrong,
-                TextAnchor.MiddleCenter, FontStyle.Bold);
-            UiFactory.Label(overlay.transform,
-                "Bills are paid, the freight book ticks over, and a new day begins.",
-                15, UiTheme.TextMuted, TextAnchor.MiddleCenter, FontStyle.Italic);
-
-            var row = UiFactory.Panel(overlay.transform, new Color(0f, 0f, 0f, 0f), "Row").gameObject;
-            UiFactory.HLayout(row, spacing: 12, expandW: false, expandH: true);
-            UiFactory.Size(row, prefH: 56f);
-
-            var go = UiFactory.Button(row.transform, "End the Day ▶", () =>
-            {
-                Destroy(overlay.gameObject);
-                EndDay();
-            }, UiTheme.Positive, Color.white, 17, TextAnchor.MiddleCenter);
-            UiFactory.Size(go.gameObject, prefW: 200f);
-
-            var cancel = UiFactory.Button(row.transform, "Not yet",
-                () => Destroy(overlay.gameObject), UiTheme.PanelDark, UiTheme.TextMuted, 17,
-                TextAnchor.MiddleCenter);
-            UiFactory.Size(cancel.gameObject, prefW: 160f);
+            var next = WorldSystem.NextWorld(_c, _world);
+            if (next == null) return;
+            Toasts.Show($"On to World — {next.Name}!");
+            // Re-enter the overworld; CurrentWorld() now resolves to the next open world.
+            GameManager.Instance.GoToTexas();
         }
-
-        private void EndDay()
-        {
-            var result = GameManager.Instance.EndBusinessDay(out var freight, out var economy, out var marketEvent);
-            string flash = "";
-            if (result.WeekEnded)
-                flash = result.QuotaMet
-                    ? $"Week cleared! {result.DealsWon}/{result.Goal} deals — +{result.RewardSkillPoints} SP, +{result.RewardXp} XP."
-                    : $"Week missed: {result.DealsWon}/{result.Goal} deals. New week, fresh start.";
-            flash = Join(flash, freight.Summary());
-            flash = Join(flash, economy.Summary());
-            flash = Join(flash, marketEvent);
-            GameManager.Instance.CareerFlash = string.IsNullOrEmpty(flash) ? null : flash;
-            GameManager.Instance.GoToTexas(); // reload the overworld on the new day (shows the flash)
-        }
-
-        private static string Join(string a, string b) =>
-            string.IsNullOrEmpty(b) ? a : (string.IsNullOrEmpty(a) ? b : a + "  " + b);
 
         private void TravelTo(LocalClient client)
         {
             if (_c == null || client == null) return;
-            if (!TerritorySystem.IsAvailable(_c, client, _day))
-            {
-                Toasts.Show(!TerritorySystem.IsUnlocked(_c, client)
-                    ? $"{client.Company} unlocks at level {client.RequiredLevel}."
-                    : $"{client.Company}: next stage in {TerritorySystem.DaysUntilAvailable(_c, client.Id, _day)} day(s).");
-                return;
-            }
-
-            // Reach the city: fast-travel if already unlocked, else play the commute
-            // platformer (a win unlocks fast-travel and drops you in). You then drive to a
-            // business in the city and fight its gatekeeper to earn the meeting.
+            // The SMW path is the only gate; meetings still respect their own stage cooldown,
+            // but you can always attempt the commute to clear the level.
             GameManager.Instance.PendingClientId = client.Id;
             GameManager.Instance.TravelToCity(client.Id);
         }
 
         // ---- helpers --------------------------------------------------------
 
-        private Color AccountColor(LocalClient client)
+        private Color CityColor(Node node)
         {
-            if (_c == null) return Color.gray;
-            if (TerritorySystem.IsClosed(_c, client.Id)) return new Color(0.34f, 0.62f, 1f);
-            if (!TerritorySystem.IsUnlocked(_c, client)) return new Color(0.45f, 0.45f, 0.50f);
-            if (!TerritorySystem.IsAvailable(_c, client, _day)) return new Color(0.92f, 0.70f, 0.22f);
-            return new Color(0.34f, 0.80f, 0.44f);
+            if (node.Cleared) return new Color(0.34f, 0.62f, 1f);   // blue = done
+            if (!node.Unlocked) return new Color(0.45f, 0.45f, 0.50f); // grey = locked
+            return new Color(0.34f, 0.80f, 0.44f);                  // green = playable
         }
 
-        // "Austin, TX" -> "Austin" for a clean city label on the map.
         private static string CityName(string cityField)
         {
             if (string.IsNullOrEmpty(cityField)) return "City";
@@ -512,7 +532,7 @@ namespace Fitzmark.BDRSim.World
             string rank = ProgressionSystem.RankTitle(c.level);
             if (string.IsNullOrEmpty(c.acknowledgedRank))
             {
-                c.acknowledgedRank = rank; // first run — record, no ceremony
+                c.acknowledgedRank = rank;
                 GameManager.Instance.SaveProfile();
                 return;
             }

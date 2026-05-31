@@ -88,6 +88,61 @@ namespace Fitzmark.BDRSim.World
             return tex;
         }
 
+        /// <summary>
+        /// A generic SNES-style world terrain for any state: a soft organic landmass on water,
+        /// rolling desert→plain→green bands, dithered shade. Deterministic per <paramref name="seed"/>
+        /// so each state looks distinct but stable. Used by the world map; cities are placed by
+        /// their normalized in-state position, not a true outline.
+        /// </summary>
+        public static Texture2D StateTerrain(int seed, int res = 220)
+        {
+            var tex = NewTex(res, res);
+            var land = new bool[res, res];
+            var rng = new System.Random(seed);
+            float ox = (float)rng.NextDouble() * 100f, oy = (float)rng.NextDouble() * 100f;
+            // Tint the land palette a touch by seed so states differ.
+            float hueShift = (float)rng.NextDouble();
+
+            Color waterDeep = new(0.06f, 0.13f, 0.24f);
+            Color water = new(0.09f, 0.19f, 0.31f);
+            Color coast = new(0.20f, 0.37f, 0.50f);
+            Color desert = Color.Lerp(new(0.64f, 0.53f, 0.35f), new(0.58f, 0.56f, 0.40f), hueShift);
+            Color plain = Color.Lerp(new(0.50f, 0.52f, 0.31f), new(0.46f, 0.55f, 0.34f), hueShift);
+            Color green = Color.Lerp(new(0.33f, 0.47f, 0.27f), new(0.30f, 0.50f, 0.32f), hueShift);
+            Color shade = new(0.24f, 0.37f, 0.21f);
+
+            for (int py = 0; py < res; py++)
+                for (int px = 0; px < res; px++)
+                {
+                    float u = px / (res - 1f), v = py / (res - 1f);
+                    // Distance from centre, warped by noise → an organic blob filling most of the frame.
+                    float warp = Mathf.PerlinNoise(px * 0.045f + ox, py * 0.045f + oy);
+                    float d = Mathf.Sqrt((u - 0.5f) * (u - 0.5f) + (v - 0.5f) * (v - 0.5f));
+                    bool inside = d < 0.46f * (0.7f + 0.6f * warp);
+                    land[px, py] = inside;
+                    float thr = (Bayer[py & 3, px & 3] + 0.5f) / 16f;
+
+                    if (inside)
+                    {
+                        float t = u; // west→east bands
+                        Color baseCol = t < 0.4f
+                            ? Color.Lerp(desert, plain, t / 0.4f)
+                            : Color.Lerp(plain, green, (t - 0.4f) / 0.6f);
+                        float n = Mathf.PerlinNoise(px * 0.09f + ox + 3.1f, py * 0.09f + oy + 1.7f);
+                        tex.SetPixel(px, py, n > thr ? baseCol : Color.Lerp(baseCol, shade, 0.55f));
+                    }
+                    else tex.SetPixel(px, py, 0.5f > thr ? water : waterDeep);
+                }
+
+            for (int py = 0; py < res; py++)
+                for (int px = 0; px < res; px++)
+                    if (!land[px, py] && NearLand(land, px, py, res))
+                        tex.SetPixel(px, py, coast);
+
+            tex.Apply();
+            return tex;
+        }
+
         private static bool NearLand(bool[,] land, int px, int py, int res)
         {
             for (int dy = -1; dy <= 1; dy++)
