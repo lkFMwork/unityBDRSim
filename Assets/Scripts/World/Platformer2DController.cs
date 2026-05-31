@@ -20,10 +20,9 @@ namespace Fitzmark.BDRSim.World
         public float timeToApex = 0.40f;
         public float coyoteTime = 0.1f;
         public float jumpBuffer = 0.12f;
-        // Arc shape: hang a touch at the apex (rounded top) and fall a bit faster (weighty).
-        public float apexThreshold = 2.5f;       // |vy| below this = "near apex"
-        public float apexGravityMult = 0.55f;    // lighter gravity at the peak → smooth U
-        public float fallGravityMult = 1.35f;    // heavier on the way down
+        // Arc shape. 1 = fully symmetric (rise and fall ramp equally — a clean parabola).
+        // Raise slightly (e.g. 1.15) only if you want a touch more weight on the way down.
+        public float fallGravityMult = 1f;
         // Horizontal speed RAMPS toward the target (the technique that makes running + jumping
         // feel good, per cjddmut's PlatformerMotor2D) rather than snapping on/off. Air is grippier
         // (slower accel) so you keep momentum mid-jump instead of stopping dead — the fix for the
@@ -114,15 +113,13 @@ namespace Fitzmark.BDRSim.World
             if ((Input.GetKeyUp(KeyCode.Space) || Input.GetKeyUp(KeyCode.W)) && _vel.y > 0f)
                 _vel.y *= 0.5f; // variable-height jump
 
-            // Asymmetric gravity for a satisfying arc (industry standard, e.g. Celeste):
-            //  • lighter gravity near the apex (a brief "hang") so the top reads as a rounded U,
-            //    not a sharp stalling V;
-            //  • heavier gravity on the way down so falls feel weighty, not floaty.
-            float g = Gravity;
-            if (Mathf.Abs(_vel.y) < apexThreshold) g *= apexGravityMult; // hang at the peak
-            else if (_vel.y < 0f) g *= fallGravityMult;                  // snappier fall
+            // Symmetric arc: ONE constant gravity for rise and fall, so the jump ramps up and
+            // ramps down at the same rate — a clean parabola (inherently a smooth U, no stall).
+            // fallGravityMult defaults to 1 (fully symmetric); nudge it >1 only if you later want
+            // a slightly snappier descent.
+            float g = Gravity * (_vel.y < 0f ? fallGravityMult : 1f);
             _vel.y -= g * dt;
-            _vel.y = Mathf.Max(_vel.y, -Gravity * fallGravityMult * timeToApex * 2.5f); // terminal
+            _vel.y = Mathf.Max(_vel.y, -JumpVelocity * 1.6f); // terminal (a bit past launch speed)
 
             MoveCollide(dt);
             Animate(h);
