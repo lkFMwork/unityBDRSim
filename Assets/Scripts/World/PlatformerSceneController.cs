@@ -9,17 +9,20 @@ using UnityEngine.UI;
 namespace Fitzmark.BDRSim.World
 {
     /// <summary>
-    /// Runs a single "commute" platformer level: you must beat the level to reach a
-    /// local client in person. Generates the level, spawns the player, follows with
-    /// a side camera, and on success hands off to the meeting (gatekeeper/call); on
-    /// failure you didn't make it. Attach to a GameObject in the Platformer scene.
+    /// Runs a single "commute" platformer level — now a true 2D sprite-tilemap stage. You must
+    /// beat the level to reach a local client; on success it hands off to the meeting, on
+    /// failure you didn't make it. Orthographic camera, sprite player + tiles (Kenney Pixel
+    /// Platformer when imported, placeholders until then). Attach to a GameObject in the
+    /// Platformer scene.
     /// </summary>
     public class PlatformerSceneController : MonoBehaviour
     {
+        private const int SolidLayer = 8; // tiles live here; the 2D controller raycasts it
+
         private Canvas _canvas;
         private Camera _cam;
         private GameObject _player;
-        private PlatformerController _ctrl;
+        private Platformer2DController _ctrl;
         private TMP_Text _statusLabel;
         private string _company = "the client";
         private bool _over;
@@ -40,8 +43,8 @@ namespace Fitzmark.BDRSim.World
             BuildArena();
 
             var level = new GameObject("Level");
-            PlatformerLevelGenerator.Build(difficulty, unchecked(System.Environment.TickCount), level.transform,
-                out Vector3 start);
+            Platformer2DGenerator.Build(difficulty, unchecked(System.Environment.TickCount),
+                level.transform, SolidLayer, out Vector3 start);
 
             SpawnPlayer(start);
             BuildHud();
@@ -52,18 +55,12 @@ namespace Fitzmark.BDRSim.World
             _cam = Camera.main;
             if (_cam != null)
             {
+                _cam.orthographic = true;            // 2D side view
+                _cam.orthographicSize = 6f;
                 _cam.clearFlags = CameraClearFlags.SolidColor;
                 _cam.backgroundColor = new Color(0.45f, 0.62f, 0.85f); // sky
-                _cam.fieldOfView = 42f;
-                _cam.farClipPlane = 500f;
-            }
-            if (Object.FindFirstObjectByType<Light>() == null)
-            {
-                var lgo = new GameObject("Sun");
-                var l = lgo.AddComponent<Light>();
-                l.type = LightType.Directional;
-                l.intensity = 1.1f;
-                lgo.transform.rotation = Quaternion.Euler(50f, -20f, 0f);
+                _cam.transform.rotation = Quaternion.identity;
+                _cam.transform.position = new Vector3(0f, 4f, -10f);
             }
         }
 
@@ -72,22 +69,37 @@ namespace Fitzmark.BDRSim.World
             _player = new GameObject("Player");
             _player.transform.position = start;
 
-            var cc = _player.AddComponent<CharacterController>();
-            cc.height = 1.8f;
-            cc.radius = 0.4f;
-            cc.center = new Vector3(0f, 0.9f, 0f);
+            // Kinematic Rigidbody2D + trigger collider so prop pickups (coins/enemies/goal)
+            // fire OnTriggerEnter2D; movement/solid collision is the controller's own raycasts.
+            var rb = _player.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.gravityScale = 0f;
+            var trigger = _player.AddComponent<BoxCollider2D>();
+            trigger.isTrigger = true;
+            trigger.size = new Vector2(0.7f, 1f);
+            trigger.offset = new Vector2(0f, 0.5f);
 
-            _ctrl = _player.AddComponent<PlatformerController>();
+            _ctrl = _player.AddComponent<Platformer2DController>();
 
-            // Kenney platformer character (a clean static model that suits the arcade
-            // minigame); a hop bob is driven procedurally by the controller's visual.
-            var body = ModelLibrary.Spawn(
-                "Models/kenney_platformer-kit/Models/FBX format/character-oopi",
-                _player.transform, Vector3.zero, 0f, 1f,
-                placeholderColor: new Color(0.30f, 0.55f, 0.85f), placeholderLabel: false,
-                fitHeight: 1.6f, ground: false, sitBase: true); // feet at the controller's base
+            // Sprite body: a child SpriteRenderer driven by SpriteAnimator (Kenney pixel
+            // character frames when imported, a colored placeholder square until then).
+            var bodyGo = new GameObject("Body", typeof(SpriteRenderer));
+            bodyGo.transform.SetParent(_player.transform, false);
+            var anim = bodyGo.AddComponent<SpriteAnimator>();
+            anim.Setup(bodyGo.GetComponent<SpriteRenderer>(),
+                idleKey: "platformer/character_purple_idle",
+                jumpKey: "platformer/character_purple_jump",
+                walkKeys: new[] { "platformer/character_purple_walk_a", "platformer/character_purple_walk_b" },
+                tintColor: new Color(0.55f, 0.5f, 0.9f));
+            // Scale the body sprite to roughly the controller's height.
+            var sr = bodyGo.GetComponent<SpriteRenderer>();
+            if (sr.sprite != null)
+            {
+                float h = sr.sprite.bounds.size.y;
+                if (h > 0.0001f) bodyGo.transform.localScale = Vector3.one * (1f / h);
+            }
 
-            _ctrl.Init(start, body.transform);
+            _ctrl.Init(start, anim, 1 << SolidLayer);
             _ctrl.Won += OnWon;
             _ctrl.Failed += OnFailed;
             _ctrl.LivesChanged += _ => RefreshStatus();
@@ -97,14 +109,11 @@ namespace Fitzmark.BDRSim.World
         private void LateUpdate()
         {
             if (_cam == null || _player == null) return;
-            float t = 10f * Time.deltaTime;
-            float camX = Mathf.Lerp(_cam.transform.position.x, _player.transform.position.x + 1.5f, t);
-            // Follow height too (levels now climb via stairs/springs), but never below the
-            // baseline so flat sections still frame the ground nicely.
-            float targetY = Mathf.Max(3.2f, _player.transform.position.y + 2.2f);
-            float camY = Mathf.Lerp(_cam.transform.position.y, targetY, t);
-            _cam.transform.position = new Vector3(camX, camY, -12f);
-            _cam.transform.LookAt(new Vector3(camX, camY - 0.6f, 0f));
+            float t = 8f * Time.deltaTime;
+            Vector3 p = _player.transform.position;
+            float camX = Mathf.Lerp(_cam.transform.position.x, p.x + 2f, t);
+            float camY = Mathf.Lerp(_cam.transform.position.y, Mathf.Max(4f, p.y + 1.5f), t);
+            _cam.transform.position = new Vector3(camX, camY, -10f);
         }
 
         // ---- HUD ------------------------------------------------------------
