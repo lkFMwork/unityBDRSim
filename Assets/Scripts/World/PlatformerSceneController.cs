@@ -32,11 +32,12 @@ namespace Fitzmark.BDRSim.World
 
         private void Start()
         {
-            // Smooth frame pacing: run physics at 60Hz (matches typical rendering, so the
-            // interpolated player has no step gap) and cap to the display via vSync. Default
-            // 50Hz physics + uncapped frames was the "skipping frames" micro-stutter.
+            // Frame pacing: 60Hz physics to match rendering. Do NOT force vSync=1 — on a 60Hz
+            // display that hard-locks to 30fps the instant a frame exceeds 16ms (the "stable 32").
+            // Cap at 60 instead, so the real framerate shows through.
             Time.fixedDeltaTime = 1f / 60f;
-            QualitySettings.vSyncCount = 1;
+            QualitySettings.vSyncCount = 0;
+            Application.targetFrameRate = 60;
 
             var scenario = GameManager.Instance.SelectedScenario;
             _company = scenario != null && scenario.prospect != null ? scenario.prospect.companyName : "the client";
