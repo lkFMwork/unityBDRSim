@@ -150,7 +150,10 @@ namespace Fitzmark.BDRSim.World
             colGo.AddComponent<BoxCollider2D>().size = new Vector2(width * Cell, Depth * Cell);
         }
 
-        // A tiled sprite strip centered at (cx, cy) of the given world size.
+        // A tiled sprite strip centered at (cx, cy) of the given world size, where each repeated
+        // tile is exactly one Cell — REGARDLESS of the sprite's import pixels-per-unit. (A tile
+        // imported at PPU 100 is only ~0.18 units, which made Tiled mode emit hundreds of tiles
+        // per strip = lag; we scale the renderer so one tile == one Cell and the count stays sane.)
         private static void TiledStrip(Transform parent, float cx, float cy, float w, float h,
             string spriteKey, Color fallback, int sorting)
         {
@@ -161,8 +164,13 @@ namespace Fitzmark.BDRSim.World
             sr.sprite = SpriteLibrary.Get(spriteKey, fallback);
             sr.color = SpriteLibrary.Has(spriteKey) ? Color.white : fallback;
             sr.drawMode = SpriteDrawMode.Tiled;
-            sr.size = new Vector2(w, h);
             sr.sortingOrder = sorting;
+
+            // Scale so one sprite tile covers one Cell, then express the area in that scaled space.
+            float tileWorld = sr.sprite != null ? sr.sprite.bounds.size.x : 1f;
+            float scale = tileWorld > 0.0001f ? Cell / tileWorld : 1f;
+            go.transform.localScale = new Vector3(scale, scale, 1f);
+            sr.size = new Vector2(w, h) / scale; // local size; world size = (w,h), tiles = (w,h)/Cell
         }
 
         // ---- authored building blocks (advance _gx; mutate _row) -------------
