@@ -38,8 +38,8 @@ namespace Fitzmark.BDRSim.World
         // Live state for the on-screen debug readout (diagnosing the jump/ground issue).
         public int DbgNudges, DbgVCol;
         public string DebugLine =>
-            $"grnd:{(_grounded ? 1 : 0)} vY:{_vel.y:F1} vX:{_vel.x:F1} h:{Input.GetAxisRaw("Horizontal"):F1}\n" +
-            $"lock:{_jumpLock:F2} y:{transform.position.y:F2} nudge:{DbgNudges} vcol:{DbgVCol}";
+            $"grnd:{(_grounded ? 1 : 0)} vY:{_vel.y:F1} y:{transform.position.y:F2} nudge:{DbgNudges}\n" +
+            $"upcast: {DbgUpHit}";
 
         public event Action Won;
         public event Action Failed;
@@ -222,10 +222,17 @@ namespace Fitzmark.BDRSim.World
         // never "ahead" on an upward cast, so it can't fire a phantom collision — which a normal
         // check missed because a collider corner/edge can report a misleading normal.
         private static readonly RaycastHit2D[] _castHits = new RaycastHit2D[8];
+        public string DbgUpHit = "(none)"; // raw details of the last upward cast's first hit
         private float CastSelf(Vector2 origin, Vector2 dir, float max)
         {
             Vector2 size = new Vector2(halfWidth * 2f - 0.04f, halfHeight * 2f - 0.04f);
             int n = Physics2D.BoxCastNonAlloc(origin, size, 0f, dir, _castHits, max, _solidMask);
+            if (dir.y > 0.5f) // capture what an upward (jump) cast is actually hitting
+            {
+                if (n == 0) DbgUpHit = "n=0";
+                else DbgUpHit = $"n={n} d={_castHits[0].distance:F2} pt.y={_castHits[0].point.y:F2} " +
+                                $"nrm={_castHits[0].normal.y:F1} '{_castHits[0].collider?.name}'";
+            }
             float best = max;
             for (int i = 0; i < n; i++)
             {
