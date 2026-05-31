@@ -143,7 +143,7 @@ namespace Fitzmark.BDRSim.World
             var bottom = UiFactory.Panel(_canvas.transform, new Color(0f, 0f, 0f, 0.45f), "Hint");
             Anchor(bottom.rectTransform, new Vector2(0f, 0f), new Vector2(1f, 0.07f));
             var hint = UiFactory.Label(bottom.transform,
-                "← →  move      Space  jump (hold for higher)      stomp enemies, mind the gaps",
+                "← →  move    Shift  run    Space  jump (hold higher)    stomp enemies, mind the gaps",
                 14, UiTheme.TextMuted, TextAnchor.MiddleCenter, FontStyle.Normal);
             UiFactory.Stretch(hint.rectTransform);
 

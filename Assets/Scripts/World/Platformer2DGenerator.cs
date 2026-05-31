@@ -63,7 +63,7 @@ namespace Fitzmark.BDRSim.World
 
             // ---- SHŌ: Develop. First real PIT (teaches commitment), coin arc over it as the guide. ----
             Flat(2);
-            int gap1 = 2 + difficulty / 4;                 // 2–4 cells
+            int gap1 = 2 + difficulty / 7;                 // 2–3 cells (3m < 4m walk-jump distance)
             Gap(gap1, arcCoins: true);
             Flat(3);
 

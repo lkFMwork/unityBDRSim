@@ -14,11 +14,16 @@ namespace Fitzmark.BDRSim.World
     public class Platformer2DController : MonoBehaviour
     {
         // Design-first jump tuning (see JumpArc): pick height + apex time, derive the rest.
-        public float runSpeed = 7f;
+        public float walkSpeed = 5f;
+        public float runSpeed = 8.5f;            // top speed while holding the run button
         public float maxJumpHeight = 3.2f;
-        public float timeToApex = 0.38f;
+        public float timeToApex = 0.40f;
         public float coyoteTime = 0.1f;
         public float jumpBuffer = 0.12f;
+        // Arc shape: hang a touch at the apex (rounded top) and fall a bit faster (weighty).
+        public float apexThreshold = 2.5f;       // |vy| below this = "near apex"
+        public float apexGravityMult = 0.55f;    // lighter gravity at the peak → smooth U
+        public float fallGravityMult = 1.35f;    // heavier on the way down
         // Horizontal speed RAMPS toward the target (the technique that makes running + jumping
         // feel good, per cjddmut's PlatformerMotor2D) rather than snapping on/off. Air is grippier
         // (slower accel) so you keep momentum mid-jump instead of stopping dead — the fix for the
@@ -63,10 +68,11 @@ namespace Fitzmark.BDRSim.World
             _anim = anim;
             _solidMask = solidMask;
             _body = body;
-            // We move in Update and immediately query the physics world via BoxCast; auto-sync
-            // keeps colliders' positions current each query, so movement responds the same frame
-            // (without this, casts read a FixedUpdate-stale world → laggy feel).
-            Physics2D.autoSyncTransforms = true;
+            // IMPORTANT: keep autoSync OFF. With it on, every Collider2D.Cast forces a full
+            // physics-world transform sync, and we cast several times per frame (plus the corner
+            // nudge) — that's dozens of full syncs per frame = the stutter. Instead we sync ONCE
+            // at the start of each move and after repositioning, which is cheap and accurate.
+            Physics2D.autoSyncTransforms = false;
             Physics2D.SyncTransforms();
             Lives = startLives;
             Coins = 0;
@@ -83,16 +89,16 @@ namespace Fitzmark.BDRSim.World
             float h = Input.GetAxisRaw("Horizontal");
             if (Mathf.Abs(h) > 0.01f) _facing = h > 0 ? 1 : -1;
 
-            // Ramp horizontal velocity toward the target instead of snapping it. Accelerate on
-            // input (ground vs air rate), skid to a stop on release — this is what makes moving
-            // and especially jumping-while-running feel smooth rather than switch-like.
-            float target = h * runSpeed;
-            float rate;
-            if (Mathf.Abs(h) > 0.01f)
-                rate = runSpeed / Mathf.Max(0.001f, _grounded ? timeToTopSpeedGround : timeToTopSpeedAir);
-            else
-                rate = runSpeed / Mathf.Max(0.001f, _grounded ? timeToStopGround : timeToTopSpeedAir);
-            _vel.x = Mathf.MoveTowards(_vel.x, target, rate * dt);
+            // Hold Shift (or controller B) to RUN; otherwise walk. Both ramp toward their target
+            // speed (skid-to-stop on release) so movement and jump-while-moving feel smooth, not
+            // switch-like. Reachability is guaranteed at walk speed, so running is optional flair.
+            bool running = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)
+                           || Input.GetKey(KeyCode.JoystickButton1);
+            float topSpeed = running ? runSpeed : walkSpeed;
+            float target = h * topSpeed;
+            float accel = runSpeed / Mathf.Max(0.001f, _grounded ? timeToTopSpeedGround : timeToTopSpeedAir);
+            if (Mathf.Abs(h) <= 0.01f) accel = runSpeed / Mathf.Max(0.001f, _grounded ? timeToStopGround : timeToTopSpeedAir);
+            _vel.x = Mathf.MoveTowards(_vel.x, target, accel * dt);
 
             if (_grounded) _coyote = coyoteTime; else _coyote = Mathf.Max(0f, _coyote - dt);
             if (Input.GetKeyDown(KeyCode.Space) || Input.GetButtonDown("Jump") || Input.GetKeyDown(KeyCode.W))
@@ -108,8 +114,15 @@ namespace Fitzmark.BDRSim.World
             if ((Input.GetKeyUp(KeyCode.Space) || Input.GetKeyUp(KeyCode.W)) && _vel.y > 0f)
                 _vel.y *= 0.5f; // variable-height jump
 
-            _vel.y -= Gravity * dt;
-            _vel.y = Mathf.Max(_vel.y, -Gravity * timeToApex * 2f); // terminal
+            // Asymmetric gravity for a satisfying arc (industry standard, e.g. Celeste):
+            //  • lighter gravity near the apex (a brief "hang") so the top reads as a rounded U,
+            //    not a sharp stalling V;
+            //  • heavier gravity on the way down so falls feel weighty, not floaty.
+            float g = Gravity;
+            if (Mathf.Abs(_vel.y) < apexThreshold) g *= apexGravityMult; // hang at the peak
+            else if (_vel.y < 0f) g *= fallGravityMult;                  // snappier fall
+            _vel.y -= g * dt;
+            _vel.y = Mathf.Max(_vel.y, -Gravity * fallGravityMult * timeToApex * 2.5f); // terminal
 
             MoveCollide(dt);
             Animate(h);
@@ -122,6 +135,7 @@ namespace Fitzmark.BDRSim.World
         // wrong — eliminating the "rests a tile too high" class of bug.
         private void MoveCollide(float dt)
         {
+            Physics2D.SyncTransforms(); // once per move: colliders match transforms for our casts
             Vector3 p = transform.position;
             const float skin = 0.02f;
 
@@ -173,23 +187,24 @@ namespace Fitzmark.BDRSim.World
         }
 
         // If the head is clipping only a corner of a block above, try nudging left/right by up
-        // to ~a third of a tile to slide past. Returns true (and shifts p) if a nudge clears it.
+        // to ~a third of a tile to slide past. Uses BoxCast at offset positions (no transform
+        // writes / no per-step syncs), so it's cheap. Returns true (and shifts p) if a nudge clears it.
         private bool TryCornerNudge(ref Vector3 p)
         {
-            const float maxNudge = 0.34f, step = 0.06f;
+            Vector2 box = new Vector2(halfWidth * 2f - 0.04f, halfHeight * 2f - 0.04f);
+            const float maxNudge = 0.34f, step = 0.08f;
             for (float n = step; n <= maxNudge; n += step)
             {
-                foreach (int s in _sides)
+                for (int si = 0; si < 2; si++)
                 {
-                    var test = p + new Vector3(s * n, 0f, 0f);
-                    transform.position = test;
-                    if (CastSelf(Vector2.up, 0.15f) >= 0.15f) { p = test; return true; } // clear above here
+                    float s = si == 0 ? 1f : -1f;
+                    Vector2 c = new Vector2(p.x + s * n, p.y); // box is centered on the transform
+                    var hit = Physics2D.BoxCast(c, box, 0f, Vector2.up, 0.15f, _solidMask);
+                    if (hit.collider == null) { p.x += s * n; return true; } // clear above at this offset
                 }
             }
-            transform.position = p; // restore
             return false;
         }
-        private static readonly int[] _sides = { 1, -1 };
 
         // Distance the player's collider can travel along `dir` before hitting a surface that
         // actually OPPOSES that direction (full `max` if clear). The normal check is essential:
