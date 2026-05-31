@@ -65,7 +65,8 @@ namespace Fitzmark.BDRSim.World
             builder.Build();
             _playerSpawn = builder.PlayerSpawn;
 
-            // Each business is an enterable client site (press E → in-person meeting).
+            // Each business is an enterable client site (press E → gatekeeper fight → meeting),
+            // marked by a top-down spotlight + glowing beacon so it's easy to spot and drive to.
             foreach (var (pos, yaw, index) in builder.Businesses)
             {
                 var go = new GameObject("Business_" + index);
@@ -74,10 +75,40 @@ namespace Fitzmark.BDRSim.World
                 go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
                 var it = go.AddComponent<Interactable>();
                 it.kind = Interactable.Kind.Client;
-                it.label = "Enter business";
+                it.label = "Enter business (fight the gatekeeper)";
                 it.seed = index;
                 it.range = 4f;
+
+                AddBusinessBeacon(go.transform);
             }
+        }
+
+        // A downward spotlight + emissive glow column marking an enterable business.
+        private void AddBusinessBeacon(Transform parent)
+        {
+            var lightGo = new GameObject("Spotlight");
+            lightGo.transform.SetParent(parent, false);
+            lightGo.transform.localPosition = new Vector3(0f, 9f, 0f);
+            lightGo.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); // point straight down
+            var light = lightGo.AddComponent<Light>();
+            light.type = LightType.Spot;
+            light.color = new Color(1f, 0.93f, 0.55f);
+            light.intensity = 14f;
+            light.range = 16f;
+            light.spotAngle = 48f;
+            light.shadows = LightShadows.None;
+
+            // A thin glowing beacon column so it reads even in daylight.
+            var beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            beacon.name = "Beacon";
+            beacon.transform.SetParent(parent, false);
+            beacon.transform.localPosition = new Vector3(0f, 4f, 0f);
+            beacon.transform.localScale = new Vector3(0.25f, 4f, 0.25f);
+            var col = beacon.GetComponent<Collider>(); if (col != null) Destroy(col);
+            var mat = MaterialLibrary.Get(new Color(1f, 0.88f, 0.4f));
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", new Color(1f, 0.85f, 0.35f) * 2.2f);
+            var r = beacon.GetComponent<Renderer>(); if (r != null) r.sharedMaterial = mat;
         }
 
         private static int StableHash(string s)
@@ -313,9 +344,11 @@ namespace Fitzmark.BDRSim.World
             int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1), 1, 10);
             int seed = unchecked(target.seed * 101 + c.career.day * 13 + c.callsMade);
             var scenario = ProspectGenerator.Generate(difficulty, seed);
+            scenario.gatekeeperPresent = true; // a gatekeeper guards the meeting → fight to get in
 
+            // Enter the business: fight the gatekeeper (MK duel), then the meeting.
             GameManager.Instance.HubScene = SceneNames.City;
-            GameManager.Instance.StartTravel(scenario, true); // beat the commute level, then meet in person
+            GameManager.Instance.StartCareerCall(scenario);
         }
 
         private void Flash(string message)

@@ -162,23 +162,64 @@ namespace Fitzmark.BDRSim.Core
             ReturnToHub();
         }
 
-        // ---- in-person travel (the platformer "commute" to a local client) ----
+        // ---- commute platformer (the Mario-style level you beat to REACH a city) ----
 
-        /// <summary>Play a platformer level to reach a local client in person.</summary>
-        public void StartTravel(ScenarioDefinition scenario, bool career)
+        /// <summary>The city the commute platformer is travelling to; entered on a win.</summary>
+        public string TravelDestinationCityId { get; private set; } = "";
+
+        /// <summary>
+        /// Travel to a city from the map. If its city is already unlocked, fast-travel
+        /// straight in; otherwise play the commute platformer first — winning unlocks the
+        /// city (fast-travel thereafter) and drops you into it.
+        /// </summary>
+        public void TravelToCity(string clientId)
         {
-            IsCareerCall = career;
-            SelectedScenario = scenario;
+            if (Profile != null && TerritorySystem.IsCityUnlocked(Profile, clientId))
+            {
+                GoToCity(clientId);
+                return;
+            }
+            TravelDestinationCityId = clientId ?? "";
+            HubScene = SceneNames.Texas;
             LastReport = null;
             SceneManager.LoadScene(SceneNames.Platformer);
         }
 
-        /// <summary>Reached the client — proceed into the meeting.</summary>
-        public void OnTravelComplete() => EnterMeeting(SelectedScenario);
+        /// <summary>Legacy entry: play a platformer level, then a meeting (kept for callers).</summary>
+        public void StartTravel(ScenarioDefinition scenario, bool career)
+        {
+            IsCareerCall = career;
+            SelectedScenario = scenario;
+            TravelDestinationCityId = "";
+            LastReport = null;
+            SceneManager.LoadScene(SceneNames.Platformer);
+        }
 
-        /// <summary>Didn't make it — back to the hub.</summary>
+        /// <summary>Won the commute: unlock + enter the destination city, or fall back to a meeting.</summary>
+        public void OnTravelComplete()
+        {
+            if (!string.IsNullOrEmpty(TravelDestinationCityId))
+            {
+                if (Profile != null) TerritorySystem.UnlockCity(Profile, TravelDestinationCityId);
+                SaveProfile();
+                var dest = TravelDestinationCityId;
+                TravelDestinationCityId = "";
+                GoToCity(dest);
+                return;
+            }
+            EnterMeeting(SelectedScenario);
+        }
+
+        /// <summary>Didn't make it — back to the map.</summary>
         public void OnTravelFailed()
         {
+            if (!string.IsNullOrEmpty(TravelDestinationCityId))
+            {
+                CareerFlash = "You didn't make the commute — try the route again.";
+                TravelDestinationCityId = "";
+                GoToTexas();
+                return;
+            }
             if (IsCareerCall)
                 CareerFlash = "You didn't make it to the client — no meeting today.";
             ReturnToHub();

@@ -369,9 +369,14 @@ namespace Fitzmark.BDRSim.World
             foreach (var n in _nodes)
                 if (n.Rt != null) n.Rt.localScale = Vector3.one * (n == _current ? 1.18f : 1f);
 
+            string accountVerb = "🔒  Locked —";
+            if (_current.Kind == Kind.Account && _current.Available)
+                accountVerb = (_c != null && TerritorySystem.IsCityUnlocked(_c, _current.Client.Id))
+                    ? "🚚  Drive into"          // already reached → fast-travel
+                    : "🗺  Travel to";          // first visit → play the commute level
             string verb = _current.Kind switch
             {
-                Kind.Account => _current.Available ? "🚚  Drive into" : "🔒  Locked —",
+                Kind.Account => accountVerb,
                 Kind.Call => "▶  Work the phones at",
                 Kind.EndDay => "▶  Turn in the day at",
                 _ => "▶  Enter"
@@ -469,9 +474,11 @@ namespace Fitzmark.BDRSim.World
                 return;
             }
 
-            // Fast-travel into the city itself; you drive to a business there to take the meeting.
+            // Reach the city: fast-travel if already unlocked, else play the commute
+            // platformer (a win unlocks fast-travel and drops you in). You then drive to a
+            // business in the city and fight its gatekeeper to earn the meeting.
             GameManager.Instance.PendingClientId = client.Id;
-            GameManager.Instance.GoToCity(client.Id);
+            GameManager.Instance.TravelToCity(client.Id);
         }
 
         // ---- helpers --------------------------------------------------------

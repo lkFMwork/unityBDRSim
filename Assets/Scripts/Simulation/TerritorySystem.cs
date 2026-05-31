@@ -35,6 +35,13 @@ namespace Fitzmark.BDRSim.Simulation
 
         public static bool IsUnlocked(BDRCharacter c, LocalClient client) => c.level >= client.RequiredLevel;
 
+        /// <summary>True once the player has beaten the commute platformer to reach this city.</summary>
+        public static bool IsCityUnlocked(BDRCharacter c, string clientId) => GetProgress(c, clientId).cityUnlocked;
+
+        /// <summary>Mark a city reachable by fast-travel (after winning the commute level).</summary>
+        public static void UnlockCity(BDRCharacter c, string clientId) =>
+            GetProgress(c, clientId).cityUnlocked = true;
+
         public static int CurrentStage(BDRCharacter c, string clientId) => GetProgress(c, clientId).stage;
         public static bool IsClosed(BDRCharacter c, string clientId) => GetProgress(c, clientId).closed;
 

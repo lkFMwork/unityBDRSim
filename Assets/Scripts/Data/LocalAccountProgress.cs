@@ -11,5 +11,6 @@ namespace Fitzmark.BDRSim.Data
         public int stage = 1;
         public int lastMeetingDay = -999; // never met
         public bool closed = false;
+        public bool cityUnlocked = false; // beaten the commute platformer → fast-travel enabled
     }
 }
