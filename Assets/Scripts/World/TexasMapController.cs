@@ -380,20 +380,56 @@ namespace Fitzmark.BDRSim.World
         private void LayoutCells()
         {
             _cells.Clear();
-            int n = _world.Cities.Count + (WorldSystem.NextWorld(_c, _world) != null ? 1 : 0);
-            int usableCols = GridCols - 2;          // 1-tile margin each side
-            int perRow = Mathf.Min(usableCols, Mathf.Max(3, Mathf.CeilToInt(n / 2f)));
-            int rowsUsed = Mathf.Max(1, Mathf.CeilToInt(n / (float)perRow));
-            for (int i = 0; i < n; i++)
+            var cities = _world.Cities;
+
+            // Normalize each city's REAL geographic position (MapX west→east, MapZ south→north)
+            // into the grid interior, so cities sit where they actually are in the state
+            // (Memphis far west, Knoxville east, Savannah SE, …).
+            float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
+            foreach (var c in cities)
             {
-                int row = i / perRow;
-                int col = i % perRow;
-                if (row % 2 == 1) col = perRow - 1 - col;         // snake back
-                int gx = 1 + (perRow <= 1 ? 0 : Mathf.RoundToInt(col * (usableCols - 1) / (float)(perRow - 1)));
-                // rows fill from upper-middle downward, leaving the top row for sky/water
-                int gy = GridRows - 2 - (rowsUsed <= 1 ? 0 : Mathf.RoundToInt(row * (GridRows - 3) / (float)(rowsUsed - 1)));
-                _cells.Add(new Vector2Int(Mathf.Clamp(gx, 0, GridCols - 1), Mathf.Clamp(gy, 0, GridRows - 1)));
+                minX = Mathf.Min(minX, c.MapX); maxX = Mathf.Max(maxX, c.MapX);
+                minZ = Mathf.Min(minZ, c.MapZ); maxZ = Mathf.Max(maxZ, c.MapZ);
             }
+
+            var used = new HashSet<Vector2Int>();
+            foreach (var c in cities)
+            {
+                int gx = Mathf.RoundToInt(Mathf.Lerp(1, GridCols - 2, Norm(c.MapX, minX, maxX)));
+                int gy = Mathf.RoundToInt(Mathf.Lerp(1, GridRows - 2, Norm(c.MapZ, minZ, maxZ)));
+                var cell = ResolveFree(new Vector2Int(gx, gy), used);
+                used.Add(cell);
+                _cells.Add(cell);
+            }
+
+            // The gate to the next world sits just past (east of) the last city.
+            if (WorldSystem.NextWorld(_c, _world) != null && _cells.Count > 0)
+            {
+                var last = _cells[_cells.Count - 1];
+                var gate = ResolveFree(new Vector2Int(last.x + 1, last.y - 1), used);
+                used.Add(gate);
+                _cells.Add(gate);
+            }
+        }
+
+        private static float Norm(float v, float min, float max) =>
+            max - min < 0.001f ? 0.5f : Mathf.InverseLerp(min, max, v);
+
+        // The wanted interior cell, or the nearest free one if taken (spiral search) — keeps two
+        // cities from landing on the same tile when their geography rounds to the same cell.
+        private Vector2Int ResolveFree(Vector2Int want, HashSet<Vector2Int> used)
+        {
+            want = new Vector2Int(Mathf.Clamp(want.x, 1, GridCols - 2), Mathf.Clamp(want.y, 1, GridRows - 2));
+            if (!used.Contains(want)) return want;
+            for (int r = 1; r <= Mathf.Max(GridCols, GridRows); r++)
+                for (int dx = -r; dx <= r; dx++)
+                    for (int dy = -r; dy <= r; dy++)
+                    {
+                        var t = new Vector2Int(Mathf.Clamp(want.x + dx, 1, GridCols - 2),
+                                               Mathf.Clamp(want.y + dy, 1, GridRows - 2));
+                        if (!used.Contains(t)) return t;
+                    }
+            return want;
         }
 
         private void BuildNodes()
