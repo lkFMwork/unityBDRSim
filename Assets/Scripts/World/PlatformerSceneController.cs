@@ -75,7 +75,11 @@ namespace Fitzmark.BDRSim.World
             var rb = _player.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic;
             rb.gravityScale = 0f;
-            rb.interpolation = RigidbodyInterpolation2D.Interpolate; // smooth visual motion
+            // None, NOT Interpolate: we drive the transform every frame in Update(), so the
+            // rigidbody isn't physics-stepped. Interpolation then smooths between stale FixedUpdate
+            // positions and fights our movement — that's the jitter that read as a slow/uneven
+            // fall and made the sprite animation look weird.
+            rb.interpolation = RigidbodyInterpolation2D.None;
 
             var body = _player.AddComponent<BoxCollider2D>();   // solid body, centered
             body.size = new Vector2(0.7f, 1.0f);
