@@ -87,9 +87,9 @@ namespace Fitzmark.BDRSim.World
             bodyGo.transform.SetParent(_player.transform, false);
             var anim = bodyGo.AddComponent<SpriteAnimator>();
             anim.Setup(bodyGo.GetComponent<SpriteRenderer>(),
-                idleKey: "platformer/character_purple_idle",
-                jumpKey: "platformer/character_purple_jump",
-                walkKeys: new[] { "platformer/character_purple_walk_a", "platformer/character_purple_walk_b" },
+                idleKey: PixelPlatformerArt.CharIdle,
+                jumpKey: PixelPlatformerArt.CharJump,
+                walkKeys: new[] { PixelPlatformerArt.CharWalkA, PixelPlatformerArt.CharWalkB },
                 tintColor: new Color(0.55f, 0.5f, 0.9f));
             // Scale the body sprite to roughly the controller's height.
             var sr = bodyGo.GetComponent<SpriteRenderer>();

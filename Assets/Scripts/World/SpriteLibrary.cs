@@ -18,8 +18,13 @@ namespace Fitzmark.BDRSim.World
         private static readonly Dictionary<string, Sprite> _cache = new();
         private static readonly Dictionary<Color, Sprite> _solids = new();
 
+        // A key may be a bare name (gets Sprites/ prefixed) or an already-full Resources path
+        // (used as-is) — so pack sprites under Models/... resolve without moving files.
+        private static string Resolve(string key) =>
+            key.StartsWith("Models/") || key.StartsWith(Root) ? key : Root + key;
+
         /// <summary>True if a real sprite exists for this key (vs. a placeholder).</summary>
-        public static bool Has(string key) => Resources.Load<Sprite>(Root + key) != null;
+        public static bool Has(string key) => Resources.Load<Sprite>(Resolve(key)) != null;
 
         /// <summary>
         /// Load a sprite by key (e.g. "platformer/character_purple_walk_a"), or a solid-color
@@ -28,7 +33,7 @@ namespace Fitzmark.BDRSim.World
         public static Sprite Get(string key, Color fallback)
         {
             if (_cache.TryGetValue(key, out var cached) && cached != null) return cached;
-            var sprite = Resources.Load<Sprite>(Root + key);
+            var sprite = Resources.Load<Sprite>(Resolve(key));
             if (sprite == null) sprite = Solid(fallback);
             _cache[key] = sprite;
             return sprite;
@@ -39,7 +44,7 @@ namespace Fitzmark.BDRSim.World
         {
             foreach (var k in keys)
             {
-                var s = Resources.Load<Sprite>(Root + k);
+                var s = Resources.Load<Sprite>(Resolve(k));
                 if (s != null) return s;
             }
             return Solid(fallback);

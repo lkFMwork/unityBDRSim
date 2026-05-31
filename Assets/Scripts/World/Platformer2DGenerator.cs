@@ -12,7 +12,6 @@ namespace Fitzmark.BDRSim.World
     public static class Platformer2DGenerator
     {
         public const float Cell = 1f;                 // world units per tile
-        private const string Tiles = "platformer/";   // Resources/Sprites/platformer/<name>
 
         private static readonly Color GrassTop = new Color(0.45f, 0.78f, 0.42f);
         private static readonly Color Dirt = new Color(0.55f, 0.40f, 0.28f);
@@ -55,7 +54,7 @@ namespace Fitzmark.BDRSim.World
 
             for (int i = 0; i < 3; i++) Column(parent, gx++, groundRow, 3, solidLayer);
             float goalX = (gx - 1) * Cell;
-            Prop(parent, Tiles + "flag", new Vector3(goalX, (groundRow + 2f) * Cell, 0f), 2f,
+            Prop(parent, PixelPlatformerArt.Flag, new Vector3(goalX, (groundRow + 2f) * Cell, 0f), 2f,
                 PlatformerProp.Kind.Goal, FlagC);
             return goalX;
         }
@@ -113,7 +112,7 @@ namespace Fitzmark.BDRSim.World
         private static void SpringSec(Transform parent, ref int gx, ref int row, System.Random rng, int layer)
         {
             Column(parent, gx, row, Mathf.Max(2, row + 1), layer);
-            Prop(parent, Tiles + "spring", new Vector3(gx * Cell, (row + 1.4f) * Cell, 0f), 1f,
+            Prop(parent, PixelPlatformerArt.Spring, new Vector3(gx * Cell, (row + 1.4f) * Cell, 0f), 1f,
                 PlatformerProp.Kind.Spring, SpringC);
             gx++;
             int hy = row + 5;
@@ -134,7 +133,7 @@ namespace Fitzmark.BDRSim.World
             for (int e = 0; e < enemies; e++)
                 Enemy(parent, startX + 1 + e * 2, row + 1, startX + 1, gx - 1);
             if (rng.NextDouble() < 0.4)
-                Prop(parent, Tiles + "heart", new Vector3((startX + cells / 2f) * Cell, (row + 2) * Cell, 0f),
+                Prop(parent, PixelPlatformerArt.Heart, new Vector3((startX + cells / 2f) * Cell, (row + 2) * Cell, 0f),
                     1f, PlatformerProp.Kind.Heart, HeartC);
         }
 
@@ -144,15 +143,15 @@ namespace Fitzmark.BDRSim.World
         private static void Column(Transform parent, int gx, int topRow, int depthRows, int layer)
         {
             float x = gx * Cell;
-            SolidTile(parent, x, topRow * Cell, Tiles + "terrain_grass_block_top", GrassTop, layer);
+            SolidTile(parent, x, topRow * Cell, PixelPlatformerArt.GrassTop, GrassTop, layer);
             for (int r = 1; r < Mathf.Max(1, depthRows); r++)
-                SolidTile(parent, x, (topRow - r) * Cell, Tiles + "terrain_grass_block", Dirt, layer, collider: false);
+                SolidTile(parent, x, (topRow - r) * Cell, PixelPlatformerArt.Dirt, Dirt, layer, collider: false);
         }
 
         private static void Platform(Transform parent, int gx, int row, int width, int layer)
         {
             for (int w = 0; w < width; w++)
-                SolidTile(parent, (gx + w) * Cell, row * Cell, Tiles + "terrain_grass_block_top", GrassTop, layer);
+                SolidTile(parent, (gx + w) * Cell, row * Cell, PixelPlatformerArt.GrassTop, GrassTop, layer);
         }
 
         private static GameObject SolidTile(Transform parent, float x, float y, string spriteKey,
@@ -173,7 +172,7 @@ namespace Fitzmark.BDRSim.World
 
         private static void Enemy(Transform parent, int gx, int row, int minGx, int maxGx)
         {
-            var go = PropObject(parent, Tiles + "character_enemy", new Vector3(gx * Cell, row * Cell, 0f),
+            var go = PropObject(parent, PixelPlatformerArt.Enemy, new Vector3(gx * Cell, row * Cell, 0f),
                 0.9f, EnemyC);
             var prop = go.GetComponent<Platformer2DProp>();
             prop.kind = PlatformerProp.Kind.Enemy;
@@ -181,7 +180,7 @@ namespace Fitzmark.BDRSim.World
         }
 
         private static void Coin(Transform parent, int gx, int row) =>
-            Prop(parent, Tiles + "coin_gold", new Vector3(gx * Cell, row * Cell, 0f), 0.7f,
+            Prop(parent, PixelPlatformerArt.Coin, new Vector3(gx * Cell, row * Cell, 0f), 0.7f,
                 PlatformerProp.Kind.Coin, CoinC);
 
         private static void Prop(Transform parent, string key, Vector3 pos, float size,
