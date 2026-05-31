@@ -150,24 +150,66 @@ namespace Fitzmark.BDRSim.World
             colGo.AddComponent<BoxCollider2D>().size = new Vector2(width * Cell, Depth * Cell);
         }
 
-        // A tiled sprite strip centered at (cx, cy) of the given world size, where each repeated
-        // tile is exactly one Cell — REGARDLESS of the sprite's import pixels-per-unit. (A tile
-        // imported at PPU 100 is only ~0.18 units, which made Tiled mode emit hundreds of tiles
-        // per strip = lag; we scale the renderer so one tile == one Cell and the count stays sane.)
+        // A ground strip rendered as ONE quad (4 verts) with a UV-tiled texture, instead of a
+        // SpriteRenderer in Tiled mode (which builds/processes a big per-tile mesh). The texture
+        // repeats on the GPU via UVs + wrap=Repeat — minimal geometry, and strips sharing a tile
+        // texture batch by material. This is the standard, cheap way to draw tiled 2D ground.
+        private static readonly System.Collections.Generic.Dictionary<long, Mesh> _quadMeshes = new();
+        private static readonly System.Collections.Generic.Dictionary<string, Material> _tileMats = new();
+
         private static void TiledStrip(Transform parent, float cx, float cy, float w, float h,
             string spriteKey, Color fallback, int sorting)
         {
-            var go = new GameObject("Strip", typeof(SpriteRenderer));
+            var go = new GameObject("Strip", typeof(MeshFilter), typeof(MeshRenderer));
             go.transform.SetParent(parent, false);
             go.transform.position = new Vector3(cx, cy, 0f);
-            var sr = go.GetComponent<SpriteRenderer>();
-            // Use a 1-unit version of the sprite so the transform scale stays 1 — a Tiled
-            // SpriteRenderer with a non-1 scale regenerates its mesh every frame (the framerate hit).
-            sr.sprite = SpriteLibrary.GetUnit(spriteKey, fallback);
-            sr.color = SpriteLibrary.Has(spriteKey) ? Color.white : fallback;
-            sr.drawMode = SpriteDrawMode.Tiled;
-            sr.sortingOrder = sorting;
-            sr.size = new Vector2(w, h); // sprite is 1 unit, so this is exactly (w,h)/Cell tiles, scale 1
+            go.transform.localScale = new Vector3(w, h, 1f);
+            go.GetComponent<MeshFilter>().sharedMesh = QuadMesh(Mathf.RoundToInt(w / Cell), Mathf.RoundToInt(h / Cell));
+            var mr = go.GetComponent<MeshRenderer>();
+            mr.sharedMaterial = TileMaterial(spriteKey, fallback);
+            mr.sortingOrder = sorting;
+        }
+
+        // Unit quad whose UVs span (0..tilesX, 0..tilesY) so a Repeat-wrapped texture tiles once per
+        // Cell. Cached by tile count so strips of the same size share one mesh.
+        private static Mesh QuadMesh(int tilesX, int tilesY)
+        {
+            long key = ((long)tilesX << 32) | (uint)tilesY;
+            if (_quadMeshes.TryGetValue(key, out var m) && m != null) return m;
+            m = new Mesh
+            {
+                vertices = new[]
+                {
+                    new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f),
+                    new Vector3(0.5f, 0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f)
+                },
+                uv = new[]
+                {
+                    new Vector2(0f, 0f), new Vector2(tilesX, 0f),
+                    new Vector2(tilesX, tilesY), new Vector2(0f, tilesY)
+                },
+                triangles = new[] { 0, 1, 2, 0, 2, 3 }
+            };
+            m.RecalculateBounds();
+            _quadMeshes[key] = m;
+            return m;
+        }
+
+        // One material per tile texture (wrap=Repeat, point filter), shared so strips batch.
+        private static Material TileMaterial(string spriteKey, Color fallback)
+        {
+            if (_tileMats.TryGetValue(spriteKey, out var mat) && mat != null) return mat;
+            var sprite = SpriteLibrary.GetUnit(spriteKey, fallback);
+            mat = new Material(Shader.Find("Sprites/Default"));
+            if (sprite != null && sprite.texture != null)
+            {
+                sprite.texture.wrapMode = TextureWrapMode.Repeat;
+                mat.mainTexture = sprite.texture;
+                mat.color = Color.white;
+            }
+            else mat.color = fallback;
+            _tileMats[spriteKey] = mat;
+            return mat;
         }
 
         // ---- authored building blocks (advance _gx; mutate _row) -------------
