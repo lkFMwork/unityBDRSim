@@ -21,6 +21,8 @@ namespace Fitzmark.BDRSim.World
         public const string Heart = Pack + "tile_0044";      // heart (+1 life)
         public const string Flag = Pack + "tile_0111";       // flag on a pole (goal)
         public const string Spring = Pack + "tile_0028";     // sign/spring-ish marker
+        public const string Mushroom = Pack + "tile_0067";   // gem → power-up (grow big)
+        public const string QBlock = Pack + "tile_0009";     // crate / "?" block (holds power-up)
 
         // Player character (green) — idle / walk / jump frames
         public const string CharIdle = Chars + "tile_0000";

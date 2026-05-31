@@ -91,19 +91,22 @@ namespace Fitzmark.BDRSim.World
                 jumpKey: PixelPlatformerArt.CharJump,
                 walkKeys: new[] { PixelPlatformerArt.CharWalkA, PixelPlatformerArt.CharWalkB },
                 tintColor: new Color(0.55f, 0.5f, 0.9f));
-            // Scale the body sprite to roughly the controller's height.
+            // Normalize the body to ~1.4 tiles tall; the animator owns scale (facing/squash/big).
             var sr = bodyGo.GetComponent<SpriteRenderer>();
+            float baseScale = 1.4f;
             if (sr.sprite != null)
             {
                 float h = sr.sprite.bounds.size.y;
-                if (h > 0.0001f) bodyGo.transform.localScale = Vector3.one * (1f / h);
+                if (h > 0.0001f) baseScale = 1.4f / h;
             }
+            anim.baseScale = baseScale;
 
             _ctrl.Init(start, anim, 1 << SolidLayer);
             _ctrl.Won += OnWon;
             _ctrl.Failed += OnFailed;
             _ctrl.LivesChanged += _ => RefreshStatus();
             _ctrl.CoinsChanged += _ => RefreshStatus();
+            _ctrl.PowerChanged += _ => RefreshStatus();
         }
 
         private void LateUpdate()
@@ -141,7 +144,8 @@ namespace Fitzmark.BDRSim.World
         private void RefreshStatus()
         {
             if (_statusLabel == null || _ctrl == null) return;
-            _statusLabel.text = $"Lives: {_ctrl.Lives}    Coins: {_ctrl.Coins}    →   Get to {_company}";
+            string power = _ctrl.Big ? "  ★ BIG" : "";
+            _statusLabel.text = $"Lives: {_ctrl.Lives}    Coins: {_ctrl.Coins}{power}    →   Get to {_company}";
         }
 
         // ---- outcomes -------------------------------------------------------

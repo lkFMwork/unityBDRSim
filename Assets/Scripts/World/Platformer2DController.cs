@@ -28,9 +28,11 @@ namespace Fitzmark.BDRSim.World
         public event Action Failed;
         public event Action<int> LivesChanged;
         public event Action<int> CoinsChanged;
+        public event Action<bool> PowerChanged; // true = grew big, false = shrank
 
         public int Lives { get; private set; }
         public int Coins { get; private set; }
+        public bool Big { get; private set; }   // Mario-style: big absorbs one hit → shrink
         public bool IsActive = true;
 
         public JumpArc Arc => new JumpArc(runSpeed, JumpVelocity, Gravity);
@@ -168,18 +170,42 @@ namespace Fitzmark.BDRSim.World
                     break;
                 case PlatformerProp.Kind.Spring:
                     _vel.y = JumpVelocity * 1.5f;
+                    _anim?.Squash();
+                    break;
+                case PlatformerProp.Kind.Mushroom:
+                    if (!Big) { Big = true; PowerChanged?.Invoke(true); _anim?.SetBig(true); }
+                    Destroy(other.gameObject);
                     break;
                 case PlatformerProp.Kind.Enemy:
-                    bool stomp = _vel.y < 0f && transform.position.y > other.transform.position.y + 0.2f;
-                    if (stomp) { Destroy(other.gameObject); _vel.y = JumpVelocity * 0.6f; }
+                    // Stomp if descending and your feet are above the enemy's center — generous
+                    // window (any downward motion onto it), the standard Mario rule.
+                    bool stomp = _vel.y <= 0.1f && transform.position.y > other.transform.position.y - 0.1f;
+                    if (stomp)
+                    {
+                        Destroy(other.gameObject);
+                        _vel.y = JumpVelocity * 0.55f; // bounce
+                    }
                     else if (_invuln <= 0f)
                     {
-                        _invuln = 1.2f;
-                        _vel = new Vector2(-_facing * 5f, JumpVelocity * 0.6f);
-                        LoseLife(false);
+                        TakeDamage();
+                        _vel = new Vector2(-_facing * 5f, JumpVelocity * 0.5f);
                     }
                     break;
             }
+        }
+
+        // Mario damage rule: if big, shrink and survive with brief invuln; if small, lose a life.
+        private void TakeDamage()
+        {
+            _invuln = 1.4f;
+            if (Big)
+            {
+                Big = false;
+                PowerChanged?.Invoke(false);
+                _anim?.SetBig(false);
+                return;
+            }
+            LoseLife(false);
         }
 
         private void LoseLife(bool respawn)

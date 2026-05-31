@@ -9,7 +9,7 @@ namespace Fitzmark.BDRSim.World
     /// </summary>
     public class PlatformerProp : MonoBehaviour
     {
-        public enum Kind { None, Enemy, Coin, Goal, Spring, Heart }
+        public enum Kind { None, Enemy, Coin, Goal, Spring, Heart, Mushroom }
 
         public Kind kind = Kind.Enemy;
         public float minX;

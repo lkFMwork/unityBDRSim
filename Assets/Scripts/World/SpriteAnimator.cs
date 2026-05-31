@@ -43,6 +43,11 @@ namespace Fitzmark.BDRSim.World
         public void PlayJump() => _state = St.Jump;
         public void Squash() => _squash = 1f;
         public void SetFacing(int dir) { if (dir != 0) _facing = dir; }
+        public void SetBig(bool big) => _bigTarget = big ? 1.5f : 1f;
+
+        /// <summary>Per-frame base scale (set by the spawner to normalize sprite size).</summary>
+        public float baseScale = 1f;
+        private float _bigTarget = 1f, _big = 1f;
 
         private void Update()
         {
@@ -64,10 +69,11 @@ namespace Fitzmark.BDRSim.World
                     break;
             }
 
-            // Facing flip + land squash on the local transform.
+            // Compose: base size × facing × land-squash × big power-up (animated grow/shrink).
             _squash = Mathf.MoveTowards(_squash, 0f, dt * 5f);
-            float sx = _facing * (1f + _squash * 0.25f);
-            float sy = 1f - _squash * 0.3f;
+            _big = Mathf.MoveTowards(_big, _bigTarget, dt * 3f);
+            float sx = baseScale * _big * _facing * (1f + _squash * 0.25f);
+            float sy = baseScale * _big * (1f - _squash * 0.3f);
             transform.localScale = new Vector3(sx, sy, 1f);
         }
     }

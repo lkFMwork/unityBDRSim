@@ -21,121 +21,131 @@ namespace Fitzmark.BDRSim.World
         private static readonly Color EnemyC = new Color(0.85f, 0.28f, 0.28f);
         private static readonly Color FlagC = new Color(0.30f, 0.70f, 1f);
 
+        // Build cursor: current column and ground-surface row, threaded through the authored beats.
+        private static int _gx, _row, _layer;
+        private static Transform _p;
+
+        /// <summary>
+        /// A hand-authored level following Kishōtenketsu (introduce → develop → twist → conclude),
+        /// the structure Nintendo uses (sources: MCV/Develop "Nintendo's level design secrets in
+        /// four steps"; Mario 1-1 analyses). Each mechanic is taught in a SAFE space (failure =
+        /// restart, not death) before a dangerous version; coins breadcrumb the path and reward the
+        /// optimal jump arc; optional high routes give risk/reward. Difficulty nudges gap widths and
+        /// enemy counts but the beats and their teaching order are fixed, so it's always a good level
+        /// rather than random noise.
+        /// </summary>
         public static float Build(int difficulty, int seed, Transform parent, int solidLayer, out Vector3 start)
         {
-            var rng = new System.Random(seed);
             difficulty = Mathf.Clamp(difficulty, 1, 10);
-            float diff01 = (difficulty - 1) / 9f;
+            _p = parent; _layer = solidLayer; _gx = 0; _row = 0;
 
-            // Reachability budget from the controller's arc (matches Platformer2DController).
-            var arc = new JumpArc(7f, (2f * 3.2f) / 0.38f, (2f * 3.2f) / (0.38f * 0.38f));
-            int maxGapCells = Mathf.Max(1, Mathf.FloorToInt(arc.SafeGap() / Cell));     // ~ up to 4 cells
-            int maxStepCells = Mathf.Max(1, Mathf.FloorToInt(arc.SafeStepUp() / Cell)); // ~ 1–2 cells
+            // ---- KI: Introduce. Flat run, one coin trail (teaches: move right toward reward). ----
+            Flat(6);
+            start = new Vector3(2f * Cell, (_row + 1.5f) * Cell, 0f);
+            CoinRow(3, _row + 2, 3);
 
-            int gx = 0;          // current grid column
-            int groundRow = 0;   // current ground top row (cells above 0)
+            // Teach JUMP with a single low step you must hop (safe: ground continues after).
+            Flat(2); StepTo(_row + 1); Flat(3); CoinArcTo(_gx - 3, _gx, _row + 2);
 
-            for (int i = 0; i < 5; i++) Column(parent, gx++, groundRow, 4, solidLayer); // safe start
-            start = new Vector3(2f * Cell, (groundRow + 1.5f) * Cell, 0f);
+            // Teach STOMP: one slow enemy on flat ground, coins luring you onto its head.
+            Flat(1); var e1 = _gx; Flat(5); Patroller(e1 + 1, e1 + 4); Coin(e1 + 2, _row + 3); Coin(e1 + 3, _row + 3);
 
-            int sections = 12 + difficulty * 2;
-            for (int s = 0; s < sections; s++)
-            {
-                switch (rng.Next(0, 5))
-                {
-                    case 0: Stairs(parent, ref gx, ref groundRow, rng, maxStepCells, solidLayer); break;
-                    case 1: Pit(parent, ref gx, ref groundRow, rng, diff01, maxGapCells, solidLayer); break;
-                    case 2: Floats(parent, ref gx, ref groundRow, rng, diff01, maxGapCells, maxStepCells, solidLayer); break;
-                    case 3: SpringSec(parent, ref gx, ref groundRow, rng, solidLayer); break;
-                    default: Gauntlet(parent, ref gx, ref groundRow, rng, difficulty, solidLayer); break;
-                }
-                Column(parent, gx++, groundRow, 3, solidLayer); // breather
-            }
+            // The "? block" power-up (grow big). A coin breadcrumb leads up to it; safe ground below.
+            Flat(2); QuestionMushroom(_gx, _row + 3); Coin(_gx, _row + 2); Flat(3);
 
-            for (int i = 0; i < 3; i++) Column(parent, gx++, groundRow, 3, solidLayer);
-            float goalX = (gx - 1) * Cell;
-            Prop(parent, PixelPlatformerArt.Flag, new Vector3(goalX, (groundRow + 2f) * Cell, 0f), 2f,
+            // ---- SHŌ: Develop. First real PIT (teaches commitment), coin arc over it as the guide. ----
+            Flat(2);
+            int gap1 = 2 + difficulty / 4;                 // 2–4 cells
+            Gap(gap1, arcCoins: true);
+            Flat(3);
+
+            // Staircase UP, then a higher optional coin ledge (risk/reward: jump up for extra coins).
+            Climb(3); Coin(_gx - 1, _row + 4); Coin(_gx, _row + 4); Coin(_gx + 1, _row + 4); Flat(2);
+
+            // Two enemies on a stretch — stomp-chain or run past. Pit right after demands control.
+            int e2 = _gx; Flat(6); Patroller(e2 + 1, e2 + 5); Patroller(e2 + 3, e2 + 5);
+            Gap(2, arcCoins: false); Flat(3);
+
+            // ---- TEN: Twist. Combine everything: pit + enemy on a floating platform mid-jump. ----
+            Flat(1);
+            Gap(2, arcCoins: false);
+            FloatPlatform(_gx, _row + 1, 2); Patroller(_gx, _gx + 1); Coin(_gx, _row + 3);
+            _gx += 3;
+            Gap(2, arcCoins: true);
+            // A spring (sits ON the ground) launches to a high coin reward — the level's showpiece.
+            Flat(2); Spring(_gx); CoinColumn(_gx, _row + 3, 3); Flat(1);
+            // Descending steps down to the finish (let the player breathe after the twist).
+            Drop(2); Flat(2); Heart(_gx - 1, _row + 2); Drop(1);
+
+            // ---- KETSU: Conclude. A short victory run to the flag (show off, collect the last coins). ----
+            Flat(2); CoinRow(_gx, _row + 2, 3); Flat(2);
+            float goalX = _gx * Cell;
+            Prop(_p, PixelPlatformerArt.Flag, new Vector3(goalX, (_row + 2f) * Cell, 0f), 2f,
                 PlatformerProp.Kind.Goal, FlagC);
+            Flat(3); // landing strip past the flag
             return goalX;
         }
 
-        // ---- sections (cell-based, reachability-clamped) --------------------
+        // ---- authored building blocks (advance _gx; mutate _row) -------------
 
-        private static void Stairs(Transform parent, ref int gx, ref int row, System.Random rng,
-            int maxStep, int layer)
+        private static void Flat(int cells)
         {
-            int steps = 2 + rng.Next(0, 3);
-            int dir = rng.NextDouble() < 0.72 ? 1 : -1;
-            int rise = Mathf.Min(1, maxStep); // one cell per step — always clearable
-            for (int s = 0; s < steps; s++)
-            {
-                Column(parent, gx, row, Mathf.Max(2, row + 1), layer);
-                if (rng.NextDouble() < 0.4) Coin(parent, gx, row + 2);
-                row = Mathf.Max(0, row + dir * rise);
-                gx++;
-            }
-            Column(parent, gx++, row, Mathf.Max(2, row + 1), layer);
+            for (int i = 0; i < cells; i++) Column(_p, _gx++, _row, _row + 2, _layer);
         }
 
-        private static void Pit(Transform parent, ref int gx, ref int row, System.Random rng,
-            float diff01, int maxGap, int layer)
+        private static void StepTo(int newRow) { _row = newRow; Column(_p, _gx++, _row, _row + 2, _layer); }
+        private static void Climb(int steps) { for (int i = 0; i < steps; i++) { _row += 1; Column(_p, _gx++, _row, _row + 2, _layer); } }
+        private static void Drop(int steps) { for (int i = 0; i < steps; i++) { _row = Mathf.Max(0, _row - 1); Column(_p, _gx++, _row, _row + 2, _layer); } }
+
+        // A pit of `cells` empty columns; optional coin arc over it tracing the jump parabola.
+        private static void Gap(int cells, bool arcCoins)
         {
-            Column(parent, gx++, row, Mathf.Max(2, row + 1), layer);
-            int gap = Mathf.Clamp(1 + Mathf.RoundToInt(diff01 * (maxGap - 1)), 1, maxGap);
-            for (int c = 0; c < gap; c++)
-            {
-                float t = (c + 0.5f) / gap;
-                Coin(parent, gx + c, row + 1 + Mathf.RoundToInt(Mathf.Sin(t * Mathf.PI) * 2f)); // arc
-            }
-            gx += gap;
-            Column(parent, gx++, row, Mathf.Max(2, row + 1), layer);
+            if (arcCoins)
+                for (int c = 0; c < cells; c++)
+                {
+                    float t = (c + 0.5f) / cells;
+                    Coin(_gx + c, _row + 1 + Mathf.RoundToInt(Mathf.Sin(t * Mathf.PI) * 2f));
+                }
+            _gx += cells;
         }
 
-        private static void Floats(Transform parent, ref int gx, ref int row, System.Random rng,
-            float diff01, int maxGap, int maxStep, int layer)
+        private static void FloatPlatform(int gx, int row, int width)
         {
-            Column(parent, gx++, row, Mathf.Max(2, row + 1), layer);
-            int plats = 2 + rng.Next(0, 1 + Mathf.RoundToInt(diff01 * 2f));
-            int py = row + Mathf.Min(1, maxStep);
-            int hop = Mathf.Clamp(1 + Mathf.RoundToInt(diff01 * (maxGap - 1)), 1, maxGap);
-            for (int p = 0; p < plats; p++)
-            {
-                Platform(parent, gx, py, 2, layer);
-                if (rng.NextDouble() < 0.6) Coin(parent, gx, py + 1);
-                if (diff01 > 0.4f && rng.NextDouble() < 0.3) Enemy(parent, gx, py + 1, gx - 1, gx + 1);
-                py = Mathf.Clamp(py + (rng.NextDouble() < 0.5 ? 1 : -1), row + 1, row + maxStep + 1);
-                gx += 1 + hop;
-            }
-            Column(parent, gx++, row, Mathf.Max(2, row + 1), layer);
+            for (int w = 0; w < width; w++) SolidTile(_p, (gx + w) * Cell, row * Cell, PixelPlatformerArt.GrassTop, GrassTop, _layer);
         }
 
-        private static void SpringSec(Transform parent, ref int gx, ref int row, System.Random rng, int layer)
+        private static void Spring(int gx)
         {
-            Column(parent, gx, row, Mathf.Max(2, row + 1), layer);
-            Prop(parent, PixelPlatformerArt.Spring, new Vector3(gx * Cell, (row + 1.4f) * Cell, 0f), 1f,
+            Column(_p, gx, _row, _row + 2, _layer);
+            // Sits ON the surface (row+0.6, half a tile up) — no longer floating in the air.
+            Prop(_p, PixelPlatformerArt.Spring, new Vector3(gx * Cell, (_row + 0.6f) * Cell, 0f), 0.9f,
                 PlatformerProp.Kind.Spring, SpringC);
-            gx++;
-            int hy = row + 5;
-            Platform(parent, gx, hy, 2, layer);
-            Coin(parent, gx, hy + 1);
-            Coin(parent, gx + 1, hy + 1);
-            Column(parent, gx++, row, Mathf.Max(2, row + 1), layer);
-            Column(parent, gx++, row, Mathf.Max(2, row + 1), layer);
+            _gx = gx + 1;
         }
 
-        private static void Gauntlet(Transform parent, ref int gx, ref int row, System.Random rng,
-            int difficulty, int layer)
+        // A "?" block at (gx,row) holding a power-up mushroom that pops just above it.
+        private static void QuestionMushroom(int gx, int row)
         {
-            int cells = 4 + rng.Next(0, 3);
-            int startX = gx;
-            for (int i = 0; i < cells; i++) Column(parent, gx++, row, Mathf.Max(2, row + 1), layer);
-            int enemies = 1 + Mathf.Clamp(difficulty / 3, 0, 2);
-            for (int e = 0; e < enemies; e++)
-                Enemy(parent, startX + 1 + e * 2, row + 1, startX + 1, gx - 1);
-            if (rng.NextDouble() < 0.4)
-                Prop(parent, PixelPlatformerArt.Heart, new Vector3((startX + cells / 2f) * Cell, (row + 2) * Cell, 0f),
-                    1f, PlatformerProp.Kind.Heart, HeartC);
+            SolidTile(_p, gx * Cell, row * Cell, PixelPlatformerArt.QBlock, new Color(0.9f, 0.7f, 0.2f), _layer);
+            Prop(_p, PixelPlatformerArt.Mushroom, new Vector3(gx * Cell, (row + 1) * Cell, 0f), 0.8f,
+                PlatformerProp.Kind.Mushroom, new Color(0.9f, 0.4f, 0.3f));
         }
+
+        private static void CoinRow(int gx, int row, int n) { for (int i = 0; i < n; i++) Coin(gx + i, row); }
+        private static void CoinColumn(int gx, int row, int n) { for (int i = 0; i < n; i++) Coin(gx, row + i); }
+        private static void CoinArcTo(int gxA, int gxB, int peakRow)
+        {
+            int span = Mathf.Max(1, gxB - gxA);
+            for (int c = 0; c <= span; c++)
+            {
+                float t = (float)c / span;
+                Coin(gxA + c, _row + 1 + Mathf.RoundToInt(Mathf.Sin(t * Mathf.PI) * (peakRow - _row)));
+            }
+        }
+        private static void Patroller(int minGx, int maxGx) => Enemy(_p, (minGx + maxGx) / 2, _row + 1, minGx, maxGx);
+        private static void Coin(int gx, int row) => Coin(_p, gx, row);
+        private static void Heart(int gx, int row) => Prop(_p, PixelPlatformerArt.Heart,
+            new Vector3(gx * Cell, row * Cell, 0f), 0.8f, PlatformerProp.Kind.Heart, HeartC);
 
         // ---- tiles & props --------------------------------------------------
 
