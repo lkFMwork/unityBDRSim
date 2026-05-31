@@ -119,8 +119,9 @@ namespace Fitzmark.BDRSim.World
             var col = lot.GetComponent<Collider>(); if (col != null) Object.Destroy(col);
             Paint(lot, _theme.Grass);
 
-            // 1–4 buildings on a small inner grid, each scaled to roughly half a tile.
-            float half = TileSize * 0.22f;
+            // 1–4 buildings on a small inner grid; fit by FOOTPRINT so tall buildings stay
+            // tall (a box-fit squashed them into tiny cubes). Height follows naturally.
+            float half = TileSize * 0.24f;
             var offsets = new[]
             {
                 new Vector3(-half, 0f, -half), new Vector3(half, 0f, -half),
@@ -131,9 +132,10 @@ namespace Fitzmark.BDRSim.World
             {
                 string model = _theme.Buildings[_rng.Next(_theme.Buildings.Length)];
                 float yaw = 90f * _rng.Next(0, 4);
-                var size = new Vector3(TileSize * 0.34f, TileSize * (0.5f + (float)_rng.NextDouble()), TileSize * 0.34f);
+                float footprint = TileSize * (0.34f + 0.10f * (float)_rng.NextDouble());
                 ModelLibrary.Spawn(model, parent, center + offsets[i], yaw, 1f,
-                    placeholderColor: new Color(0.5f, 0.5f, 0.55f), placeholderLabel: false, fitSize: size);
+                    placeholderColor: new Color(0.5f, 0.5f, 0.55f), placeholderLabel: false,
+                    fitFootprint: footprint);
             }
 
             if (_theme.Trees && _rng.Next(0, 2) == 0)
@@ -141,15 +143,16 @@ namespace Fitzmark.BDRSim.World
                 string tree = "Models/kenney_city-kit-suburban_20/Models/FBX format/tree-large";
                 ModelLibrary.Spawn(tree, parent, center + new Vector3(half * 1.4f, 0f, -half * 1.4f), 0f, 1f,
                     placeholderColor: new Color(0.26f, 0.5f, 0.28f), placeholderLabel: false,
-                    fitSize: new Vector3(2f, 4f, 2f));
+                    fitHeight: 3.2f);
             }
         }
 
         private void Tile(Transform parent, string model, Vector3 pos, float yaw)
         {
+            // Fit by footprint so road tiles tile edge-to-edge at exactly TileSize.
             ModelLibrary.Spawn(model, parent, pos, yaw, 1f,
                 placeholderColor: new Color(0.14f, 0.14f, 0.16f), placeholderLabel: false,
-                fitSize: new Vector3(TileSize, 0f, TileSize));
+                fitFootprint: TileSize);
         }
 
         private Vector3 Cell(int gx, int gz) => new Vector3(gx * TileSize, 0f, gz * TileSize);

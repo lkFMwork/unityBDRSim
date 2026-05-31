@@ -153,11 +153,12 @@ namespace Fitzmark.BDRSim.World
 
         private void SpawnCar()
         {
-            // A real Kenney sedan, auto-scaled, parked one lane to the right of the spawn.
+            // A real Kenney sedan, auto-scaled (by height so it keeps its proportions),
+            // parked one lane to the right of the spawn.
             _car = ModelLibrary.Spawn(CityThemes.CarModel, _root,
                 _playerSpawn + new Vector3(3f, 0f, 0f), 0f, 1f,
                 placeholderColor: new Color(0.72f, 0.22f, 0.22f), placeholderLabel: false,
-                fitSize: new Vector3(2f, 1.6f, 4.2f));
+                fitHeight: 1.5f);
             _car.name = "Car";
             _carCtrl = _car.AddComponent<CarController>();
         }

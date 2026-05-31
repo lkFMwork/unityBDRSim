@@ -38,9 +38,11 @@ namespace Fitzmark.BDRSim.World
         /// </summary>
         public static GameObject Spawn(string key, Transform parent, Vector3 localPos,
             float yaw = 0f, float scale = 1f, Vector3? placeholderSize = null,
-            Color? placeholderColor = null, bool placeholderLabel = true, Vector3? fitSize = null)
+            Color? placeholderColor = null, bool placeholderLabel = true, Vector3? fitSize = null,
+            float fitFootprint = 0f, float fitHeight = 0f)
         {
-            GameObject prefab = Resources.Load<GameObject>(ResolvePath(key, out float kitScale));
+            string path = ResolvePath(key, out float kitScale);
+            GameObject prefab = Resources.Load<GameObject>(path);
             if (scale != 1f && !ModelCatalog.TryResolve(key, out _)) kitScale = scale;
 
             GameObject go;
@@ -48,7 +50,10 @@ namespace Fitzmark.BDRSim.World
             {
                 go = Object.Instantiate(prefab, parent);
                 go.transform.localScale = Vector3.one * kitScale;
-                if (fitSize.HasValue) FitToSize(go, fitSize.Value);
+                if (fitHeight > 0f) FitByAxis(go, fitHeight, axisY: true);
+                else if (fitFootprint > 0f) FitByAxis(go, fitFootprint, axisY: false);
+                else if (fitSize.HasValue) FitToSize(go, fitSize.Value);
+                EnsureTextured(go, path);
                 GroundOn(go, parent, localPos);
             }
             else
@@ -60,6 +65,57 @@ namespace Fitzmark.BDRSim.World
             go.name = key;
             go.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
             return go;
+        }
+
+        /// <summary>
+        /// Scale uniformly so one dimension matches <paramref name="target"/> metres: the
+        /// taller of the height (axisY) or the larger horizontal footprint. Uniform scaling
+        /// keeps the model's natural proportions — the right fit for buildings and trees,
+        /// where forcing a box (FitToSize) squashes tall shapes into tiny ones.
+        /// </summary>
+        private static void FitByAxis(GameObject go, float target, bool axisY)
+        {
+            if (!TryWorldBounds(go, out var b) || b.size == Vector3.zero) return;
+            float current = axisY ? b.size.y : Mathf.Max(b.size.x, b.size.z);
+            if (current <= 0.0001f) return;
+            go.transform.localScale *= target / current;
+        }
+
+        /// <summary>
+        /// Kenney kits texture everything from one shared colormap atlas next to the FBX
+        /// (FBX format/Textures/colormap.png). On import a model's material can lose that
+        /// link and render flat/white; if a renderer's material has no base texture, assign
+        /// the kit's colormap so buildings/props show their colors like the car does.
+        /// </summary>
+        private static void EnsureTextured(GameObject go, string modelResourcePath)
+        {
+            var tex = LoadColormap(modelResourcePath);
+            if (tex == null) return;
+            foreach (var r in go.GetComponentsInChildren<Renderer>())
+            {
+                foreach (var m in r.sharedMaterials)
+                {
+                    if (m == null) continue;
+                    if (m.HasProperty("_BaseMap") && m.GetTexture("_BaseMap") == null)
+                        m.SetTexture("_BaseMap", tex);
+                    if (m.HasProperty("_MainTex") && m.GetTexture("_MainTex") == null)
+                        m.SetTexture("_MainTex", tex);
+                }
+            }
+        }
+
+        private static readonly System.Collections.Generic.Dictionary<string, Texture2D> _colormaps = new();
+
+        // The colormap sits at "<kit>/Models/FBX format/Textures/colormap" relative to the model.
+        private static Texture2D LoadColormap(string modelResourcePath)
+        {
+            int fbxIdx = modelResourcePath.IndexOf("/FBX format/", System.StringComparison.Ordinal);
+            if (fbxIdx < 0) return null;
+            string baseDir = modelResourcePath.Substring(0, fbxIdx) + "/FBX format/Textures/colormap";
+            if (_colormaps.TryGetValue(baseDir, out var cached)) return cached;
+            var tex = Resources.Load<Texture2D>(baseDir);
+            _colormaps[baseDir] = tex;
+            return tex;
         }
 
         /// <summary>Scale a spawned model so its bounds fit within <paramref name="size"/> metres.</summary>
