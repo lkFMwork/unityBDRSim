@@ -20,10 +20,11 @@ namespace Fitzmark.BDRSim.World
         private const float CarEnterRange = 3.6f;
 
         private GameObject _player;
-        private PlayerController _playerCtrl;
+        private FirstPersonController _fp;
         private GameObject _car;
         private CarController _carCtrl;
-        private FollowCamera _cam;
+        private Camera _cam;
+        private Transform _camPivot;
         private Interactable[] _interactables;
         private bool _inCar;
 
@@ -96,6 +97,7 @@ namespace Fitzmark.BDRSim.World
             if (Input.GetKeyDown(KeyCode.F)) ToggleCar();
             else if (Input.GetKeyDown(KeyCode.E) && near != null) Interact(near);
 
+            if (_inCar) DriveCamera();
             UpdatePrompt(near);
         }
 
@@ -106,11 +108,24 @@ namespace Fitzmark.BDRSim.World
             GameObject camGo = Camera.main != null ? Camera.main.gameObject : null;
             if (camGo == null)
             {
-                camGo = new GameObject("Main Camera", typeof(Camera));
+                camGo = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener));
                 camGo.tag = "MainCamera";
             }
-            _cam = camGo.GetComponent<FollowCamera>();
-            if (_cam == null) _cam = camGo.AddComponent<FollowCamera>();
+            _cam = camGo.GetComponent<Camera>();
+            _cam.clearFlags = CameraClearFlags.SolidColor;
+            _cam.backgroundColor = new Color(0.55f, 0.66f, 0.82f); // daytime sky
+            _cam.farClipPlane = 600f;
+            var fc = camGo.GetComponent<FollowCamera>();
+            if (fc != null) fc.enabled = false; // first-person controller drives the camera
+
+            // Sun so the city isn't flat.
+            if (Object.FindFirstObjectByType<Light>() == null)
+            {
+                var sun = new GameObject("Sun").AddComponent<Light>();
+                sun.type = LightType.Directional;
+                sun.intensity = 1.15f;
+                sun.transform.rotation = Quaternion.Euler(52f, -28f, 0f);
+            }
         }
 
         private void SpawnPlayer()
@@ -119,11 +134,9 @@ namespace Fitzmark.BDRSim.World
             _player.transform.position = _playerSpawn;
 
             var cc = _player.AddComponent<CharacterController>();
-            cc.height = 2f;
-            cc.radius = 0.4f;
-            cc.center = new Vector3(0f, 1f, 0f);
-
-            _playerCtrl = _player.AddComponent<PlayerController>();
+            cc.height = 1.8f;
+            cc.radius = 0.3f;
+            cc.center = new Vector3(0f, 0.9f, 0f);
 
             // Real Mixamo body when imported; else the procedural avatar.
             if (OfficeWorker.Attach(_player.transform) == null)
@@ -134,7 +147,8 @@ namespace Fitzmark.BDRSim.World
                     ? GameManager.Instance.Profile.avatar : new AvatarConfig());
             }
 
-            _cam.Target = _player.transform;
+            // Full 360° mouse-look + tight third-person toggle (V), same as the office.
+            _fp = _player.AddComponent<FirstPersonController>();
         }
 
         private void SpawnCar()
@@ -238,8 +252,7 @@ namespace Fitzmark.BDRSim.World
                 _carCtrl.SetDriving(false);
                 _player.transform.position = _car.transform.position + _car.transform.right * 2.2f + Vector3.up * 0.2f;
                 _player.SetActive(true);
-                _playerCtrl.SetControlEnabled(true);
-                _cam.Target = _player.transform;
+                if (_fp != null) _fp.enabled = true;
             }
             else
             {
@@ -249,11 +262,22 @@ namespace Fitzmark.BDRSim.World
                     return;
                 }
                 _inCar = true;
-                _playerCtrl.SetControlEnabled(false);
+                if (_fp != null) _fp.enabled = false; // FP releases the camera; we chase the car
                 _player.SetActive(false);
                 _carCtrl.SetDriving(true);
-                _cam.Target = _car.transform;
             }
+        }
+
+        // While driving, chase the car from behind-and-above (full turning with the car).
+        private void DriveCamera()
+        {
+            if (_cam == null || _car == null) return;
+            Vector3 back = _car.transform.forward;
+            Vector3 want = _car.transform.position - back * 8f + Vector3.up * 4.5f;
+            float t = 1f - Mathf.Exp(-8f * Time.deltaTime);
+            _cam.transform.position = Vector3.Lerp(_cam.transform.position, want, t);
+            _cam.transform.rotation = Quaternion.LookRotation(
+                (_car.transform.position + Vector3.up * 1.2f) - _cam.transform.position);
         }
 
         private void Interact(Interactable target)

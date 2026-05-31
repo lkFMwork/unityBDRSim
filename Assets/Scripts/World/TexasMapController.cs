@@ -156,10 +156,11 @@ namespace Fitzmark.BDRSim.World
                 var uv = OverworldArt.ToUv(client.MapX, client.MapZ);
                 var anchor = new Vector2(Mathf.Lerp(0.05f, 0.95f, uv.x), Mathf.Lerp(0.07f, 0.92f, uv.y));
                 bool available = _c != null && TerritorySystem.IsAvailable(_c, client, _day);
+                // Label by CITY (the place you fast-travel to), not the company.
                 var n = new Node
                 {
                     Kind = Kind.Account,
-                    Title = client.Company,
+                    Title = CityName(client.City),
                     Anchor = anchor,
                     Client = client,
                     Available = available
@@ -370,7 +371,7 @@ namespace Fitzmark.BDRSim.World
 
             string verb = _current.Kind switch
             {
-                Kind.Account => _current.Available ? "▶  Travel to" : "✕  Locked —",
+                Kind.Account => _current.Available ? "🚚  Drive into" : "🔒  Locked —",
                 Kind.Call => "▶  Work the phones at",
                 Kind.EndDay => "▶  Turn in the day at",
                 _ => "▶  Enter"
@@ -482,6 +483,14 @@ namespace Fitzmark.BDRSim.World
             if (!TerritorySystem.IsUnlocked(_c, client)) return new Color(0.45f, 0.45f, 0.50f);
             if (!TerritorySystem.IsAvailable(_c, client, _day)) return new Color(0.92f, 0.70f, 0.22f);
             return new Color(0.34f, 0.80f, 0.44f);
+        }
+
+        // "Austin, TX" -> "Austin" for a clean city label on the map.
+        private static string CityName(string cityField)
+        {
+            if (string.IsNullOrEmpty(cityField)) return "City";
+            int comma = cityField.IndexOf(',');
+            return comma > 0 ? cityField.Substring(0, comma) : cityField;
         }
 
         private static int StableHash(string s)

@@ -15,12 +15,18 @@ namespace Fitzmark.BDRSim.World
     {
         public const string Root = "Models/";
 
-        /// <summary>True if a real model exists for this key (mapped or direct path).</summary>
-        public static bool Has(string key)
+        // Resource path for a key: catalog mapping, a bare key (gets Models/ prefixed),
+        // or a key that already includes the Models/ prefix (used as-is). This tolerance
+        // matters because city paths are authored with the full Models/... path.
+        private static string ResolvePath(string key, out float kitScale)
         {
-            if (ModelCatalog.TryResolve(key, out var e)) return Resources.Load<GameObject>(e.Path) != null;
-            return Resources.Load<GameObject>(Root + key) != null;
+            kitScale = 1f;
+            if (ModelCatalog.TryResolve(key, out var e)) { kitScale = e.Scale; return e.Path; }
+            return key.StartsWith(Root) ? key : Root + key;
         }
+
+        /// <summary>True if a real model exists for this key (mapped or direct path).</summary>
+        public static bool Has(string key) => Resources.Load<GameObject>(ResolvePath(key, out _)) != null;
 
         /// <summary>
         /// Spawn a model for <paramref name="key"/> under <paramref name="parent"/> at
@@ -34,14 +40,8 @@ namespace Fitzmark.BDRSim.World
             float yaw = 0f, float scale = 1f, Vector3? placeholderSize = null,
             Color? placeholderColor = null, bool placeholderLabel = true, Vector3? fitSize = null)
         {
-            GameObject prefab = null;
-            float kitScale = scale;
-            if (ModelCatalog.TryResolve(key, out var entry))
-            {
-                prefab = Resources.Load<GameObject>(entry.Path);
-                kitScale = entry.Scale;
-            }
-            prefab ??= Resources.Load<GameObject>(Root + key);
+            GameObject prefab = Resources.Load<GameObject>(ResolvePath(key, out float kitScale));
+            if (scale != 1f && !ModelCatalog.TryResolve(key, out _)) kitScale = scale;
 
             GameObject go;
             if (prefab != null)
