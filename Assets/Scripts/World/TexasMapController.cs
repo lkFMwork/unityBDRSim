@@ -40,9 +40,9 @@ namespace Fitzmark.BDRSim.World
         private RectTransform _truck;
         private readonly List<Node> _nodes = new();
 
-        // Fixed tile grid for the SMW-style map.
-        private const int GridCols = 10;
-        private const int GridRows = 7;
+        // Fixed tile grid for the SMW-style map (sized for geographic city placement + features).
+        private const int GridCols = 12;
+        private const int GridRows = 8;
         private readonly List<Vector2Int> _cells = new(); // level cells, in grid coords (col,row)
         private Node _current;
         private bool _busy;
@@ -147,55 +147,70 @@ namespace Fitzmark.BDRSim.World
         private void BuildTileMap()
         {
             var theme = WorldMapTheme.For(_world.Id);
+            var geo = StateGeography.For(_world.Id);
             var rng = new System.Random(StableHash(_world.Id));
 
             var dirs = new Dictionary<Vector2Int, PathDir>();
             for (int i = 0; i < _cells.Count - 1; i++) CarvePath(dirs, _cells[i], _cells[i + 1]);
 
-            // Region kind per cell: an east–west biome band gives each state internal geography
-            // (forested/lush west → plains centre → mountains in the east, water along the top/edges).
+            // Each cell is classified against the state's real topography (mountains/water/river)
+            // so the map reads as that place — TN mountains east + river west, AZ desert, etc.
             for (int gy = 0; gy < GridRows; gy++)
                 for (int gx = 0; gx < GridCols; gx++)
                 {
                     var cell = new Vector2Int(gx, gy);
-                    float ew = gx / (float)(GridCols - 1);
-                    var region = RegionAt(theme, cell, ew, dirs);
+                    var region = RegionAt(geo, cell, dirs);
 
-                    // 1) terrain base (animated water gets the WaterAnimator).
                     if (region == Region.Water) WaterTile(cell);
                     else TerrainTile(theme, region, cell);
 
-                    // 2) yellow trail overlay where the path runs (Kenney path reads cleanly as SMW trail).
                     if (dirs.TryGetValue(cell, out var d))
                     {
                         var key = PathTileFor(d);
                         if (key != null) TileImage(key, cell, sorting: 1);
                     }
-                    // 3) terrain objects off the trail: mountains east, forest/hills elsewhere.
-                    else if (!NearTrail(dirs, cell)) LpcDecoration(theme, region, cell, ew, rng);
+                    else if (!NearTrail(dirs, cell)) LpcDecoration(theme, region, cell, rng);
                 }
         }
 
         private enum Region { Grass, Sand, Snow, MountainBand, Water }
 
-        // Which terrain a cell is, from biome + east–west position. Top edge rows tend to water.
-        private Region RegionAt(WorldMapTheme theme, Vector2Int cell, float ew, Dictionary<Vector2Int, PathDir> dirs)
+        // Classify a cell from the state's geography: open-water edges, the internal river line,
+        // the mountain band, then base terrain. The trail is never under water (reads as a bridge).
+        private Region RegionAt(StateGeography g, Vector2Int cell, Dictionary<Vector2Int, PathDir> dirs)
         {
             bool onTrail = dirs.ContainsKey(cell);
-            // Water along the very top row (and far corners), but never under the trail.
-            if (!onTrail && cell.y >= GridRows - 1 && theme.Biome != MapBiome.Desert) return Region.Water;
+            float nx = GridCols <= 1 ? 0.5f : cell.x / (float)(GridCols - 1);
+            float ny = GridRows <= 1 ? 0.5f : cell.y / (float)(GridRows - 1);
 
-            switch (theme.Biome)
+            if (!onTrail)
             {
-                case MapBiome.Desert:
-                    return ew > 0.82f ? Region.MountainBand : Region.Sand;
-                case MapBiome.Forest:
-                    return ew > 0.76f ? Region.MountainBand : Region.Grass;
-                case MapBiome.Bluegrass: // TN/AL/GA: mountains in the east
-                    return ew > 0.72f ? Region.MountainBand : Region.Grass;
-                default: // Heartland/Plains
-                    return ew > 0.86f ? Region.MountainBand : Region.Grass;
+                if ((g.Water & MapEdge.N) != 0 && cell.y >= GridRows - 1) return Region.Water;
+                if ((g.Water & MapEdge.S) != 0 && cell.y <= 0) return Region.Water;
+                if ((g.Water & MapEdge.E) != 0 && cell.x >= GridCols - 1) return Region.Water;
+                if ((g.Water & MapEdge.W) != 0 && cell.x <= 0) return Region.Water;
+                if (g.River.Exists)
+                {
+                    float p = g.River.Horizontal ? ny : nx;
+                    float half = 0.5f / (g.River.Horizontal ? GridRows : GridCols);
+                    if (Mathf.Abs(p - g.River.Pos) <= half * 1.6f) return Region.Water;
+                }
             }
+
+            if (InMountainBand(g, nx, ny)) return Region.MountainBand;
+            if (g.DesertBase) return Region.Sand;
+            if (g.DesertWest > 0f && nx < g.DesertWest) return Region.Sand;
+            return Region.Grass;
+        }
+
+        private static bool InMountainBand(StateGeography g, float nx, float ny)
+        {
+            float d = g.MountainDepth <= 0f ? 0.25f : g.MountainDepth;
+            if ((g.Mountains & MapEdge.E) != 0 && nx > 1f - d) return true;
+            if ((g.Mountains & MapEdge.W) != 0 && nx < d) return true;
+            if ((g.Mountains & MapEdge.N) != 0 && ny > 1f - d) return true;
+            if ((g.Mountains & MapEdge.S) != 0 && ny < d) return true;
+            return false;
         }
 
         private void TerrainTile(WorldMapTheme theme, Region region, Vector2Int cell)
@@ -220,12 +235,12 @@ namespace Fitzmark.BDRSim.World
             anim.phase = (cell.x * 0.37f + cell.y * 0.19f); // de-sync neighbouring tiles
         }
 
-        // Mountains in the mountain band; forests/hills as scattered objects elsewhere.
-        private void LpcDecoration(WorldMapTheme theme, Region region, Vector2Int cell, float ew, System.Random rng)
+        // Mountains in the mountain band; forests/hills/cacti scattered elsewhere by biome.
+        private void LpcDecoration(WorldMapTheme theme, Region region, Vector2Int cell, System.Random rng)
         {
             if (region == Region.MountainBand)
             {
-                if (rng.NextDouble() < 0.55)
+                if (rng.NextDouble() < 0.6)
                     SpriteTile(LpcOverworldArt.Mountain(rng.Next(5)), cell, sorting: 2, scaleW: 1.8f, scaleH: 1.8f);
                 return;
             }
