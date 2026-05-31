@@ -24,11 +24,13 @@ namespace Fitzmark.BDRSim.World
         public const string Mushroom = Pack + "tile_0067";   // gem → power-up (grow big)
         public const string QBlock = Pack + "tile_0009";     // crate / "?" block (holds power-up)
 
-        // Player character (green) — idle / walk / jump frames
+        // Player character (GREEN). Kenney lays characters out as 2-frame pairs, so the green
+        // character is ONLY tile_0000 (idle) + tile_0001 (step) — tile_0002+ are OTHER colors
+        // (blue, etc.). Jump reuses the step frame so the character stays green throughout.
         public const string CharIdle = Chars + "tile_0000";
         public const string CharWalkA = Chars + "tile_0001";
         public const string CharWalkB = Chars + "tile_0000"; // 2-frame cycle (idle↔step)
-        public const string CharJump = Chars + "tile_0002";
+        public const string CharJump = Chars + "tile_0001";  // step pose (NOT tile_0002 = blue char)
 
         // Enemy
         public const string Enemy = Chars + "tile_0024";

@@ -81,10 +81,9 @@ namespace Fitzmark.BDRSim.World
             // fall and made the sprite animation look weird.
             rb.interpolation = RigidbodyInterpolation2D.None;
 
-            var body = _player.AddComponent<BoxCollider2D>();   // solid body, centered
-            body.size = new Vector2(0.7f, 1.0f);
-
-            var trigger = _player.AddComponent<BoxCollider2D>(); // pickups, centered, a touch larger
+            // One trigger collider for pickups (coins/enemies/goal). Solid-tile collision is the
+            // controller's own explicit-box casts, so no separate solid collider is needed.
+            var trigger = _player.AddComponent<BoxCollider2D>();
             trigger.isTrigger = true;
             trigger.size = new Vector2(0.8f, 1.1f);
 
@@ -114,7 +113,7 @@ namespace Fitzmark.BDRSim.World
             // start is the surface point; raise it by the body half-height so the CENTER spawns
             // with feet on the ground (single convention: transform = center).
             var spawn = start + new Vector3(0f, _ctrl.halfHeight, 0f);
-            _ctrl.Init(spawn, anim, 1 << SolidLayer, body);
+            _ctrl.Init(spawn, anim, 1 << SolidLayer);
             _ctrl.Won += OnWon;
             _ctrl.Failed += OnFailed;
             _ctrl.LivesChanged += _ => RefreshStatus();

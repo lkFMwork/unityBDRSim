@@ -51,7 +51,6 @@ namespace Fitzmark.BDRSim.World
         public float JumpVelocity => (2f * maxJumpHeight) / timeToApex;
 
         private LayerMask _solidMask;
-        private Collider2D _body;     // the player's own collider, cast for movement
         private Vector2 _vel;
         private Vector3 _start;
         private SpriteAnimator _anim;
@@ -60,19 +59,17 @@ namespace Fitzmark.BDRSim.World
         private bool _grounded;
         private bool _ended;
 
-        public void Init(Vector3 start, SpriteAnimator anim, LayerMask solidMask, Collider2D body)
+        public void Init(Vector3 start, SpriteAnimator anim, LayerMask solidMask)
         {
             _start = start;
             transform.position = start;
             _anim = anim;
             _solidMask = solidMask;
-            _body = body;
-            // IMPORTANT: keep autoSync OFF. With it on, every Collider2D.Cast forces a full
-            // physics-world transform sync, and we cast several times per frame (plus the corner
-            // nudge) — that's dozens of full syncs per frame = the stutter. Instead we sync ONCE
-            // at the start of each move and after repositioning, which is cheap and accurate.
-            Physics2D.autoSyncTransforms = false;
-            Physics2D.SyncTransforms();
+            // Movement casts use an EXPLICIT box at the live position (see CastSelf), so they don't
+            // depend on collider-sync timing. Keep autoSync on so the pickup trigger stays current
+            // for coins/enemies; it's cheap because only the player transform is ever dirty.
+            Physics2D.autoSyncTransforms = true;
+            Physics2D.SyncTransforms(); // register the freshly-built ground for queries
             Lives = startLives;
             Coins = 0;
             LivesChanged?.Invoke(Lives);
@@ -132,36 +129,32 @@ namespace Fitzmark.BDRSim.World
         // wrong — eliminating the "rests a tile too high" class of bug.
         private void MoveCollide(float dt)
         {
-            Physics2D.SyncTransforms(); // once per move: colliders match transforms for our casts
             Vector3 p = transform.position;
             const float skin = 0.02f;
 
-            // Horizontal
+            // Horizontal — cast from the working position p.
             float dx = _vel.x * dt;
             if (Mathf.Abs(dx) != 0f)
             {
                 int dir = dx > 0 ? 1 : -1;
-                float dist = CastSelf(Vector2.right * dir, Mathf.Abs(dx) + skin);
+                float dist = CastSelf(p, Vector2.right * dir, Mathf.Abs(dx) + skin);
                 if (dist < Mathf.Abs(dx) + skin) { dx = Mathf.Max(0f, dist - skin) * dir; _vel.x = 0f; }
                 p.x += dx;
-                transform.position = p; // keep the collider current for the next cast
             }
 
-            // Vertical
+            // Vertical — cast from p (now x-updated).
             float dy = _vel.y * dt;
             _grounded = false;
             if (Mathf.Abs(dy) != 0f)
             {
                 int dir = dy > 0 ? 1 : -1;
-                float dist = CastSelf(Vector2.up * dir, Mathf.Abs(dy) + skin);
+                float dist = CastSelf(p, Vector2.up * dir, Mathf.Abs(dy) + skin);
                 if (dist < Mathf.Abs(dy) + skin)
                 {
                     // Corner correction (rising): if only a corner of your head clips a block,
-                    // nudge sideways so you slide past instead of stopping dead — the classic
-                    // platformer feel-fix that stops jumps from "catching" on ledge lips.
+                    // nudge sideways so you slide past instead of stopping dead.
                     if (dir > 0 && TryCornerNudge(ref p))
                     {
-                        transform.position = p;
                         p.y += dy; // continue rising this frame
                     }
                     else
@@ -175,9 +168,9 @@ namespace Fitzmark.BDRSim.World
                 else p.y += dy;
             }
 
-            // Grounded probe for standing still / just landed.
+            // Grounded probe for standing still / just landed — cast from p (now y-updated).
             if (!_grounded && _vel.y <= 0.01f)
-                _grounded = CastSelf(Vector2.down, skin * 2f) < skin * 2f;
+                _grounded = CastSelf(p, Vector2.down, skin * 2f) < skin * 2f;
 
             p.z = 0f;
             transform.position = p;
@@ -203,17 +196,19 @@ namespace Fitzmark.BDRSim.World
             return false;
         }
 
-        // Distance the player's collider can travel along `dir` before hitting a surface that
-        // actually OPPOSES that direction (full `max` if clear). The normal check is essential:
-        // when you're resting on the floor and cast UP to jump, the floor reports a distance-0
-        // hit — but its normal points up (same as travel), so it must NOT block the jump. Only
-        // surfaces whose normal faces back against you (dot < 0) are real obstacles.
+        // Distance the player box can travel from `origin` along `dir` before hitting a surface
+        // that actually OPPOSES that direction (full `max` if clear). Two essentials:
+        //  • Box is cast from an EXPLICIT origin (the live working position), NOT the collider's
+        //    physics-synced state — so results can't lag sync timing. That lag was making the
+        //    downward cast falsely "land" each frame, resetting fall velocity (the slow fall).
+        //  • Normal check: the floor you're standing on reports a distance-0 hit with its normal
+        //    pointing up; that must NOT block an upward jump. Only surfaces whose normal faces
+        //    back against travel (dot < 0) are real obstacles.
         private static readonly RaycastHit2D[] _castHits = new RaycastHit2D[8];
-        private float CastSelf(Vector2 dir, float max)
+        private float CastSelf(Vector2 origin, Vector2 dir, float max)
         {
-            if (_body == null) return max;
-            var filter = new ContactFilter2D { useLayerMask = true, layerMask = _solidMask, useTriggers = false };
-            int n = _body.Cast(dir, filter, _castHits, max);
+            Vector2 size = new Vector2(halfWidth * 2f - 0.04f, halfHeight * 2f - 0.04f);
+            int n = Physics2D.BoxCastNonAlloc(origin, size, 0f, dir, _castHits, max, _solidMask);
             float best = max;
             for (int i = 0; i < n; i++)
             {
