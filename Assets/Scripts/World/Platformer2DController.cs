@@ -143,9 +143,12 @@ namespace Fitzmark.BDRSim.World
             transform.position = p;
         }
 
-        // Distance the player's collider can travel along `dir` before hitting the solid layer
-        // (full `max` if clear). Uses the actual collider, so its real AABB is what's tested.
-        private static readonly RaycastHit2D[] _castHits = new RaycastHit2D[4];
+        // Distance the player's collider can travel along `dir` before hitting a surface that
+        // actually OPPOSES that direction (full `max` if clear). The normal check is essential:
+        // when you're resting on the floor and cast UP to jump, the floor reports a distance-0
+        // hit — but its normal points up (same as travel), so it must NOT block the jump. Only
+        // surfaces whose normal faces back against you (dot < 0) are real obstacles.
+        private static readonly RaycastHit2D[] _castHits = new RaycastHit2D[8];
         private float CastSelf(Vector2 dir, float max)
         {
             if (_body == null) return max;
@@ -153,7 +156,12 @@ namespace Fitzmark.BDRSim.World
             int n = _body.Cast(dir, filter, _castHits, max);
             float best = max;
             for (int i = 0; i < n; i++)
-                if (_castHits[i].collider != null && _castHits[i].distance < best) best = _castHits[i].distance;
+            {
+                var h = _castHits[i];
+                if (h.collider == null) continue;
+                if (Vector2.Dot(h.normal, dir) >= -0.01f) continue; // not opposing → ignore (floor when jumping)
+                if (h.distance < best) best = h.distance;
+            }
             return best;
         }
 
