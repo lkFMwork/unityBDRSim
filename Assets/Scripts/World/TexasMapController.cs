@@ -468,25 +468,9 @@ namespace Fitzmark.BDRSim.World
                 return;
             }
 
-            int stage = TerritorySystem.CurrentStage(_c, client.Id);
-            int difficulty = TerritorySystem.StageDifficulty(_c, client);
-            int seed = StableHash(client.Id) + stage * 7919 + _day;
-
-            var scenario = ProspectGenerator.Generate(difficulty, seed);
-            scenario.prospect.companyName = client.Company;
-            scenario.prospect.location = client.City;
-            scenario.title = $"{TerritorySystem.StageName(stage)}: {client.Company}";
-            scenario.briefing =
-                $"{client.City} — {TerritorySystem.StageName(stage)} with {client.Company}. " + scenario.briefing;
-
-            _c.inPersonMeetings++;
-            var done = QuestSystem.Sync(_c);
-            if (done.Count > 0) GameManager.Instance.CareerFlash = QuestSystem.FlashFor(done);
-            GameManager.Instance.SaveProfile();
-
+            // Fast-travel into the city itself; you drive to a business there to take the meeting.
             GameManager.Instance.PendingClientId = client.Id;
-            GameManager.Instance.HubScene = SceneNames.Texas;
-            GameManager.Instance.StartTravel(scenario, true);
+            GameManager.Instance.GoToCity(client.Id);
         }
 
         // ---- helpers --------------------------------------------------------

@@ -190,8 +190,19 @@ namespace Fitzmark.BDRSim.Core
         public void ReturnToHub() =>
             SceneManager.LoadScene(string.IsNullOrEmpty(HubScene) ? SceneNames.MainMenu : HubScene);
 
+        /// <summary>The territory whose city we're currently visiting (themes the city + its name).</summary>
+        public string ActiveCityId { get; set; } = "";
+
         public void GoToCity()
         {
+            HubScene = SceneNames.City;
+            SceneManager.LoadScene(SceneNames.City);
+        }
+
+        /// <summary>Fast-travel into a specific territory's drivable city.</summary>
+        public void GoToCity(string clientId)
+        {
+            ActiveCityId = clientId ?? "";
             HubScene = SceneNames.City;
             SceneManager.LoadScene(SceneNames.City);
         }

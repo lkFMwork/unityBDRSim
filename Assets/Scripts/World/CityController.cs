@@ -27,6 +27,9 @@ namespace Fitzmark.BDRSim.World
         private Interactable[] _interactables;
         private bool _inCar;
 
+        private Transform _root;
+        private CityTheme _theme;
+        private Vector3 _playerSpawn = new Vector3(0f, 0.2f, -8f);
         private TMP_Text _prompt;
         private TMP_Text _callsLabel;
         private float _flashUntil;
@@ -36,6 +39,14 @@ namespace Fitzmark.BDRSim.World
         {
             GameManager.Instance.HubScene = SceneNames.City;
 
+            var c = GameManager.Instance.Profile;
+            string cityId = GameManager.Instance.ActiveCityId;
+            var client = TerritoryRegistry.Get(cityId);
+            _theme = CityThemes.For(cityId, client != null ? client.City : "Texas");
+
+            _root = new GameObject("City").transform;
+            BuildCity(cityId);
+
             SetupCamera();
             SpawnPlayer();
             SpawnCar();
@@ -44,6 +55,35 @@ namespace Fitzmark.BDRSim.World
 
             BuildHud();
             RefreshCalls();
+        }
+
+        private void BuildCity(string cityId)
+        {
+            int seed = StableHash(string.IsNullOrEmpty(cityId) ? "texas" : cityId);
+            var builder = new CityBuilder(_root, _theme, seed);
+            builder.Build();
+            _playerSpawn = builder.PlayerSpawn;
+
+            // Each business is an enterable client site (press E → in-person meeting).
+            foreach (var (pos, yaw, index) in builder.Businesses)
+            {
+                var go = new GameObject("Business_" + index);
+                go.transform.SetParent(_root, false);
+                go.transform.position = pos;
+                go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+                var it = go.AddComponent<Interactable>();
+                it.kind = Interactable.Kind.Client;
+                it.label = "Enter business";
+                it.seed = index;
+                it.range = 4f;
+            }
+        }
+
+        private static int StableHash(string s)
+        {
+            int h = 17;
+            foreach (char ch in s) h = unchecked(h * 31 + ch);
+            return h;
         }
 
         private void Update()
@@ -76,7 +116,7 @@ namespace Fitzmark.BDRSim.World
         private void SpawnPlayer()
         {
             _player = new GameObject("Player");
-            _player.transform.position = new Vector3(0f, 0.2f, -3f);
+            _player.transform.position = _playerSpawn;
 
             var cc = _player.AddComponent<CharacterController>();
             cc.height = 2f;
@@ -85,24 +125,26 @@ namespace Fitzmark.BDRSim.World
 
             _playerCtrl = _player.AddComponent<PlayerController>();
 
-            var body = new GameObject("Body");
-            body.transform.SetParent(_player.transform, false);
-            var avatar = body.AddComponent<AvatarBuilder>();
-            avatar.SetConfig(GameManager.Instance.Profile != null
-                ? GameManager.Instance.Profile.avatar
-                : new AvatarConfig());
+            // Real Mixamo body when imported; else the procedural avatar.
+            if (OfficeWorker.Attach(_player.transform) == null)
+            {
+                var body = new GameObject("Body");
+                body.transform.SetParent(_player.transform, false);
+                body.AddComponent<AvatarBuilder>().SetConfig(GameManager.Instance.Profile != null
+                    ? GameManager.Instance.Profile.avatar : new AvatarConfig());
+            }
 
             _cam.Target = _player.transform;
         }
 
         private void SpawnCar()
         {
-            _car = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            // A real Kenney sedan, auto-scaled, parked one lane to the right of the spawn.
+            _car = ModelLibrary.Spawn(CityThemes.CarModel, _root,
+                _playerSpawn + new Vector3(3f, 0f, 0f), 0f, 1f,
+                placeholderColor: new Color(0.72f, 0.22f, 0.22f), placeholderLabel: false,
+                fitSize: new Vector3(2f, 1.6f, 4.2f));
             _car.name = "Car";
-            _car.transform.localScale = new Vector3(1.7f, 0.8f, 3.4f);
-            _car.transform.position = new Vector3(4f, 0.4f, -3f);
-            var r = _car.GetComponent<Renderer>();
-            if (r != null) r.sharedMaterial = Mat(new Color(0.72f, 0.22f, 0.22f));
             _carCtrl = _car.AddComponent<CarController>();
         }
 
@@ -124,10 +166,10 @@ namespace Fitzmark.BDRSim.World
                 TextAnchor.MiddleLeft, FontStyle.Bold);
             UiFactory.Size(_callsLabel.gameObject, flexW: 1f);
 
-            var office = UiFactory.Button(top.transform, "Office (Menu)",
-                () => GameManager.Instance.ReturnToMenu(), UiTheme.Panel, UiTheme.TextMuted,
+            var back = UiFactory.Button(top.transform, "◀ Back to Map",
+                () => GameManager.Instance.GoToTexas(), UiTheme.Panel, UiTheme.TextMuted,
                 14, TextAnchor.MiddleCenter);
-            UiFactory.Size(office.gameObject, prefW: 160f);
+            UiFactory.Size(back.gameObject, prefW: 160f);
 
             var bar = UiFactory.Panel(canvas.transform, new Color(0f, 0f, 0f, 0.55f), "Prompt");
             var brt = bar.rectTransform;
@@ -145,9 +187,9 @@ namespace Fitzmark.BDRSim.World
             if (c != null)
             {
                 CareerSystem.EnsureStarted(c);
-                _callsLabel.text = $"Day {c.career.day}  ·  Calls left: " +
-                                   $"{c.career.callsRemainingToday}/{CareerSystem.CallsPerDay(c)}  " +
-                                   $"·  drive to a client site to set a meeting";
+                _callsLabel.text = $"<b>{_theme.DisplayName}</b>  ·  Day {c.career.day}  ·  " +
+                                   $"Calls {c.career.callsRemainingToday}/{CareerSystem.CallsPerDay(c)}  ·  " +
+                                   $"drive to a business and press E";
             }
             else
             {
@@ -225,7 +267,7 @@ namespace Fitzmark.BDRSim.World
             var c = GameManager.Instance.Profile;
             if (c == null)
             {
-                GameManager.Instance.ReturnToMenu();
+                GameManager.Instance.GoToTexas();
                 return;
             }
 
@@ -256,7 +298,5 @@ namespace Fitzmark.BDRSim.World
             _flashText = message;
             _flashUntil = Time.time + 2.5f;
         }
-
-        private static Material Mat(Color color) => Fitzmark.BDRSim.UI.MaterialLibrary.Get(color);
     }
 }

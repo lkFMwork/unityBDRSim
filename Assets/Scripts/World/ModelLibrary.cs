@@ -83,7 +83,7 @@ namespace Fitzmark.BDRSim.World
             go.transform.position += new Vector3(0f, lift, 0f);
         }
 
-        private static bool TryWorldBounds(GameObject go, out Bounds b)
+        public static bool TryWorldBounds(GameObject go, out Bounds b)
         {
             b = default;
             var rends = go.GetComponentsInChildren<Renderer>();
