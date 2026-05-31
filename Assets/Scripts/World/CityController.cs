@@ -222,6 +222,7 @@ namespace Fitzmark.BDRSim.World
                 fitHeight: 3f);
             _car.name = "Car";
             _carCtrl = _car.AddComponent<CarController>();
+            _carCtrl.SetTerrain(_terrain); // ride the generated terrain surface
         }
 
         // ---- HUD ------------------------------------------------------------
