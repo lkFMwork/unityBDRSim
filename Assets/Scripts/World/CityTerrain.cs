@@ -35,6 +35,7 @@ namespace Fitzmark.BDRSim.World
             _size = size;
             _maxHeight = Mathf.Clamp(size * 0.22f, 24f, 80f); // mountains read tall but not absurd
             var geo = StateGeography.For(stateId);
+            bool desert = geo.DesertBase || cityNx < geo.DesertWest;
 
             int res = 129; // heightmap resolution (2^n + 1)
             _data = new TerrainData
@@ -81,6 +82,7 @@ namespace Fitzmark.BDRSim.World
                 for (int x = 0; x < res; x++)
                     heights[y, x] = (heights[y, x] - lowest) / span;
             _data.SetHeights(0, 0, heights);
+            PaintSplat(desert, groundTint); // grass / rock / sand / snow by height + slope
 
             float groundNorm = (0f - lowest) / span;       // where elevation 0 lands in [0..1]
             WaterLevel = groundNorm * _maxHeight - 0.5f;    // water plane just under "ground" level
@@ -91,9 +93,11 @@ namespace Fitzmark.BDRSim.World
             _origin = new Vector3(-size * 0.5f, 0f, -size * 0.5f);
             go.transform.localPosition = _origin;
             Terrain = go.GetComponent<Terrain>();
-            Terrain.materialTemplate = TerrainMat(groundTint);
+            var tmat = TerrainMat(groundTint);
+            if (tmat != null) Terrain.materialTemplate = tmat; // else Unity's default terrain material (keeps splatmaps)
 
             BuildWater(parent, size, groundTint);
+            ScatterTrees(parent, geo, desert, size, stateId); // forest the relief ring around the city
         }
 
         /// <summary>World-space ground height at (x,z). Roads/buildings/car drape onto this.</summary>
@@ -120,12 +124,112 @@ namespace Fitzmark.BDRSim.World
 
         private static Material TerrainMat(Color tint)
         {
-            // Terrain needs a terrain-compatible shader; fall back to a tinted lit material.
+            // Terrain must use a terrain shader to splat its layers. If none is present we
+            // return null so Unity keeps its pipeline-default terrain material (which still
+            // paints the layers) — assigning a plain Lit material here would erase them.
             var shader = Shader.Find("Universal Render Pipeline/Terrain/Lit")
                          ?? Shader.Find("Nature/Terrain/Standard");
-            var mat = shader != null ? new Material(shader) : MaterialLibrary.Get(tint);
-            if (shader != null) mat.color = tint;
-            return mat;
+            return shader != null ? new Material(shader) : null;
+        }
+
+        // ---- ground texturing: grass / rock / sand / snow by height + slope ----
+
+        private void PaintSplat(bool desert, Color groundTint)
+        {
+            _data.terrainLayers = new[]
+            {
+                MakeLayer(GrassTint(groundTint),          0.10f, 13f), // 0 grass
+                MakeLayer(new Color(0.43f, 0.41f, 0.38f), 0.10f,  9f), // 1 rock
+                MakeLayer(new Color(0.80f, 0.73f, 0.52f), 0.06f, 11f), // 2 sand
+                MakeLayer(new Color(0.93f, 0.95f, 0.99f), 0.04f, 13f), // 3 snow
+            };
+
+            const int ar = 128;
+            _data.alphamapResolution = ar;
+            var maps = new float[ar, ar, 4];
+            for (int y = 0; y < ar; y++)
+                for (int x = 0; x < ar; x++)
+                {
+                    float nx = x / (ar - 1f);
+                    float ny = y / (ar - 1f);
+                    float hn = Mathf.Clamp01(_data.GetInterpolatedHeight(nx, ny) / Mathf.Max(0.001f, _maxHeight));
+                    float slope = Mathf.Clamp01(_data.GetSteepness(nx, ny) / 55f);
+
+                    float snowStart = desert ? 0.85f : 0.62f;
+                    float wSnow = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(snowStart, snowStart + 0.16f, hn));
+                    float wRock = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.32f, 0.62f, slope));
+                    float wSand = desert ? 0.9f : 1f - Mathf.InverseLerp(0.02f, 0.12f, hn); // low ground / shoreline
+                    float wGrass = 1f;
+
+                    // priority: snow over rock over sand over grass
+                    wRock  *= 1f - wSnow;
+                    wSand  *= (1f - wSnow) * (1f - wRock);
+                    wGrass *= (1f - wSnow) * (1f - wRock) * (1f - wSand);
+
+                    float sum = wSnow + wRock + wSand + wGrass + 1e-4f;
+                    maps[y, x, 0] = wGrass / sum;
+                    maps[y, x, 1] = wRock / sum;
+                    maps[y, x, 2] = wSand / sum;
+                    maps[y, x, 3] = wSnow / sum;
+                }
+            _data.SetAlphamaps(0, 0, maps);
+        }
+
+        private static Color GrassTint(Color themed)
+        {
+            // Pull the theme's ground colour toward a natural grass green so each city still
+            // reads as itself, but the land looks planted rather than flatly tinted.
+            return Color.Lerp(themed, new Color(0.34f, 0.52f, 0.27f), 0.55f);
+        }
+
+        private static TerrainLayer MakeLayer(Color baseCol, float noise, float tile)
+        {
+            const int n = 32;
+            var tex = new Texture2D(n, n, TextureFormat.RGB24, true) { wrapMode = TextureWrapMode.Repeat };
+            var px = new Color[n * n];
+            for (int i = 0; i < px.Length; i++)
+            {
+                float g = (Mathf.PerlinNoise((i % n) * 0.6f, (i / n) * 0.6f) - 0.5f) * noise;
+                px[i] = new Color(Mathf.Clamp01(baseCol.r + g),
+                                  Mathf.Clamp01(baseCol.g + g),
+                                  Mathf.Clamp01(baseCol.b + g), 1f);
+            }
+            tex.SetPixels(px);
+            tex.Apply();
+            return new TerrainLayer { diffuseTexture = tex, tileSize = new Vector2(tile, tile) };
+        }
+
+        // ---- forest the relief ring (deserts stay bare, mountains stay dense) ----
+
+        private void ScatterTrees(Transform parent, StateGeography geo, bool desert, float size, string stateId)
+        {
+            if (Terrain == null) return;
+            float density = desert ? 0.05f : geo.Mountains != MapEdge.None ? 1f : 0.5f;
+            int target = Mathf.RoundToInt(Mathf.Min(size * size / 900f, 160f) * density);
+            if (target <= 0) return;
+
+            var forest = new GameObject("Forest").transform;
+            forest.SetParent(parent, false);
+            var rng = new System.Random(stateId.GetHashCode() ^ Mathf.RoundToInt(size));
+            const string tree = "Models/kenney_city-kit-suburban_20/Models/FBX format/tree-large";
+
+            int placed = 0, guard = target * 8;
+            while (placed < target && guard-- > 0)
+            {
+                float u = (float)rng.NextDouble(), v = (float)rng.NextDouble();
+                float r = Mathf.Max(Mathf.Abs(u - 0.5f), Mathf.Abs(v - 0.5f)) * 2f;
+                if (r < 0.60f) continue; // keep the city core clear; plant the surrounding relief
+                float wx = (u - 0.5f) * size, wz = (v - 0.5f) * size;
+                float gy = SampleHeight(wx, wz);
+                if (gy < WaterLevel + 0.4f) continue;                // not in the water
+                float hn = gy / Mathf.Max(0.001f, _maxHeight);
+                if (hn > 0.66f && rng.NextDouble() > 0.15) continue; // thin out toward the snow line
+                ModelLibrary.Spawn(tree, forest, new Vector3(wx, gy, wz),
+                    (float)rng.NextDouble() * 360f, 1f,
+                    placeholderColor: new Color(0.26f, 0.5f, 0.28f), placeholderLabel: false,
+                    fitHeight: 7f);
+                placed++;
+            }
         }
     }
 }
