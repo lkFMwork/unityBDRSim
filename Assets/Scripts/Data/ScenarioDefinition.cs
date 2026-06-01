@@ -37,6 +37,10 @@ namespace Fitzmark.BDRSim.Data
                  "advances that company's relationship and brands the managed account.")]
         public string localCompanyId = "";
 
+        [Tooltip("True for an in-person field visit (full progression, can close a managed customer); " +
+                 "false for a nationwide cold call (warms the relationship but caps below the close).")]
+        public bool fieldVisit = false;
+
         [Tooltip("A high-stakes 'key account': tougher gatekeeper, bigger book, bonus rewards.")]
         public bool isKeyAccount = false;
 

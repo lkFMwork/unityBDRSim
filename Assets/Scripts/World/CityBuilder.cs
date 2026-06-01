@@ -94,7 +94,7 @@ namespace Fitzmark.BDRSim.World
         {
             var blocks = new GameObject("Blocks").transform;
             blocks.SetParent(_root, false);
-            int businessTarget = Mathf.Clamp((2 * r) , 3, 6);
+            int businessTarget = Mathf.Clamp(3 * r, 4, 10); // more doorways → more of the city's book is closeable in person
             var candidates = new List<(Vector3 c, float yaw)>();
 
             for (int gx = -r; gx <= r; gx++)

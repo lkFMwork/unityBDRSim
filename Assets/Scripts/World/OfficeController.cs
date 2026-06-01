@@ -440,10 +440,9 @@ namespace Fitzmark.BDRSim.World
             CareerSystem.ConsumeCall(c);
             GameManager.Instance.SaveProfile();
 
-            int week = CareerSystem.Week(c.career.day);
-            int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1), 1, 10);
-            int seed = unchecked(c.career.day * 17 + c.callsMade * 3 + 91);
-            var scenario = ProspectGenerator.Generate(difficulty, seed);
+            // Cold-call the national book: a real company anywhere in the country, branded into the
+            // meeting. The phone warms the relationship but can't close it — that takes a field visit.
+            var scenario = ColdCallSystem.ServeColdCall(c);
 
             GameManager.Instance.HubScene = SceneNames.Office;
             GameManager.Instance.StartCareerCall(scenario);

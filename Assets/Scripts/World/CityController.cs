@@ -426,6 +426,7 @@ namespace Fitzmark.BDRSim.World
                 // and tie the result to its relationship. The cold first meeting is gatekept; warmer
                 // revisits skip the gatekeeper — you already know the front desk.
                 scenario.localCompanyId = company.Id;
+                scenario.fieldVisit = true; // in-person — full progression, can close a managed customer
                 scenario.title = company.Name;
                 if (scenario.prospect != null)
                 {

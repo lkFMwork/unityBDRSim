@@ -300,26 +300,35 @@ namespace Fitzmark.BDRSim.UI
                 string clientId = GameManager.Instance.PendingClientId;
                 if (!string.IsNullOrEmpty(companyId))
                 {
-                    // In-person field visit to a specific city company: advance the relationship
-                    // (cold → … → managed). Winning also clears the city on the SMW path, and the
-                    // final close opens a managed freight account branded with the company.
-                    TerritorySystem.RecordCompanyMeeting(profile, companyId, profile.career.day, won);
-                    if (won)
+                    if (wonScenario.fieldVisit)
                     {
-                        var comp = CompanyRegistry.Get(companyId);
-                        if (comp != null)
+                        // In-person field visit: full progression (cold → … → managed). Winning also
+                        // clears the city on the SMW path, and the final close opens a managed freight
+                        // account branded with the company.
+                        TerritorySystem.RecordCompanyMeeting(profile, companyId, profile.career.day, won);
+                        if (won)
                         {
-                            bool worldDone = WorldSystem.MarkCityCleared(profile, comp.CityId);
-                            if (worldDone)
+                            var comp = CompanyRegistry.Get(companyId);
+                            if (comp != null)
                             {
-                                var w = WorldRegistry.WorldOf(comp.CityId);
-                                if (w != null)
-                                    GameManager.Instance.CareerFlash =
-                                        $"WORLD CLEAR — you've covered all of {w.Name}! The next state is open.";
+                                bool worldDone = WorldSystem.MarkCityCleared(profile, comp.CityId);
+                                if (worldDone)
+                                {
+                                    var w = WorldRegistry.WorldOf(comp.CityId);
+                                    if (w != null)
+                                        GameManager.Instance.CareerFlash =
+                                            $"WORLD CLEAR — you've covered all of {w.Name}! The next state is open.";
+                                }
                             }
+                            if (TerritorySystem.IsCompanyManaged(profile, companyId))
+                                FreightSystem.OpenAccountFromWin(profile, wonScenario, profile.career.day);
                         }
-                        if (TerritorySystem.IsCompanyManaged(profile, companyId) && wonScenario != null)
-                            FreightSystem.OpenAccountFromWin(profile, wonScenario, profile.career.day);
+                    }
+                    else
+                    {
+                        // Nationwide cold call: warm the relationship, but the phone caps below the
+                        // close — no city clear, and no managed account from a call.
+                        TerritorySystem.RecordCompanyColdCall(profile, companyId, profile.career.day, won);
                     }
                 }
                 else if (!string.IsNullOrEmpty(clientId))

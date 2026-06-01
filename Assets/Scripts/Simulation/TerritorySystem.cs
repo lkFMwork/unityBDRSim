@@ -85,6 +85,8 @@ namespace Fitzmark.BDRSim.Simulation
 
         public const int CompanyStages = 4;       // cold intro → ... → managed
         public const int CompanyCooldownDays = 2; // in-game gap between visits to the same company
+        public const int PhoneStageCap = 3;       // the phone only warms a company to Proposal; the
+                                                  // close (managed customer) takes an in-person visit
 
         public static string CompanyStageName(int stage) => stage switch
         {
@@ -103,6 +105,16 @@ namespace Fitzmark.BDRSim.Simulation
             var created = new CompanyProgress { companyId = companyId };
             c.companyAccounts.Add(created);
             return created;
+        }
+
+        /// <summary>Read-only progress lookup — returns null if untouched and never creates an entry,
+        /// so scanning the whole national book (945 companies) doesn't bloat the save.</summary>
+        public static CompanyProgress PeekCompany(BDRCharacter c, string companyId)
+        {
+            if (c.companyAccounts == null) return null;
+            foreach (var p in c.companyAccounts)
+                if (p.companyId == companyId) return p;
+            return null;
         }
 
         public static int CompanyStage(BDRCharacter c, string companyId) => GetCompany(c, companyId).stage;
@@ -142,6 +154,16 @@ namespace Fitzmark.BDRSim.Simulation
             if (!won) return;
             if (p.stage >= CompanyStages) p.managed = true;
             else p.stage++;
+        }
+
+        /// <summary>Record a finished nationwide cold call: start the cooldown; on a win, warm the
+        /// relationship a stage — but only up to <see cref="PhoneStageCap"/>. The phone never closes
+        /// a managed customer; that takes an in-person field visit.</summary>
+        public static void RecordCompanyColdCall(BDRCharacter c, string companyId, int day, bool won)
+        {
+            var p = GetCompany(c, companyId);
+            p.lastMeetingDay = day;
+            if (won && p.stage < PhoneStageCap) p.stage++;
         }
     }
 }

@@ -117,10 +117,9 @@ namespace Fitzmark.BDRSim.Core
             if (c == null || !CareerSystem.HasCallsLeft(c)) return;
             CareerSystem.ConsumeCall(c);
             SaveProfile();
-            int week = CareerSystem.Week(c.career.day);
-            int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1) + EconomySystem.LeadQuality(c), 1, 10);
-            int seed = unchecked(System.Environment.TickCount + c.callsMade * 7 + c.career.day);
-            StartCareerCall(ProspectGenerator.Generate(difficulty, seed));
+            // The nationwide cold-call book (a real company anywhere), with the Lead Intelligence
+            // upgrade still sharpening the prospect.
+            StartCareerCall(ColdCallSystem.ServeColdCall(c, EconomySystem.LeadQuality(c)));
         }
 
         /// <summary>Run a career call that counts toward the day/week.</summary>
