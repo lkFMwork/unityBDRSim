@@ -1,6 +1,7 @@
 using Fitzmark.BDRSim.Data;
 using Fitzmark.BDRSim.UI;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Fitzmark.BDRSim.World
 {
@@ -93,8 +94,8 @@ namespace Fitzmark.BDRSim.World
             _origin = new Vector3(-size * 0.5f, 0f, -size * 0.5f);
             go.transform.localPosition = _origin;
             Terrain = go.GetComponent<Terrain>();
-            var tmat = TerrainMat(groundTint);
-            if (tmat != null) Terrain.materialTemplate = tmat; // else Unity's default terrain material (keeps splatmaps)
+            var tmat = TerrainMat();
+            if (tmat != null) Terrain.materialTemplate = tmat; // URP's own terrain material (a built-in terrain shader renders pink)
 
             BuildWater(parent, size, groundTint);
             ScatterTrees(parent, geo, desert, size, stateId); // forest the relief ring around the city
@@ -122,13 +123,15 @@ namespace Fitzmark.BDRSim.World
             if (r != null) r.sharedMaterial = mat;
         }
 
-        private static Material TerrainMat(Color tint)
+        private static Material TerrainMat()
         {
-            // Terrain must use a terrain shader to splat its layers. If none is present we
-            // return null so Unity keeps its pipeline-default terrain material (which still
-            // paints the layers) — assigning a plain Lit material here would erase them.
-            var shader = Shader.Find("Universal Render Pipeline/Terrain/Lit")
-                         ?? Shader.Find("Nature/Terrain/Standard");
+            // Use the ACTIVE render pipeline's terrain material. A built-in terrain shader under
+            // URP renders magenta ("pink terrain"), and Shader.Find for the URP terrain shader can
+            // return null when nothing else references it — the pipeline's defaultTerrainMaterial is
+            // the reliable source. Falls back to the URP terrain shader, then null (Unity default).
+            var rp = GraphicsSettings.currentRenderPipeline;
+            if (rp != null && rp.defaultTerrainMaterial != null) return rp.defaultTerrainMaterial;
+            var shader = Shader.Find("Universal Render Pipeline/Terrain/Lit");
             return shader != null ? new Material(shader) : null;
         }
 
