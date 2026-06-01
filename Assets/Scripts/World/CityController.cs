@@ -95,6 +95,7 @@ namespace Fitzmark.BDRSim.World
 
             // Each business is an enterable client site (press E → gatekeeper fight → meeting),
             // marked by a top-down spotlight + glowing beacon so it's easy to spot and drive to.
+            var companies = CompanyRegistry.ForCity(cityId);
             foreach (var (pos, yaw, index) in builder.Businesses)
             {
                 var go = new GameObject("Business_" + index);
@@ -103,7 +104,10 @@ namespace Fitzmark.BDRSim.World
                 go.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
                 var it = go.AddComponent<Interactable>();
                 it.kind = Interactable.Kind.Client;
-                it.label = "Enter business (fight the gatekeeper)";
+                // Each doorway is a specific company in the city's book (stable per index, so the
+                // same building is always the same company to build a relationship with).
+                var company = companies.Count > 0 ? companies[index % companies.Count] : null;
+                it.label = company != null ? $"Visit {company.Name}" : "Enter business (fight the gatekeeper)";
                 it.seed = index;
                 it.range = 4f;
 
@@ -283,7 +287,25 @@ namespace Fitzmark.BDRSim.World
             }
 
             string controls = $"WASD move   ·   F {( _inCar ? "exit car" : "drive")}   ·   E interact";
-            if (near != null) controls = $"[E] {near.label}      " + controls;
+            if (near != null)
+            {
+                string label = near.label;
+                // For a business doorway, show the live relationship stage with its company.
+                var c = GameManager.Instance.Profile;
+                if (c != null && near.kind == Interactable.Kind.Client)
+                {
+                    var companies = CompanyRegistry.ForCity(GameManager.Instance.ActiveCityId);
+                    if (companies.Count > 0)
+                    {
+                        var company = companies[near.seed % companies.Count];
+                        string status = TerritorySystem.IsCompanyManaged(c, company.Id)
+                            ? "Managed Customer"
+                            : TerritorySystem.CompanyStageName(TerritorySystem.CompanyStage(c, company.Id));
+                        label = $"{near.label} — {status}";
+                    }
+                }
+                controls = $"[E] {label}      " + controls;
+            }
             _prompt.text = controls;
         }
 
@@ -365,17 +387,58 @@ namespace Fitzmark.BDRSim.World
                 return;
             }
 
+            // Which of the city's companies does this doorway belong to? (stable per doorway, so
+            // returning to the same building is returning to the same company.)
+            var companies = CompanyRegistry.ForCity(GameManager.Instance.ActiveCityId);
+            Company company = companies.Count > 0 ? companies[target.seed % companies.Count] : null;
+            int day = c.career.day;
+            if (company != null)
+            {
+                if (TerritorySystem.IsCompanyManaged(c, company.Id))
+                {
+                    Flash($"{company.Name} is already a managed customer — they tender freight on the desk.");
+                    return;
+                }
+                if (!TerritorySystem.IsCompanyAvailable(c, company.Id, day))
+                {
+                    int wait = TerritorySystem.CompanyDaysUntilAvailable(c, company.Id, day);
+                    Flash($"{company.Name} needs {wait} more day{(wait == 1 ? "" : "s")} before another visit.");
+                    return;
+                }
+            }
+
             CareerSystem.ConsumeCall(c);
             c.inPersonMeetings++;
             var doneQuests = QuestSystem.Sync(c);
             if (doneQuests.Count > 0) GameManager.Instance.CareerFlash = QuestSystem.FlashFor(doneQuests);
             GameManager.Instance.SaveProfile();
 
-            int week = CareerSystem.Week(c.career.day);
-            int difficulty = Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1), 1, 10);
             int seed = unchecked(target.seed * 101 + c.career.day * 13 + c.callsMade);
+            int stage = company != null ? TerritorySystem.CompanyStage(c, company.Id) : 1;
+            int difficulty = company != null
+                ? TerritorySystem.CompanyStageDifficulty(c, company)
+                : Mathf.Clamp(1 + (c.level - 1) / 2 + (CareerSystem.Week(c.career.day) - 1), 1, 10);
             var scenario = ProspectGenerator.Generate(difficulty, seed);
-            scenario.gatekeeperPresent = true; // a gatekeeper guards the meeting → fight to get in
+
+            if (company != null)
+            {
+                // Brand the meeting (and the managed account it can become) with the real company,
+                // and tie the result to its relationship. The cold first meeting is gatekept; warmer
+                // revisits skip the gatekeeper — you already know the front desk.
+                scenario.localCompanyId = company.Id;
+                scenario.title = company.Name;
+                if (scenario.prospect != null)
+                {
+                    scenario.prospect.companyName = company.Name;
+                    scenario.prospect.industry = company.Industry;
+                    scenario.prospect.location = company.City;
+                }
+                scenario.gatekeeperPresent = stage <= 1;
+            }
+            else
+            {
+                scenario.gatekeeperPresent = true; // a gatekeeper guards the meeting → fight to get in
+            }
 
             // Enter the business: walk into the lobby, then the gatekeeper duel and the meeting.
             GameManager.Instance.GoToBusinessInterior(scenario);

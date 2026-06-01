@@ -61,6 +61,10 @@ namespace Fitzmark.BDRSim.Data
         // Local (Texas) accounts — staged meeting progress
         public List<LocalAccountProgress> localAccounts = new List<LocalAccountProgress>();
 
+        // Per-company relationships built by in-person field visits (15 companies per city):
+        // cold first meeting → warmer revisits → managed transportation customer.
+        public List<CompanyProgress> companyAccounts = new List<CompanyProgress>();
+
         // Freight desk — your book of business once deals are closed
         public float cash = 0f;                  // personal commission earned, spendable
         public float lifetimeMargin = 0f;        // gross margin you've moved, all-time

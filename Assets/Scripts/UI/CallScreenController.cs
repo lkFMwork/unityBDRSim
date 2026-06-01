@@ -296,8 +296,33 @@ namespace Fitzmark.BDRSim.UI
                            || report.Outcome == CallOutcome.WonTrial;
                 if (won) Vfx.Celebrate();
                 var wonScenario = GameManager.Instance.ResolveActiveScenario();
+                string companyId = wonScenario != null ? wonScenario.localCompanyId : "";
                 string clientId = GameManager.Instance.PendingClientId;
-                if (!string.IsNullOrEmpty(clientId))
+                if (!string.IsNullOrEmpty(companyId))
+                {
+                    // In-person field visit to a specific city company: advance the relationship
+                    // (cold → … → managed). Winning also clears the city on the SMW path, and the
+                    // final close opens a managed freight account branded with the company.
+                    TerritorySystem.RecordCompanyMeeting(profile, companyId, profile.career.day, won);
+                    if (won)
+                    {
+                        var comp = CompanyRegistry.Get(companyId);
+                        if (comp != null)
+                        {
+                            bool worldDone = WorldSystem.MarkCityCleared(profile, comp.CityId);
+                            if (worldDone)
+                            {
+                                var w = WorldRegistry.WorldOf(comp.CityId);
+                                if (w != null)
+                                    GameManager.Instance.CareerFlash =
+                                        $"WORLD CLEAR — you've covered all of {w.Name}! The next state is open.";
+                            }
+                        }
+                        if (TerritorySystem.IsCompanyManaged(profile, companyId) && wonScenario != null)
+                            FreightSystem.OpenAccountFromWin(profile, wonScenario, profile.career.day);
+                    }
+                }
+                else if (!string.IsNullOrEmpty(clientId))
                 {
                     TerritorySystem.RecordMeeting(profile, clientId, profile.career.day, won);
                     if (won)

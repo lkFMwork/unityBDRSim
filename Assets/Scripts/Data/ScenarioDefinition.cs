@@ -33,6 +33,10 @@ namespace Fitzmark.BDRSim.Data
         [Tooltip("If true, the rep must get past a gatekeeper before reaching the prospect.")]
         public bool gatekeeperPresent = false;
 
+        [Tooltip("When this is an in-person visit to a specific city company, its id — so the close " +
+                 "advances that company's relationship and brands the managed account.")]
+        public string localCompanyId = "";
+
         [Tooltip("A high-stakes 'key account': tougher gatekeeper, bigger book, bonus rewards.")]
         public bool isKeyAccount = false;
 

@@ -77,5 +77,71 @@ namespace Fitzmark.BDRSim.Simulation
             if (p.stage >= MaxStages) p.closed = true;
             else p.stage++;
         }
+
+        // --- Per-company relationships (15 companies per city) -------------------------------
+        // In-person field visits build a relationship with a SPECIFIC company: the first meeting is
+        // cold (gatekept), each won revisit advances a stage, and the final close turns them into a
+        // managed transportation customer (a freight account on the desk).
+
+        public const int CompanyStages = 4;       // cold intro → ... → managed
+        public const int CompanyCooldownDays = 2; // in-game gap between visits to the same company
+
+        public static string CompanyStageName(int stage) => stage switch
+        {
+            1 => "Cold Intro",
+            2 => "Follow-up",
+            3 => "Proposal",
+            4 => "Closing",
+            _ => "Managed Customer",
+        };
+
+        public static CompanyProgress GetCompany(BDRCharacter c, string companyId)
+        {
+            c.companyAccounts ??= new System.Collections.Generic.List<CompanyProgress>();
+            foreach (var p in c.companyAccounts)
+                if (p.companyId == companyId) return p;
+            var created = new CompanyProgress { companyId = companyId };
+            c.companyAccounts.Add(created);
+            return created;
+        }
+
+        public static int CompanyStage(BDRCharacter c, string companyId) => GetCompany(c, companyId).stage;
+
+        /// <summary>True once the relationship has closed — they're a managed transportation customer.</summary>
+        public static bool IsCompanyManaged(BDRCharacter c, string companyId) => GetCompany(c, companyId).managed;
+
+        public static bool IsCompanyAvailable(BDRCharacter c, string companyId, int day)
+        {
+            var p = GetCompany(c, companyId);
+            if (p.managed) return false;
+            if (p.lastMeetingDay < 0) return true;
+            return day - p.lastMeetingDay >= CompanyCooldownDays;
+        }
+
+        public static int CompanyDaysUntilAvailable(BDRCharacter c, string companyId, int day)
+        {
+            var p = GetCompany(c, companyId);
+            if (p.lastMeetingDay < 0) return 0;
+            return Mathf.Max(0, CompanyCooldownDays - (day - p.lastMeetingDay));
+        }
+
+        /// <summary>Meeting difficulty climbs as the relationship deepens toward the close.</summary>
+        public static int CompanyStageDifficulty(BDRCharacter c, Company company)
+        {
+            int stage = GetCompany(c, company.Id).stage;
+            int week = CareerSystem.Week(c.career.day);
+            return Mathf.Clamp(1 + (c.level - 1) / 2 + (week - 1) + (stage - 1), 1, 10);
+        }
+
+        /// <summary>Record a finished in-person visit: start the cooldown; on a win, advance the
+        /// relationship a stage (or, on the final stage, make them a managed customer).</summary>
+        public static void RecordCompanyMeeting(BDRCharacter c, string companyId, int day, bool won)
+        {
+            var p = GetCompany(c, companyId);
+            p.lastMeetingDay = day;
+            if (!won) return;
+            if (p.stage >= CompanyStages) p.managed = true;
+            else p.stage++;
+        }
     }
 }
