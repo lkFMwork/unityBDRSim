@@ -1,5 +1,6 @@
 using Fitzmark.BDRSim.Core;
 using Fitzmark.BDRSim.Data;
+using Fitzmark.BDRSim.Simulation;
 using Fitzmark.BDRSim.UI;
 using TMPro;
 using UnityEngine;
@@ -84,11 +85,10 @@ namespace Fitzmark.BDRSim.World
             SpawnNpc(new Vector3(4.8f, 0f, -6.5f), 200f, "talking", null, "");
             SpawnNpc(new Vector3(-4.5f, 0f, 6f), 160f, "typing", null, "");
 
-            // Gatekeeper blocking the doorway to the back office — talk to start the meeting.
-            var scenario = GameManager.Instance.SelectedScenario;
+            // Gatekeeper blocking the doorway to the back office — challenge them to reach the meeting.
             SpawnNpc(new Vector3(0f, 0f, -0.7f), 180f, "idle",
-                () => GameManager.Instance.StartCareerCall(scenario),
-                "Talk to the gatekeeper (start the meeting)");
+                ChallengeGatekeeper,
+                "Challenge the gatekeeper");
 
             // Exit back to the street, by the entrance.
             var exit = new GameObject("Exit");
@@ -122,6 +122,21 @@ namespace Fitzmark.BDRSim.World
             it.label = label;
             it.range = 3.0f;
             it.onInteract = onE;
+        }
+
+        // Challenge the gatekeeper: this is where the visit "counts" — spend the call, then the
+        // duel runs (existing scene); winning leads into the meeting.
+        private void ChallengeGatekeeper()
+        {
+            var gm = GameManager.Instance;
+            var c = gm.Profile;
+            if (c != null)
+            {
+                CareerSystem.ConsumeCall(c);
+                c.inPersonMeetings++;
+                gm.SaveProfile();
+            }
+            gm.StartCareerCall(gm.SelectedScenario);
         }
 
         // ---- player + camera (mirrors the city/office) -------------------------
@@ -177,6 +192,16 @@ namespace Fitzmark.BDRSim.World
         private void BuildHud()
         {
             var canvas = UiFactory.CreateScreenCanvas("BusinessHud");
+
+            var sc = GameManager.Instance.SelectedScenario;
+            string company = sc != null && sc.prospect != null ? sc.prospect.companyName : "the client";
+            var title = UiFactory.Label(canvas.transform, $"Inside {company}", 20, UiTheme.TextPrimary, TextAnchor.MiddleCenter);
+            var trt = title.rectTransform;
+            trt.anchorMin = new Vector2(0f, 0.92f);
+            trt.anchorMax = new Vector2(1f, 0.99f);
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+
             var bar = UiFactory.Panel(canvas.transform, new Color(0f, 0f, 0f, 0.55f), "Prompt");
             var rt = bar.rectTransform;
             rt.anchorMin = new Vector2(0f, 0f);

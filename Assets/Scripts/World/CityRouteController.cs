@@ -136,16 +136,7 @@ namespace Fitzmark.BDRSim.World
             ClearChoices();
             RefreshStats();
             _log.text = $"You reached <b>{_company}</b> with {_time} min to spare — composure {_composure}/100.";
-            AddCentredButton("Into the meeting ▶", () =>
-            {
-                if (_c != null)
-                {
-                    CareerSystem.ConsumeCall(_c);
-                    _c.inPersonMeetings++;
-                    GameManager.Instance.SaveProfile();
-                }
-                GameManager.Instance.StartCareerCall(_scenario);
-            });
+            AddCentredButton("Step inside ▶", () => GameManager.Instance.GoToBusinessInterior(_scenario));
         }
 
         private void Missed()
