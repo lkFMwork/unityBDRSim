@@ -57,6 +57,12 @@ namespace Fitzmark.BDRSim.World
 
             BuildHud();
             RefreshCalls();
+
+            var c0 = Profile;
+            if (c0 != null && c0.career != null && c0.career.day == 1 &&
+                c0.career.callsRemainingToday >= CareerSystem.CallsPerDay(c0))
+                Flash("Welcome to FITZMARK. Work cold calls (left desk), then hit “End Day ▶” " +
+                      "top-right. Clear all your calls to open tomorrow's field day.");
         }
 
         private void Update()
@@ -345,10 +351,15 @@ namespace Fitzmark.BDRSim.World
                 TextAnchor.MiddleLeft, FontStyle.Bold);
             UiFactory.Size(_callsLabel.gameObject, flexW: 1f);
 
-            var leave = UiFactory.Button(top.transform, "Leave ▶",
+            var endDay = UiFactory.Button(top.transform, "End Day ▶",
+                EndDayFromOffice, UiTheme.Accent, UiTheme.TextPrimary,
+                14, TextAnchor.MiddleCenter);
+            UiFactory.Size(endDay.gameObject, prefW: 130f);
+
+            var leave = UiFactory.Button(top.transform, "Field ▶",
                 TryFieldDay, UiTheme.Panel, UiTheme.TextMuted,
                 14, TextAnchor.MiddleCenter);
-            UiFactory.Size(leave.gameObject, prefW: 120f);
+            UiFactory.Size(leave.gameObject, prefW: 110f);
 
             var bar = UiFactory.Panel(_hud.transform, new Color(0f, 0f, 0f, 0.55f), "Prompt");
             var brt = bar.rectTransform;
@@ -433,11 +444,12 @@ namespace Fitzmark.BDRSim.World
             CareerSystem.EnsureStarted(c);
             if (!CareerSystem.HasCallsLeft(c))
             {
-                Flash("No calls left today — leave to the map and turn in the day.");
+                Flash("That's all your calls for today — hit “End Day ▶” (top-right) to wrap up.");
                 return;
             }
 
             CareerSystem.ConsumeCall(c);
+            c.career.coldCallsToday++;
             GameManager.Instance.SaveProfile();
 
             // Cold-call the national book: a real company anywhere in the country, branded into the
@@ -507,6 +519,23 @@ namespace Fitzmark.BDRSim.World
             _flashUntil = Time.time + 2.5f;
         }
 
+        // End the workday from the desk: advance the day, flash a concise summary, and refresh for
+        // the new morning. Clearing your calls today is what opens tomorrow's field day.
+        private void EndDayFromOffice()
+        {
+            var c = Profile;
+            if (c == null) return;
+            int endedDay = c.career.day;
+            GameManager.Instance.EndBusinessDay(out _, out _, out var marketEvent);
+
+            string field = c.career.fieldDayUnlocked
+                ? "You cleared your calls — a field day's open: take “Field ▶” to hit the road."
+                : "You left calls on the table, so no field day tomorrow — keep working the phones.";
+            string extra = string.IsNullOrEmpty(marketEvent) ? "" : "  " + marketEvent;
+            Flash($"Day {endedDay} wrapped — now Day {c.career.day}. {field}{extra}");
+            RefreshCalls();
+        }
+
         // A field day is earned, not free: you hit the field the morning AFTER you clear your
         // cold-call quota. Until then the overworld exit is locked and points you back to the phones.
         private void TryFieldDay()
@@ -514,7 +543,7 @@ namespace Fitzmark.BDRSim.World
             var c = Profile;
             if (c != null && c.career != null && !c.career.fieldDayUnlocked)
             {
-                Flash("Field day's locked — clear today's cold-call quota, then End Day. You go to the field the morning after you make all your calls.");
+                Flash("Field day's locked — make all your cold calls, then “End Day ▶”. You hit the road the morning after a full day on the phones.");
                 return;
             }
             GameManager.Instance.GoToTexas();

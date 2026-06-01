@@ -13,6 +13,7 @@ namespace Fitzmark.BDRSim.Data
         public bool initialized;
         public int day = 1;
         public int callsRemainingToday = 5;
+        public int coldCallsToday = 0;       // cold calls made today (not in-person visits) — earns the field day
         public int weekDealsWon = 0;
         public int weekDealsGoal = 3;
 

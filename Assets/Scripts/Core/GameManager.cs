@@ -73,6 +73,10 @@ namespace Fitzmark.BDRSim.Core
         public void CreateProfile(BDRCharacter character)
         {
             Profile = character;
+            // The home branch is reachable from day one — you can drive straight in on your first
+            // field day and learn the visit loop before commutes gate the rest of the country.
+            if (!string.IsNullOrEmpty(character.homeBranchId))
+                TerritorySystem.UnlockCity(character, character.homeBranchId);
             SaveSystem.Save(character);
         }
 
@@ -112,6 +116,7 @@ namespace Fitzmark.BDRSim.Core
             var c = Profile;
             if (c == null || !CareerSystem.HasCallsLeft(c)) return;
             CareerSystem.ConsumeCall(c);
+            c.career.coldCallsToday++;
             SaveProfile();
             // The nationwide cold-call book (a real company anywhere), with the Lead Intelligence
             // upgrade still sharpening the prospect.
