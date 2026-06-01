@@ -418,35 +418,13 @@ namespace Fitzmark.BDRSim.Editor
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            var camGo = new GameObject("Main Camera");
-            camGo.tag = "MainCamera";
-            var cam = camGo.AddComponent<Camera>();
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.45f, 0.60f, 0.80f); // sky
-            cam.farClipPlane = 500f;
-            camGo.transform.position = new Vector3(0f, 12f, -14f);
-            camGo.transform.rotation = Quaternion.Euler(42f, 0f, 0f);
-            camGo.AddComponent<AudioListener>();
+            CreateCamera(new Vector3(0f, 1f, -10f), Quaternion.identity);
 
-            var lightGo = new GameObject("Directional Light");
-            var light = lightGo.AddComponent<Light>();
-            light.type = LightType.Directional;
-            light.intensity = 1.1f;
-            light.shadows = LightShadows.Soft;
-            lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
-
-            // The city itself (ground, streets, buildings, businesses, crowd) is built at
-            // runtime by CityController/CityBuilder from the Kenney kits, themed per
-            // territory — so this scene is just a shell. (Previously this baked primitive
-            // office/client/filler cubes, which then showed through the procedural city.)
-            var controller = new GameObject("CityController");
-            controller.AddComponent<CityController>();
-
-            var crowd = new GameObject("Crowd");
-            var cs = crowd.AddComponent<CrowdSpawner>();
-            cs.center = new Vector3(0f, 0f, 0f);
-            cs.radius = 26f;
-            cs.count = 8;
+            // The city is now a screen-space route/map strategy beat — you plan the drive to the
+            // company (time vs composure vs risk), then hand off to the meeting. Built at runtime
+            // by CityRouteController; no 3D city geometry.
+            var controller = new GameObject("CityRouteController");
+            controller.AddComponent<CityRouteController>();
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, CityScenePath);
