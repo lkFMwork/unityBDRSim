@@ -283,7 +283,7 @@ namespace Fitzmark.BDRSim.UI
             _draft.career = new CareerState();
 
             GameManager.Instance.CreateProfile(_draft);
-            GameManager.Instance.GoToTexas(); // drop straight onto the overworld hub
+            GameManager.Instance.GoToOffice(); // start day one at the office desk; earn field days at the phones
         }
 
         // ---- derived --------------------------------------------------------

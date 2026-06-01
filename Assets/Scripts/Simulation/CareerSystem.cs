@@ -75,6 +75,11 @@ namespace Fitzmark.BDRSim.Simulation
         {
             EnsureStarted(character);
 
+            // You earn tomorrow's field day only by clearing today's cold-call quota. On a field
+            // day you're not at the phones, so you won't clear it — which makes the cadence
+            // alternate call-day / field-day on its own.
+            character.career.fieldDayUnlocked = character.career.callsRemainingToday <= 0;
+
             int oldWeek = Week(character.career.day);
             character.career.day++;
             int newWeek = Week(character.career.day);

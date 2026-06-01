@@ -18,5 +18,10 @@ namespace Fitzmark.BDRSim.Data
 
         // Multi-channel outreach: touches you can spend warming leads each day.
         public int outreachRemainingToday = 8;
+
+        // Field days are earned: true once you've cleared a day's cold-call quota, which unlocks
+        // an in-person field day. Recomputed at EndDay from whether you made all your calls — so
+        // the rhythm naturally alternates call-day / field-day.
+        public bool fieldDayUnlocked;
     }
 }

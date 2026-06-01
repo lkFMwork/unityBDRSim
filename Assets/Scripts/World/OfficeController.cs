@@ -211,8 +211,8 @@ namespace Fitzmark.BDRSim.World
             Prop("office/rankings_board", new Vector3(2.6f, 0f, -13.5f), 270f, new Vector3(0.4f, 1.6f, 1f),
                 new Color(0.70f, 0.74f, 0.80f));
 
-            Zone("Leave to the overworld ▶", new Vector3(0f, 0f, -15.4f), 2.6f,
-                () => GameManager.Instance.GoToTexas(), default);
+            Zone("Leave to the overworld ▶ (field day)", new Vector3(0f, 0f, -15.4f), 2.6f,
+                TryFieldDay, default);
             Zone("Trophies", new Vector3(-2.2f, 0f, -13.5f), 2f,
                 () => OpenModal((cv, c) => new AchievementsView(cv, Profile, c).Open()), default);
             Zone("Rankings", new Vector3(2.2f, 0f, -13.5f), 2f,
@@ -346,7 +346,7 @@ namespace Fitzmark.BDRSim.World
             UiFactory.Size(_callsLabel.gameObject, flexW: 1f);
 
             var leave = UiFactory.Button(top.transform, "Leave ▶",
-                () => GameManager.Instance.GoToTexas(), UiTheme.Panel, UiTheme.TextMuted,
+                TryFieldDay, UiTheme.Panel, UiTheme.TextMuted,
                 14, TextAnchor.MiddleCenter);
             UiFactory.Size(leave.gameObject, prefW: 120f);
 
@@ -506,6 +506,19 @@ namespace Fitzmark.BDRSim.World
         {
             _flashText = message;
             _flashUntil = Time.time + 2.5f;
+        }
+
+        // A field day is earned, not free: you hit the field the morning AFTER you clear your
+        // cold-call quota. Until then the overworld exit is locked and points you back to the phones.
+        private void TryFieldDay()
+        {
+            var c = Profile;
+            if (c != null && c.career != null && !c.career.fieldDayUnlocked)
+            {
+                Flash("Field day's locked — clear today's cold-call quota, then End Day. You go to the field the morning after you make all your calls.");
+                return;
+            }
+            GameManager.Instance.GoToTexas();
         }
 
         private static BDRCharacter Profile => GameManager.Instance.Profile;
