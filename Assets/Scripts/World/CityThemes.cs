@@ -58,19 +58,32 @@ namespace Fitzmark.BDRSim.World
             Sub + "building-type-d", Sub + "building-type-e", Sub + "building-type-f",
         };
 
-        // Texas client id -> theme. Falls back to Commercial for anything unmapped.
+        // City id -> theme. Marquee metros get a distinct look; anything unmapped falls back
+        // to Commercial, so new cities are always safe.
         private static readonly Dictionary<string, CityStyle> ByClient = new()
         {
+            // Texas
             { "dallas", CityStyle.Downtown },
             { "houston", CityStyle.Industrial },
             { "san_antonio", CityStyle.Commercial },
             { "austin", CityStyle.Suburban },
             { "fort_worth", CityStyle.Industrial },
             { "el_paso", CityStyle.Suburban },
-            { "corpus", CityStyle.Industrial },
-            { "lubbock", CityStyle.Suburban },
-            { "amarillo", CityStyle.Suburban },
-            { "waco", CityStyle.Commercial },
+            { "arlington", CityStyle.Suburban },
+            // Headliner metros across the other states
+            { "indianapolis", CityStyle.Downtown },
+            { "nashville", CityStyle.Downtown },
+            { "memphis", CityStyle.Industrial },
+            { "atlanta", CityStyle.Downtown },
+            { "birmingham", CityStyle.Industrial },
+            { "mobile", CityStyle.Industrial },
+            { "savannah", CityStyle.Industrial },
+            { "st_louis", CityStyle.Downtown },
+            { "kansas_city", CityStyle.Commercial },
+            { "phoenix", CityStyle.Suburban },
+            { "tucson", CityStyle.Suburban },
+            { "buffalo", CityStyle.Industrial },
+            { "new_york_city", CityStyle.Downtown },
         };
 
         public static CityTheme For(string clientId, string displayName)
