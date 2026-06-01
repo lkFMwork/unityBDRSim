@@ -40,6 +40,7 @@ namespace Fitzmark.BDRSim.Editor
         private const string GatekeeperDuelScenePath = ScenesFolder + "/GatekeeperDuel.unity";
         private const string CallFloorScenePath = ScenesFolder + "/CallFloor.unity";
         private const string FreightDeskScenePath = ScenesFolder + "/FreightDesk.unity";
+        private const string BusinessInteriorScenePath = ScenesFolder + "/BusinessInterior.unity";
 
         [MenuItem(Menu + "Setup Project (One-Click)", false, 0)]
         public static void SetupAll()
@@ -302,7 +303,8 @@ namespace Fitzmark.BDRSim.Editor
             BuildGatekeeperDuelScene();
             BuildCallFloorScene();
             BuildFreightDeskScene();
-            Debug.Log("[Fitzmark BDR] Built 9 scenes (MainMenu, CharacterCreate, City, Texas, Office, Platformer, GatekeeperDuel, CallFloor, FreightDesk).");
+            BuildBusinessInteriorScene();
+            Debug.Log("[Fitzmark BDR] Built 10 scenes (MainMenu, CharacterCreate, City, Texas, Office, Platformer, GatekeeperDuel, CallFloor, FreightDesk, BusinessInterior).");
         }
 
         private static void BuildFreightDeskScene()
@@ -316,6 +318,20 @@ namespace Fitzmark.BDRSim.Editor
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, FreightDeskScenePath);
+        }
+
+        private static void BuildBusinessInteriorScene()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            CreateCamera(new Vector3(0f, 1.6f, -9f), Quaternion.identity);
+
+            // The lobby, people and the gatekeeper are built at runtime by BusinessInteriorController.
+            var controller = new GameObject("BusinessInteriorController");
+            controller.AddComponent<BusinessInteriorController>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, BusinessInteriorScenePath);
         }
 
         private static void BuildTexasMapScene()
@@ -634,9 +650,10 @@ namespace Fitzmark.BDRSim.Editor
                 new EditorBuildSettingsScene(PlatformerScenePath, true),
                 new EditorBuildSettingsScene(GatekeeperDuelScenePath, true),
                 new EditorBuildSettingsScene(CallFloorScenePath, true),
-                new EditorBuildSettingsScene(FreightDeskScenePath, true)
+                new EditorBuildSettingsScene(FreightDeskScenePath, true),
+                new EditorBuildSettingsScene(BusinessInteriorScenePath, true)
             };
-            Debug.Log("[Fitzmark BDR] Build settings: 9 scenes incl. Texas, Platformer, GatekeeperDuel, CallFloor, FreightDesk.");
+            Debug.Log("[Fitzmark BDR] Build settings: 10 scenes incl. Texas, Platformer, GatekeeperDuel, CallFloor, FreightDesk, BusinessInterior.");
         }
 
         // ---- URP (best-effort, via reflection so there is no compile-time dep) --

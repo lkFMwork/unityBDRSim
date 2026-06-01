@@ -254,6 +254,21 @@ namespace Fitzmark.BDRSim.Core
             SceneManager.LoadScene(SceneNames.Office);
         }
 
+        /// <summary>
+        /// Enter a business's walk-in interior (lobby + gatekeeper) before the meeting. The
+        /// scenario is carried through to the gatekeeper duel / call that the interior starts;
+        /// finishing or leaving returns to the city street.
+        /// </summary>
+        public void GoToBusinessInterior(ScenarioDefinition scenario)
+        {
+            IsCareerCall = true;
+            SelectedScenario = scenario;
+            PendingClientId = "";
+            LastReport = null;
+            HubScene = SceneNames.City;
+            SceneManager.LoadScene(SceneNames.BusinessInterior);
+        }
+
         public void GoToTexas()
         {
             HubScene = SceneNames.Texas;

@@ -15,5 +15,6 @@ namespace Fitzmark.BDRSim.Core
         public const string GatekeeperDuel = "GatekeeperDuel";
         public const string CallFloor = "CallFloor";
         public const string FreightDesk = "FreightDesk";
+        public const string BusinessInterior = "BusinessInterior";
     }
 }

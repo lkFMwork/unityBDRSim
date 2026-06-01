@@ -377,9 +377,8 @@ namespace Fitzmark.BDRSim.World
             var scenario = ProspectGenerator.Generate(difficulty, seed);
             scenario.gatekeeperPresent = true; // a gatekeeper guards the meeting → fight to get in
 
-            // Enter the business: fight the gatekeeper (MK duel), then the meeting.
-            GameManager.Instance.HubScene = SceneNames.City;
-            GameManager.Instance.StartCareerCall(scenario);
+            // Enter the business: walk into the lobby, then the gatekeeper duel and the meeting.
+            GameManager.Instance.GoToBusinessInterior(scenario);
         }
 
         private void Flash(string message)
