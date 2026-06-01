@@ -25,10 +25,12 @@ namespace Fitzmark.BDRSim.World
         private bool _firstPerson = true;
         private bool _controlEnabled = true;
         private bool _resolved;
+        private bool _cursorFreed; // true only after Escape, until the next click — see Update
 
         public void SetControlEnabled(bool value)
         {
             _controlEnabled = value;
+            if (value) _cursorFreed = false; // resuming play re-locks the cursor
             ApplyCursor();
         }
 
@@ -63,8 +65,13 @@ namespace Fitzmark.BDRSim.World
 
             if (_controlEnabled)
             {
-                if (Input.GetKeyDown(KeyCode.Escape)) FreeCursor();
-                if (Input.GetMouseButtonDown(0)) LockCursor();
+                if (Input.GetKeyDown(KeyCode.Escape)) { _cursorFreed = true; FreeCursor(); }
+                else if (Input.GetMouseButtonDown(0)) { _cursorFreed = false; LockCursor(); }
+                // Re-assert the lock every frame: CursorLockMode.Locked silently drops on focus
+                // changes (and routinely in the editor), which lets the hidden cursor drift to a
+                // screen edge and stall mouse-look there. Re-locking keeps it pinned to centre so
+                // a full 360 spin never "stops" at an edge.
+                if (!_cursorFreed) LockCursor();
                 Look();
                 Move();
             }
@@ -77,7 +84,7 @@ namespace Fitzmark.BDRSim.World
 
         private void Look()
         {
-            if (Cursor.lockState != CursorLockMode.Locked) return;
+            if (_cursorFreed) return;
             _yaw += Input.GetAxisRaw("Mouse X") * MouseSensitivity;
             _pitch -= Input.GetAxisRaw("Mouse Y") * MouseSensitivity;
             _pitch = Mathf.Clamp(_pitch, -75f, 75f);
