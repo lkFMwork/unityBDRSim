@@ -2,15 +2,13 @@ using System;
 
 namespace Fitzmark.BDRSim.Data
 {
-    /// <summary>Per-local-account save state: which meeting stage you're on, when you
-    /// last met them (for the time-gap cooldown), and whether the account is closed.</summary>
+    /// <summary>Per-city overworld save state: whether you've unlocked the city (beaten its commute)
+    /// and whether you've cleared it on the SMW path. Meeting progress is tracked per company now —
+    /// see <see cref="CompanyProgress"/>.</summary>
     [Serializable]
     public class LocalAccountProgress
     {
         public string clientId;
-        public int stage = 1;
-        public int lastMeetingDay = -999; // never met
-        public bool closed = false;
         public bool cityUnlocked = false; // beaten the commute platformer → fast-travel enabled
         public bool cleared = false;      // SMW: this city-level is cleared → opens the next on the path
     }

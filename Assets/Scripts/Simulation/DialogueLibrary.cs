@@ -41,7 +41,14 @@ namespace Fitzmark.BDRSim.Simulation
             };
         }
 
-        private List<DialogueChoice> Opening(CallStage next) => new()
+        private List<DialogueChoice> Opening(CallStage next)
+        {
+            if (_scenario != null && _scenario.fieldVisit)
+                return _scenario.relationshipStage >= 2 ? OpeningInPersonWarm(next) : OpeningInPersonCold(next);
+            return OpeningColdCall(next);
+        }
+
+        private List<DialogueChoice> OpeningColdCall(CallStage next) => new()
         {
             new DialogueChoice
             {
@@ -66,6 +73,63 @@ namespace Fitzmark.BDRSim.Simulation
                 Response = "...is this a sales call?",
                 Quality = ChoiceQuality.Weak, Category = ScoreCategory.Rapport,
                 ScoreValue = 0f, TrustDelta = -0.08f, PatienceDelta = -0.12f, AdvanceTo = next
+            }
+        };
+
+        // In person, first (cold) visit — you've just gotten past the front desk; no "calling".
+        private List<DialogueChoice> OpeningInPersonCold(CallStage next) => new()
+        {
+            new DialogueChoice
+            {
+                Text = $"\"Thanks for making a minute, {FirstName()} — I know I'm dropping in. " +
+                       "I'll be quick and make it worth your time.\"",
+                Response = "Alright, you're here. What've you got?",
+                Quality = ChoiceQuality.Strong, Category = ScoreCategory.Rapport,
+                ScoreValue = 8f, TrustDelta = 0.10f, PatienceDelta = 0.05f, AdvanceTo = next
+            },
+            new DialogueChoice
+            {
+                Text = "\"Hi — I'm with Fitzmark, a freight brokerage. Figured I'd introduce " +
+                       "myself in person rather than just cold-call you.\"",
+                Response = "Appreciate that. So what's this about?",
+                Quality = ChoiceQuality.Adequate, Category = ScoreCategory.Rapport,
+                ScoreValue = 4f, TrustDelta = 0.02f, PatienceDelta = -0.02f, AdvanceTo = next
+            },
+            new DialogueChoice
+            {
+                Text = "\"We've got the best trucks and rates around — let me walk you through " +
+                       "everything Fitzmark can do for you.\"",
+                Response = "...you drove out here to read me a brochure?",
+                Quality = ChoiceQuality.Weak, Category = ScoreCategory.Rapport,
+                ScoreValue = 0f, TrustDelta = -0.08f, PatienceDelta = -0.12f, AdvanceTo = next
+            }
+        };
+
+        // In person, a repeat visit — the relationship's already started; acknowledge it.
+        private List<DialogueChoice> OpeningInPersonWarm(CallStage next) => new()
+        {
+            new DialogueChoice
+            {
+                Text = $"\"Good to see you again, {FirstName()}. Wanted to follow up in person on " +
+                       "what we talked about last time.\"",
+                Response = "Glad you came back. Let's pick it up.",
+                Quality = ChoiceQuality.Strong, Category = ScoreCategory.Rapport,
+                ScoreValue = 8f, TrustDelta = 0.10f, PatienceDelta = 0.06f, AdvanceTo = next
+            },
+            new DialogueChoice
+            {
+                Text = $"\"Hey {FirstName()} — back again. Did you get a chance to think over " +
+                       "what we discussed?\"",
+                Response = "I did, a little. Remind me where we landed.",
+                Quality = ChoiceQuality.Adequate, Category = ScoreCategory.Rapport,
+                ScoreValue = 4f, TrustDelta = 0.03f, PatienceDelta = 0f, AdvanceTo = next
+            },
+            new DialogueChoice
+            {
+                Text = "\"So — ready to sign today? I brought the paperwork.\"",
+                Response = "Whoa, slow down. We're not there yet.",
+                Quality = ChoiceQuality.Weak, Category = ScoreCategory.Rapport,
+                ScoreValue = 0f, TrustDelta = -0.06f, PatienceDelta = -0.10f, AdvanceTo = next
             }
         };
 

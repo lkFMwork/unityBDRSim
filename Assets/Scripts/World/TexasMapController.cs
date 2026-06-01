@@ -753,9 +753,7 @@ namespace Fitzmark.BDRSim.World
         private void TravelTo(LocalClient client)
         {
             if (_c == null || client == null) return;
-            // The SMW path is the only gate; meetings still respect their own stage cooldown,
-            // but you can always attempt the commute to clear the level.
-            GameManager.Instance.PendingClientId = client.Id;
+            // The SMW path is the only gate; you can always attempt the commute to clear the level.
             GameManager.Instance.TravelToCity(client.Id);
         }
 

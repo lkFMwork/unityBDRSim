@@ -48,9 +48,6 @@ namespace Fitzmark.BDRSim.Core
         /// <summary>Where meetings return to — the menu, or a map hub if you set it there.</summary>
         public string HubScene { get; set; } = SceneNames.MainMenu;
 
-        /// <summary>The local (Texas) account being visited, so its stage can advance on a win.</summary>
-        public string PendingClientId { get; set; } = "";
-
         private void Awake()
         {
             if (_instance != null && _instance != this)
@@ -100,7 +97,6 @@ namespace Fitzmark.BDRSim.Core
         public void StartPractice(ScenarioDefinition scenario)
         {
             IsCareerCall = false;
-            PendingClientId = ""; // remote/phone — not a local account visit
             SelectedScenario = scenario;
             LastReport = null;
             EnterMeeting(scenario);
@@ -126,7 +122,6 @@ namespace Fitzmark.BDRSim.Core
         public void StartCareerCall(ScenarioDefinition scenario)
         {
             IsCareerCall = true;
-            PendingClientId = ""; // remote/phone — not a local account visit
             SelectedScenario = scenario;
             LastReport = null;
             EnterMeeting(scenario);
@@ -262,7 +257,6 @@ namespace Fitzmark.BDRSim.Core
         {
             IsCareerCall = true;
             SelectedScenario = scenario;
-            PendingClientId = "";
             LastReport = null;
             HubScene = SceneNames.City;
             SceneManager.LoadScene(SceneNames.BusinessInterior);

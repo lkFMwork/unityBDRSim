@@ -297,7 +297,6 @@ namespace Fitzmark.BDRSim.UI
                 if (won) Vfx.Celebrate();
                 var wonScenario = GameManager.Instance.ResolveActiveScenario();
                 string companyId = wonScenario != null ? wonScenario.localCompanyId : "";
-                string clientId = GameManager.Instance.PendingClientId;
                 if (!string.IsNullOrEmpty(companyId))
                 {
                     if (wonScenario.fieldVisit)
@@ -330,25 +329,6 @@ namespace Fitzmark.BDRSim.UI
                         // close — no city clear, and no managed account from a call.
                         TerritorySystem.RecordCompanyColdCall(profile, companyId, profile.career.day, won);
                     }
-                }
-                else if (!string.IsNullOrEmpty(clientId))
-                {
-                    TerritorySystem.RecordMeeting(profile, clientId, profile.career.day, won);
-                    if (won)
-                    {
-                        // SMW: winning the meeting clears this city-level, opening the next on the
-                        // path (and the next state's gate once the whole world is cleared).
-                        bool worldDone = WorldSystem.MarkCityCleared(profile, clientId);
-                        if (worldDone)
-                        {
-                            var w = WorldRegistry.WorldOf(clientId);
-                            GameManager.Instance.CareerFlash =
-                                $"WORLD CLEAR — you've covered all of {w.Name}! The next state is open.";
-                        }
-                    }
-                    if (won && TerritorySystem.IsClosed(profile, clientId) && wonScenario != null)
-                        FreightSystem.OpenAccountFromWin(profile, wonScenario, profile.career.day);
-                    GameManager.Instance.PendingClientId = "";
                 }
                 else if (career && won && wonScenario != null)
                 {

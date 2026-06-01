@@ -407,8 +407,8 @@ namespace Fitzmark.BDRSim.World
                 }
             }
 
-            CareerSystem.ConsumeCall(c);
-            c.inPersonMeetings++;
+            // The call is spent (and the meeting counted) once, inside the business interior when you
+            // actually challenge the front desk — not here on the street.
             var doneQuests = QuestSystem.Sync(c);
             if (doneQuests.Count > 0) GameManager.Instance.CareerFlash = QuestSystem.FlashFor(doneQuests);
             GameManager.Instance.SaveProfile();
@@ -427,6 +427,7 @@ namespace Fitzmark.BDRSim.World
                 // revisits skip the gatekeeper — you already know the front desk.
                 scenario.localCompanyId = company.Id;
                 scenario.fieldVisit = true; // in-person — full progression, can close a managed customer
+                scenario.relationshipStage = stage; // cold first visit vs warm follow-up shapes the open
                 scenario.title = company.Name;
                 if (scenario.prospect != null)
                 {

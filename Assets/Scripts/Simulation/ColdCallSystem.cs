@@ -28,6 +28,7 @@ namespace Fitzmark.BDRSim.Simulation
             if (company != null)
             {
                 scenario.localCompanyId = company.Id;
+                scenario.relationshipStage = stage;
                 scenario.title = company.Name;
                 if (scenario.prospect != null)
                 {

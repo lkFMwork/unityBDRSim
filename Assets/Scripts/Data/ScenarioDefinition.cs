@@ -41,6 +41,10 @@ namespace Fitzmark.BDRSim.Data
                  "false for a nationwide cold call (warms the relationship but caps below the close).")]
         public bool fieldVisit = false;
 
+        [Tooltip("The company's relationship stage when this meeting begins (1 = cold first contact), " +
+                 "so the dialogue can open cold or warm.")]
+        public int relationshipStage = 1;
+
         [Tooltip("A high-stakes 'key account': tougher gatekeeper, bigger book, bonus rewards.")]
         public bool isKeyAccount = false;
 
